@@ -1,0 +1,20 @@
+## Current Goal
+
+* I want you to name the build systems used in the project.
+* Return a list of all build systems you have identified.
+
+## Solution strategy
+
+* To identify a build system used in the project you should iteratively search
+  for files that are representative for a given build system.
+* Make a separate call for each build system you may have in mind until you find the
+  files you are looking for.
+
+## Hints
+
+* To look fort certain file use the 'FindMatchingFiles' tool. Pass to it a glob expression
+  to look for these files.
+* For the following build systems I can give you the relevant file patterns:
+  * Maven: "{,**/}pom.xml"
+  * Gradle Classic: "{,**/}*.gradle"
+  * Gradle Kotlin: "{,**/}*.gradle.kts"

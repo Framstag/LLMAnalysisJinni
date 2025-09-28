@@ -1,0 +1,81 @@
+id: Welcome
+name: Welcome
+systemPrompt: tasks/prompts/systemprompt.txt
+prompt: tasks/prompts/welcome.txt
+responseFormat: tasks/results/ToolVersion.json
+responseProperty: tool
+---
+id: LocateREADME
+name: Locate project README
+prompt: tasks/prompts/locate_readme.txt
+responseFormat: tasks/results/Location.json
+responseProperty: readme
+---
+id: ProjectSummary
+name: Project summary
+prompt: tasks/prompts/project_summary.txt
+responseFormat: tasks/results/ProjectSummary.json
+responseProperty: project
+---
+id: BuildSystem
+name: Detect used Build Systems
+prompt: tasks/prompts/build_systems.txt
+responseFormat: tasks/results/BuildSystems.json
+responseProperty: build
+---
+id: LocateModules
+name: Locate code modules
+prompt: tasks/prompts/locate_modules.txt
+responseFormat: tasks/results/Modules.json
+responseProperty: modules
+active: true
+---
+id: ProgrammingLanguages
+name: Programming languages
+prompt: tasks/prompts/programming_languages.txt
+responseFormat: tasks/results/ProgrammingLanguages.json
+responseProperty: programming_languages
+---
+id: DescribeModules
+name: Get a description for each module
+prompt: tasks/prompts/module_descriptions.txt
+responseFormat: tasks/results/ModuleDescriptions.json
+responseProperty: module_descriptions
+active: true
+---
+id: ModuleArchitecture
+name: Get a description of the principle architecture for each module
+prompt: tasks/prompts/module_architecture.txt
+responseFormat: tasks/results/ModuleArchitecture.json
+responseProperty: module_architecture
+active: true
+---
+id: SBOMLocation
+name: Location of SBOM
+prompt: tasks/prompts/location_of_sbom.txt
+responseFormat: tasks/results/Location.json
+responseProperty: sbom
+---
+id: LoadSBOM
+name: Load SBOM
+prompt: tasks/prompts/load_sbom.txt
+responseFormat: tasks/results/Result.json
+responseProperty: sbom_loaded
+---
+id: TechnologyList
+name: Get list of Technologies
+prompt: tasks/prompts/list_of_technologies.txt
+responseFormat: tasks/results/DependencyList.json
+responseProperty: technologies
+---
+id: TechnologyStack
+name: Description of the technology stack
+prompt: tasks/prompts/description_of_stack.txt
+responseFormat: tasks/results/TechnologyStack.json
+responseProperty: technologyStack
+---
+id: LicenseEvaluation
+name: Evaluation of used licenses
+prompt: tasks/prompts/analysis_of_licenses.txt
+responseFormat: tasks/results/LicenseEvaluation.json
+responseProperty: licenseEvaluation

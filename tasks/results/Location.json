@@ -1,0 +1,16 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Location",
+    "description": "Location of one file below the project directory",
+    "type": "object",
+    "properties": {
+        "reasoning": {
+          "type": "string",
+          "description": "Reasoning that lead to the given result"
+        },
+        "path": {
+            "type": "string",
+            "description": "Full path of the file relative to project root"
+        }
+    }
+}

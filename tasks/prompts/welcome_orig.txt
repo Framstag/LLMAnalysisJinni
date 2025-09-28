@@ -1,0 +1,5 @@
+Hello :-)
+
+To Check that everything works, please use the ToolsVersion function to state the version of the tools.
+
+If you have successfully called the function, return the returned value.

@@ -1,0 +1,12 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ToolVersion",
+    "description": "Version of the tools used in the project",
+    "type": "object",
+    "properties": {
+        "version": {
+            "type": "string",
+            "description": "Version number of the tool as string"
+        }
+    }
+}

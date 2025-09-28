@@ -1,0 +1,12 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Result",
+    "description": "Hold result of an tasks that does not have an explicit response",
+    "type": "object",
+    "properties": {
+        "result": {
+            "type": "string",
+            "description": "Holds the word 'SUCCESS' in case of success, else 'ERROR'"
+        }
+    }
+}

@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Modules",
+    "description": "List of directories representing source code modules",
+    "type": "object",
+    "properties": {
+        "reasoning": {
+          "type": "string",
+          "description": "Reasoning that lead to the given result"
+        },
+        "modules": {
+            "type": "array",
+            "description": "List of source code module directories",
+            "items": {
+                "type": "object",
+                "title": "Module",
+                "description": "A source code module of the project",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Directory of the module"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "The name of the module (optional)"
+                    }
+                }
+            }
+        }
+    }
+}

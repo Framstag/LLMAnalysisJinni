@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "DependencyList",
+    "description": "Dependencies of the appliction",
+    "type": "object",
+    "properties": {
+        "dependencies": {
+            "type": "array",
+            "description": "List of all dependencies",
+            "items": {
+                "type": "object",
+                "title": "Dependency",
+                "description": "An individual dependency of the application",
+                "properties": {
+                    "groupId": {
+                        "type": "string",
+                        "description": "Group id of the dependency"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the dependency"
+                    },
+                    "version": {
+                        "type": "string",
+                        "description": "Version as string of the dependency"
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,48 @@
+## Goal
+
+Identify all used programming languages
+
+## Solution strategy
+
+Scan the repository for files typical for a programming language.
+Sum up all found programming languages.
+
+## Hints
+
+* You can iteratively use the "GetFilesOverview" tool using wildcards specific for a programming language.
+* Use a call for each module root.
+* Make use you use a *high* value for "depth" like 15 to make sure you will see the code files.
+* Analyse the given facts, to make a good guess, which programming languages might be used
+to avoid scanning for all of them.
+
+Here is a table that maps programming languages to glob expression
+
+|Programming language|Glob Expression  |
+|--------------------|-----------------|
+|Java                | *.java          |
+|Kotlin              | *.kt            |
+|Javascript          | *.js            |
+|Typescript          | *.ts            |
+|C++                 | *.(h|hpp|cpp|cc)|
+
+## Facts
+
+The following build systems have been identified:
+
+[# th:each="buildsystem : ${state.build.buildsystems}" th:remove="tag"]
+* [(${buildsystem.name})]
+[/]
+
+The following build modules have been identified:
+
+[# th:each="module : ${state.modules.modules}" th:remove="tag"]
+* "[(${module.path})]"
+[/]
+
+The README names the following preconditions for build:
+
+"[(${state.project.preconditionBuild})]"
+
+The README names the following preconditions for execution:
+
+"[(${state.project.preconditionRun})]"

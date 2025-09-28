@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ProgrammingLanguages",
+    "description": "List of programming languages",
+    "type": "object",
+    "properties": {
+        "reasoning" : {
+          "type": "string",
+          "description": "Description of the reasoning that lead to the given finding"
+        },
+        "programming_languages": {
+            "type": "array",
+            "description": "List of programming languages",
+            "items": {
+                "type": "object",
+                "title": "ProgrammingLanguage",
+                "description": "A detected programming language",
+                "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "The name of the programming language"
+                    },
+                    "version": {
+                      "type": "string",
+                      "description": "The version of the programming language"
+                    }
+                }
+            }
+        }
+    }
+}

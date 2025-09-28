@@ -1,0 +1,16 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "TechnologyStack",
+    "description": "Represents a description of the technology stack used in the project",
+    "type": "object",
+    "properties": {
+        "description": {
+            "type": "string",
+            "description": "General description of the used stack as free-form text"
+        },
+        "derivation": {
+            "type": "string",
+            "description": "Identified derivations from this stack in a free-form mark down text list"
+        }
+    }
+}

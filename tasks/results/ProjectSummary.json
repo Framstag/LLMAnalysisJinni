@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProjectSummary",
+  "description": "A number of descriptive information regarding the project",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The name of the project"
+    },
+    "version": {
+      "type": "string",
+      "description": "The current version of the project"
+    },
+    "goal": {
+      "type": "string",
+      "description": "The goal of the project"
+    },
+    "license": {
+      "type": "string",
+      "description": "The license of the project"
+    },
+    "repository": {
+      "type": "string",
+      "description": "The URL of the source code repository"
+    },
+    "issueTracker": {
+      "type": "string",
+      "description": "The URL of the issue tracker"
+    },
+    "demo": {
+      "type": "string",
+      "description": "The URL of an optional demo instance"
+    },
+    "preconditionBuild": {
+      "type": "string",
+      "description": "A free-form description of preconditions for build the project"
+    },
+    "preconditionRun": {
+      "type": "string",
+      "description": "A free-form description of preconditions to run the software"
+    },
+    "links": {
+      "type": "array",
+      "description": "List of important links",
+      "items": {
+        "type": "object",
+        "title": "Link",
+        "description": "A Link",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "The thing the link is linking to"
+          },
+          "url": {
+            "type": "string",
+            "description": "The URL itself"
+          },
+          "desc": {
+            "type": "string",
+            "description": "A free form description of the link"
+          }
+        }
+      }
+    }
+  }
+}
