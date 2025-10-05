@@ -6,6 +6,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+/**
+ * This proxy class allows to place JsonNodes into the Thymeleaf state object
+ * and still make these objects accessible and traversable by Thymeleaf.
+ * <p>
+ * Just wrap each top-level JsonNode into this proxy object.
+ */
 public class JsonNodeModelWrapper extends AbstractMap<String, Object> {
 
     private final JsonNode node;

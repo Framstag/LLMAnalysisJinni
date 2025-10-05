@@ -33,7 +33,7 @@ public class JsonHelper
         }
     }
 
-    public static String getObjectDescription(JsonNode schema) {
+    private static String getObjectDescription(JsonNode schema) {
         StringBuilder sb = new StringBuilder();
 
         sb.append("{\n");

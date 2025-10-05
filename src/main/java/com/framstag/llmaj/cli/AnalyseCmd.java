@@ -2,11 +2,12 @@ package com.framstag.llmaj.cli;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.framstag.llmaj.*;
+import com.framstag.llmaj.AnalysisContext;
+import com.framstag.llmaj.ChatExecutionContext;
+import com.framstag.llmaj.ChatListener;
 import com.framstag.llmaj.json.JsonHelper;
 import com.framstag.llmaj.json.JsonNodeModelWrapper;
 import com.framstag.llmaj.tasks.TaskDefinition;
@@ -20,7 +21,11 @@ import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.request.ResponseFormat;
+import dev.langchain4j.model.chat.request.ResponseFormatType;
 import dev.langchain4j.model.chat.request.ToolChoice;
+import dev.langchain4j.model.chat.request.json.JsonRawSchema;
+import dev.langchain4j.model.chat.request.json.JsonSchema;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.service.output.ServiceOutputParser;
@@ -51,37 +56,58 @@ public class AnalyseCmd implements Callable<Integer> {
 
     private static final String ANSWER_ONLY_WITH_THE_FOLLOWING_JSON = "\nYou must answer strictly in the following JSON format: ";
 
-    @Option(names={"-o","--executeOnly"}, arity = "0..*", description = "A list of task ids, that should only be executed")
-    Set<String> executeOnly;
-
     @Option(names={"-u","--modelUrl"}, arity = "1", description = "The URL of the ollama server")
     URL modelUrl;
 
     @Option(names={"-m","--model"}, arity = "1", description = "The name of the model to use")
     String modelName;
 
+    @Option(names={"-j","--json-response"}, arity = "1", defaultValue = "false", description = "Enforce json response")
+    boolean jsonResponse = false;
+
+    @Option(names={"--log-request"}, arity = "1", defaultValue = "false", description = "Make langchain4j log the chat requests")
+    boolean logRequest = false;
+
+    @Option(names={"--log-response"}, arity = "1", defaultValue = "false", description = "Make langchain4j log the chat response")
+    boolean logResponse = false;
+
+    @Option(names={"-o","--executeOnly"}, arity = "0..*", description = "A list of task ids, that should only be executed")
+    Set<String> executeOnly;
+
     @Parameters(index = "0",description = "Path to the root directory of the project to analyse")
     String projectRoot;
 
-    private UserMessage patchUserMessageWithSchema(ChatExecutionContext context,
-                                                          UserMessage um, JsonNode responseSchema)
+    private UserMessage patchUserMessageWithSchema(UserMessage um, JsonNode responseSchema)
     {
         return UserMessage.from(
-                um.singleText() + ANSWER_ONLY_WITH_THE_FOLLOWING_JSON + JsonHelper.createTypeDescription(responseSchema));
+                um.singleText()
+                        + ANSWER_ONLY_WITH_THE_FOLLOWING_JSON
+                        + JsonHelper.createTypeDescription(responseSchema));
     }
 
     private String executeMessages(ChatExecutionContext executionContext,
-                                   List<ChatMessage> messages, JsonNode responseSchema) throws JsonProcessingException {
+                                   List<ChatMessage> messages,
+                                   String rawResponseSchema,
+                                   JsonNode responseSchema) {
 
-                /*
-        ResponseFormat responseFormat = ResponseFormat.builder()
-                .type(ResponseFormatType.JSON)
-                .jsonSchema(executionContext.getOutputParser().jsonSchema(responseType).get())
-                .build();
-*/
-        if (!messages.isEmpty() && messages.getLast() instanceof UserMessage) {
+        ResponseFormat responseFormat;
+
+        if (jsonResponse) {
+            responseFormat = ResponseFormat.builder()
+                    .type(ResponseFormatType.JSON)
+                    .jsonSchema(JsonSchema.builder()
+                            .name(JsonHelper.getSchemaName(responseSchema))
+                            .rootElement(JsonRawSchema.from(rawResponseSchema))
+                            .build())
+                    .build();
+        }
+        else {
+            responseFormat = ResponseFormat.TEXT;
+        }
+
+        if (!jsonResponse && !messages.isEmpty() && messages.getLast() instanceof UserMessage) {
             UserMessage um = (UserMessage) messages.removeLast();
-            messages.addLast(patchUserMessageWithSchema(executionContext, um, responseSchema));
+            messages.addLast(patchUserMessageWithSchema(um, responseSchema));
         }
 
         executionContext.getMemory().add(messages);
@@ -90,23 +116,25 @@ public class AnalyseCmd implements Callable<Integer> {
                 ChatRequest.builder()
                         .messages(executionContext.getMemory().messages())
                         .toolSpecifications(executionContext.getToolService().toolSpecifications())
-                        .toolChoice(ToolChoice.AUTO)/* .responseFormat(responseFormat) */
+                        .toolChoice(ToolChoice.AUTO)
+                        .responseFormat(responseFormat)
                         .build();
 
-        ChatResponse response = executionContext.getChatModel().chat(request);
+        ChatResponse initialResponse = executionContext.getChatModel().chat(request);
 
         ToolServiceResult toolResult =
-                executionContext.getToolService().executeInferenceAndToolsLoop(response,
+                executionContext.getToolService().executeInferenceAndToolsLoop(initialResponse,
                         request.parameters(),
                         executionContext.getMemory().messages(),
                         executionContext.getChatModel(),
                         executionContext.getMemory(),
                         null,
-                        executionContext.getToolService().toolExecutors());
+                        executionContext.getToolService().toolExecutors(),
+                        true);
 
-        response = toolResult.finalResponse();
+        ChatResponse finalResponse = toolResult.finalResponse();
 
-        return response.aiMessage().text();
+        return finalResponse.aiMessage().text();
     }
 
     @Override
@@ -124,11 +152,9 @@ public class AnalyseCmd implements Callable<Integer> {
                 .temperature(0.0)
                 .think(false)
                 .returnThinking(false)
-                // .responseFormat(ResponseFormat.JSON)
-                // .supportedCapabilities(RESPONSE_FORMAT_JSON_SCHEMA)
                 .listeners(List.of(new ChatListener()))
-                .logRequests(false)
-                .logResponses(false)
+                .logRequests(logRequest)
+                .logResponses(logResponse)
                 .build();
 
         logger.info("Model provider: '{}'", model.provider().name());
@@ -140,7 +166,6 @@ public class AnalyseCmd implements Callable<Integer> {
         SBOMTool sbomTool = new SBOMTool(context);
 
         ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(50);
-        //ChatMemory chatMemory = TokenWindowChatMemory.builder().maxTokens(100000).build();
 
         ServiceOutputParser outputParser = new ServiceOutputParser();
 
@@ -213,7 +238,8 @@ public class AnalyseCmd implements Callable<Integer> {
                 continue;
             }
 
-            JsonNode schema = mapper.readTree(task.getResponseFormat().toFile());
+            String jsonResponseRawSchema = Files.readString(task.getResponseFormat());
+            JsonNode jsonResponseSchema = mapper.readTree(jsonResponseRawSchema);
 
             LinkedList<ChatMessage> messages = new LinkedList<>();
 
@@ -227,13 +253,21 @@ public class AnalyseCmd implements Callable<Integer> {
                 messages.add(UserMessage.from(userPrompt));
             }
 
-            String taskResultString = executeMessages(execContext, messages, schema);
+            String taskResultString = executeMessages(execContext,
+                    messages,
+                    jsonResponseRawSchema,
+                    jsonResponseSchema);
 
-            try (JsonParser parser = factory.createParser(taskResultString)) {
-                JsonNode taskResultJson = mapper.readTree(parser);
-                logger.info("===> {}: {}", JsonHelper.getSchemaName(schema),taskResultJson.toPrettyString());
+            if (taskResultString != null && !taskResultString.isEmpty()) {
+                try (JsonParser parser = factory.createParser(taskResultString)) {
+                    JsonNode taskResultJson = mapper.readTree(parser);
+                    logger.info("===> {}: {}", JsonHelper.getSchemaName(jsonResponseSchema), taskResultJson.toPrettyString());
 
-                result.set(task.getResponseProperty(), taskResultJson);
+                    result.set(task.getResponseProperty(), taskResultJson);
+                }
+            }
+            else {
+                logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
             }
 
             logger.info("Current result written to '{}'",resultPath);
