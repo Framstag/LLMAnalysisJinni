@@ -171,4 +171,20 @@ public class FileToolTest {
 
         assertEquals(List.of(new CountPerWildcard("pom.xml",1)),result);
     }
+
+    @Test
+    void getFileCountPerFileTypeAndDirectoryWildcard() throws IOException {
+        List<CountPerWildcardAndDirectory> result = fileTool.fileCountPerFileTypeAndDirectory("src/main/resources", List.of("*.xml"));
+
+        assertEquals(List.of(new CountPerWildcardAndDirectory("src/main/resources","*.xml",1)),result);
+
+    }
+
+    @Test
+    void getFileCountPerFileTypeAndDirectoryFile() throws IOException {
+        List<CountPerWildcardAndDirectory> result = fileTool.fileCountPerFileTypeAndDirectory(".", List.of("pom.xml"));
+
+        assertEquals(List.of(new CountPerWildcardAndDirectory("","pom.xml",1)),result);
+
+    }
 }

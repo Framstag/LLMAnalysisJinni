@@ -43,7 +43,7 @@ tags:
 ---
 id: ProgrammingLanguages
 name: Programming languages
-prompt: tasks/prompts/programming_languages.txt
+prompt: tasks/prompts/programming_languages.md
 responseFormat: tasks/results/ProgrammingLanguages.json
 responseProperty: programming_languages
 dependsOn:

@@ -247,10 +247,6 @@ public class FileTool {
     public List<CountPerWildcard> fileCountPerFileType(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only\"") String path,
                                                        @P("A list of wildcards to scan for") List<String> wildcards) throws IOException {
         logger.info("## FileCountPerFileType('{}', '{}')", path, wildcards);
-        String glob;
-        List<String> globs = wildcards.stream()
-                .map(wildcard -> "glob:"+wildcard)
-                .toList();
 
         final Map<String,Integer> result = new HashMap<>();
 
@@ -294,6 +290,62 @@ public class FileTool {
 
         return result.entrySet().stream()
                 .map(entry -> new CountPerWildcard(entry.getKey(), entry.getValue()))
+                .toList();
+
+    }
+
+    @Tool(name = "FileCountPerFileTypeAndDirectory",
+            value =
+                    """
+                               Returns the number of files per wildcard and scanned directory
+                            """)
+    public List<CountPerWildcardAndDirectory> fileCountPerFileTypeAndDirectory(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only\"") String path,
+                                                                               @P("A list of wildcards to scan for") List<String> wildcards) throws IOException {
+        logger.info("## FileCountPerFileTypeAndDirectory('{}', '{}')", path, wildcards);
+
+        final Map<DirectoryAndWildcard,Integer> result = new HashMap<>();
+
+        Path rootPath = Path.of(context.getProjectRoot());
+        Path relativePath = Path.of(path);
+
+        Path startPath = rootPath.resolve(relativePath);
+
+        if (!allowedAccess(rootPath, startPath)) {
+            logger.error("Not allowed to access '{}' ('{}' '{}')", path,rootPath,relativePath);
+            return Collections.emptyList();
+        }
+
+        FileVisitor<Path> matcherVisitor = new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attribs) {
+
+                FileSystem fs = FileSystems.getDefault();
+
+                for (String wildcard : wildcards) {
+                    PathMatcher matcher = fs.getPathMatcher("glob:"+wildcard);
+                    if (matcher.matches(file.getFileName())) {
+                        result.merge(new DirectoryAndWildcard(rootPath.relativize(file.getParent()).toString(),
+                                wildcard), 1, Integer::sum);
+                    }
+                }
+
+                return FileVisitResult.CONTINUE;
+            }
+        };
+
+        Files.walkFileTree(startPath, matcherVisitor);
+
+        logger.info("# => {}",result);
+
+        return result.entrySet().stream()
+                .map(entry -> new CountPerWildcardAndDirectory(entry.getKey().directory(),
+                        entry.getKey().wildcard(),
+                        entry.getValue()))
                 .toList();
 
     }

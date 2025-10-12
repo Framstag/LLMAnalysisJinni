@@ -16,8 +16,8 @@
 
 The following table shows wildcards matching specific files for the given build system:
 
-  |Build System |Variant     |Glob Expression |
-  |-------------|------------|----------------|
-  |Maven        |            | "pom.xml"      |
-  |Gradle       | Classic    | "*.grade"      |
-  |Gradle       | Kotlin DSL | "*gradle.kts"  |
+  |Build System |Variant     |Wildcard Expression |
+  |-------------|------------|--------------------|
+  |Maven        |            | "pom.xml"          |
+  |Gradle       | Classic    | "*.grade"          |
+  |Gradle       | Kotlin DSL | "*gradle.kts"      |
