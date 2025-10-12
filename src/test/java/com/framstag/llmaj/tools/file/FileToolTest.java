@@ -5,6 +5,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -130,9 +131,44 @@ public class FileToolTest {
     }
 
     @Test
-    void readOutsideFile() throws IOException {
+    void readFileOutsideRoot() throws IOException {
         String fileContent = fileTool.readFile("../pom.xml");
 
         assertEquals("ERROR",fileContent);
+    }
+
+    @Test
+    void countFilesOutsideRoot() throws IOException {
+        int matchingFilesCount = fileTool.getFilesCount("..","*.java");
+
+        assertEquals(0,matchingFilesCount);
+    }
+
+    @Test
+    void countFilesSubdir() throws IOException {
+        int matchingFilesCount = fileTool.getFilesCount("src/main/resources","*.xml");
+
+        assertEquals(1,matchingFilesCount);
+    }
+
+    @Test
+    void countFilesSubdirNoMatch() throws IOException {
+        int matchingFilesCount = fileTool.getFilesCount("src/main/resources","*.fun");
+
+        assertEquals(0,matchingFilesCount);
+    }
+
+    @Test
+    void getFileCountForFileTypeOneTypeWildcard() throws IOException {
+        List<CountPerWildcard> result = fileTool.fileCountPerFileType("src/main/resources", List.of("*.xml"));
+
+        assertEquals(List.of(new CountPerWildcard("*.xml",1)),result);
+    }
+
+    @Test
+    void getFileCountForFileTypeOneTypeFile() throws IOException {
+        List<CountPerWildcard> result = fileTool.fileCountPerFileType(".", List.of("pom.xml"));
+
+        assertEquals(List.of(new CountPerWildcard("pom.xml",1)),result);
     }
 }

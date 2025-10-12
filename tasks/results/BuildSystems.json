@@ -1,27 +1,31 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "BuildSystems",
-    "description": "List of build systems used in the project",
-    "type": "object",
-    "properties": {
-        "reasoning": {
-          "type": "string",
-          "description": "Reasoning that lead to the given result"
-        },
-        "buildsystems": {
-            "type": "array",
-            "description": "List of build systems",
-            "items": {
-                "type": "object",
-                "title": "BuildSystem",
-                "description": "A build system used in the project",
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "Name of the build system"
-                    }
-                }
-            }
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BuildSystems",
+  "description": "List of build systems used in the project",
+  "type": "object",
+  "properties": {
+    "buildsystems": {
+      "type": "array",
+      "description": "List of build systems",
+      "items": {
+        "type": "object",
+        "title": "BuildSystem",
+        "description": "A build system used in the project",
+        "properties": {
+          "reasoning": {
+            "type": "string",
+            "description": "Reasoning that lead to the given result"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the build system"
+          },
+          "variant": {
+            "type": "string",
+            "description": "Some build systems have multiple variants"
+          }
         }
+      }
     }
+  }
 }

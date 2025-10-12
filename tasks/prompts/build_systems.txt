@@ -7,14 +7,17 @@
 
 * To identify a build system used in the project you should iteratively search
   for files that are representative for a given build system.
-* Make a separate call for each build system you may have in mind until you find the
-  files you are looking for.
 
 ## Hints
 
-* To look fort certain file use the 'FindMatchingFiles' tool. Pass to it a glob expression
-  to look for these files.
-* For the following build systems I can give you the relevant file patterns:
-  * Maven: "{,**/}pom.xml"
-  * Gradle Classic: "{,**/}*.gradle"
-  * Gradle Kotlin: "{,**/}*.gradle.kts"
+* To look fort certain file use the 'FileCountPerFileType' tool. Pass to it the root directory and a list of wildcard expression matching files of the various build systems.
+
+ ## Facts
+
+The following table shows wildcards matching specific files for the given build system:
+
+  |Build System |Variant     |Glob Expression |
+  |-------------|------------|----------------|
+  |Maven        |            | "pom.xml"      |
+  |Gradle       | Classic    | "*.grade"      |
+  |Gradle       | Kotlin DSL | "*gradle.kts"  |

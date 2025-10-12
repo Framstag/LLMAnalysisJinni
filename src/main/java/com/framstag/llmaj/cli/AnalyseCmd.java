@@ -145,10 +145,14 @@ public class AnalyseCmd implements Callable<Integer> {
 
         List<TaskDefinition> tasks = TaskDefinition.loadTasks(Path.of("tasks/tasks.yaml"));
 
+        for  (TaskDefinition task : tasks) {
+            logger.info("Task {}", task);
+        }
+
         ChatModel model = OllamaChatModel.builder()
                 .modelName(modelName)
                 .baseUrl(modelUrl.toString())
-                .timeout(Duration.ofMinutes(15))
+                .timeout(Duration.ofMinutes(20))
                 .temperature(0.0)
                 .think(false)
                 .returnThinking(false)

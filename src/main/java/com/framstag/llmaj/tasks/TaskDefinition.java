@@ -7,43 +7,23 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLParser;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class TaskDefinition {
     private String id;
-    private boolean active;
+    private boolean active = true;
     private String name;
     private Path systemPrompt;
     private Path prompt;
     private Path responseFormat;
     private String responseProperty;
-
-    public TaskDefinition() {
-        active = true;
-    }
-
-    public TaskDefinition(String id,
-                          boolean active,
-                          String name,
-                          Path systemPrompt,
-                          Path prompt,
-                          Path responseFormat,
-                          String responseProperty) {
-        this.id = id;
-        this.active = active;
-        this.name = name;
-        this.systemPrompt = systemPrompt;
-        this.prompt = prompt;
-        this.responseFormat = responseFormat;
-        this.responseProperty = responseProperty;
-    }
+    private Set<String> tags = new HashSet<>();
+    private Set<String> dependsOn = new HashSet<>();
 
     public String getId() {
         return id;
-    }
-
-    public void setActive(boolean active) {
-        this.active = active;
     }
 
     public boolean isActive() {
@@ -70,6 +50,18 @@ public class TaskDefinition {
         return responseProperty;
     }
 
+    public Set<String> getTags() {
+        return tags;
+    }
+
+    public boolean hasTag(String tag) {
+        return tags.contains(tag);
+    }
+
+    public Set<String> getDependsOn() {
+        return dependsOn;
+    }
+
     public static List<TaskDefinition> loadTasks(Path path) throws IOException {
 
         YAMLFactory yamlFactory = new YAMLFactory();
@@ -78,6 +70,7 @@ public class TaskDefinition {
         YAMLParser parser = yamlFactory.createParser(path.toFile());
         return mapper.readValues(parser,new TypeReference<TaskDefinition>(){}).readAll();
     }
+
 
     @Override
     public String toString() {
@@ -89,6 +82,8 @@ public class TaskDefinition {
                 ", prompt=" + prompt +
                 ", responseFormat=" + responseFormat +
                 ", responseProperty='" + responseProperty + '\'' +
+                ", tags=" + tags +
+                ", dependsOn=" + dependsOn +
                 '}';
     }
 }
