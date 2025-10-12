@@ -65,13 +65,13 @@ public class AnalyseCmd implements Callable<Integer> {
     @Option(names={"-j","--json-response"}, arity = "1", defaultValue = "false", description = "Enforce json response")
     boolean jsonResponse = false;
 
-    @Option(names={"--log-request"}, arity = "1", defaultValue = "false", description = "Make langchain4j log the chat requests")
+    @Option(names={"--log-request"}, arity = "1", defaultValue = "false", description = "Activate langchain4j low-level log of chat requests")
     boolean logRequest = false;
 
-    @Option(names={"--log-response"}, arity = "1", defaultValue = "false", description = "Make langchain4j log the chat response")
+    @Option(names={"--log-response"}, arity = "1", defaultValue = "false", description = "Activate langchain4j low-level log of chat responses")
     boolean logResponse = false;
 
-    @Option(names={"-o","--executeOnly"}, arity = "0..*", description = "A list of task ids, that should only be executed")
+    @Option(names={"-o","--executeOnly"}, arity = "1..*", description = "A list of task ids, that should only be executed")
     Set<String> executeOnly;
 
     @Parameters(index = "0",description = "Path to the root directory of the project to analyse")
