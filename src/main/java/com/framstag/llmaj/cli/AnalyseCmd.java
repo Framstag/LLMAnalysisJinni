@@ -74,8 +74,18 @@ public class AnalyseCmd implements Callable<Integer> {
     @Option(names={"-o","--executeOnly"}, arity = "1..*", description = "A list of task ids, that should only be executed")
     Set<String> executeOnly;
 
+    @Option(names={"--chatWindowsSize"}, arity = "1", defaultValue="50", description = "The number of messages to memorize between prompts")
+    int chatWindowSize;
+
+    @Option(names={"--requestTimeout"}, arity = "1", defaultValue="30", description = "Request timeout in minutes")
+    int requestTimeout;
+
+    @Option(names={"--maxToken"}, arity = "1", defaultValue="32768", description = "Maximum number of tokens to allow")
+    int maxToken;
+
     @Parameters(index = "0",description = "Path to the root directory of the project to analyse")
     String projectRoot;
+
 
     private UserMessage patchUserMessageWithSchema(UserMessage um, JsonNode responseSchema)
     {
@@ -152,16 +162,25 @@ public class AnalyseCmd implements Callable<Integer> {
         ChatModel model = OllamaChatModel.builder()
                 .modelName(modelName)
                 .baseUrl(modelUrl.toString())
-                .timeout(Duration.ofMinutes(20))
+                .timeout(Duration.ofMinutes(requestTimeout))
                 .temperature(0.0)
                 .think(false)
                 .returnThinking(false)
                 .listeners(List.of(new ChatListener()))
                 .logRequests(logRequest)
                 .logResponses(logResponse)
+                .numCtx(maxToken)
                 .build();
 
+        logger.info("== Parameter");
         logger.info("Model provider: '{}'", model.provider().name());
+        logger.info("URL:            '{}'",modelUrl.toString());
+        logger.info("Timeout:        {} minute(s)", requestTimeout);
+        logger.info("Log requests:   {}", logRequest);
+        logger.info("Log responses:  {}", logResponse);
+        logger.info("Model name:     '{}'", modelName);
+        logger.info("Maximum tokens: {}", maxToken);
+        logger.info("==");
 
         Path resultPath = Path.of("result.json");
 
@@ -169,7 +188,7 @@ public class AnalyseCmd implements Callable<Integer> {
         FileTool fileTool = new FileTool(context);
         SBOMTool sbomTool = new SBOMTool(context);
 
-        ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(50);
+        ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(chatWindowSize);
 
         ServiceOutputParser outputParser = new ServiceOutputParser();
 
@@ -208,7 +227,7 @@ public class AnalyseCmd implements Callable<Integer> {
                 continue;
             }
 
-            logger.info("==> Task: {} - {}", task.getId(), task.getName());
+            logger.info("===> Task: {} - {}", task.getId(), task.getName());
 
             if (!task.isActive()) {
                 logger.warn("Task is not active, skipping!");
@@ -221,18 +240,18 @@ public class AnalyseCmd implements Callable<Integer> {
             ChatExecutionContext execContext =
                     new ChatExecutionContext(model, chatMemory, toolService, outputParser);
 
-            String systemPrompt = null;
-            String userPrompt = null;
+            String origSystemPrompt = null;
+            String origUserPrompt = null;
 
             if (task.getSystemPrompt() != null) {
-                systemPrompt = Files.readString(task.getSystemPrompt());
+                origSystemPrompt = Files.readString(task.getSystemPrompt());
             }
 
             if (task.getPrompt() != null) {
-                userPrompt = Files.readString(task.getPrompt());
+                origUserPrompt = Files.readString(task.getPrompt());
             }
 
-            if (systemPrompt == null && userPrompt == null) {
+            if (origSystemPrompt == null && origUserPrompt == null) {
                 logger.error("Task {} has no prompts, skipping", task.getId());
                 continue;
             }
@@ -245,37 +264,101 @@ public class AnalyseCmd implements Callable<Integer> {
             String jsonResponseRawSchema = Files.readString(task.getResponseFormat());
             JsonNode jsonResponseSchema = mapper.readTree(jsonResponseRawSchema);
 
-            LinkedList<ChatMessage> messages = new LinkedList<>();
+            if (task.hasLoopOn()) {
+                JsonNode loopPos = result.at(task.getLoopOn());
 
-            if (systemPrompt != null) {
-                systemPrompt = templateEngine.process(systemPrompt, templateContext);
-                messages.add(SystemMessage.from(systemPrompt));
-            }
-
-            if (userPrompt!= null) {
-                userPrompt = templateEngine.process(userPrompt, templateContext);
-                messages.add(UserMessage.from(userPrompt));
-            }
-
-            String taskResultString = executeMessages(execContext,
-                    messages,
-                    jsonResponseRawSchema,
-                    jsonResponseSchema);
-
-            if (taskResultString != null && !taskResultString.isEmpty()) {
-                try (JsonParser parser = factory.createParser(taskResultString)) {
-                    JsonNode taskResultJson = mapper.readTree(parser);
-                    logger.info("===> {}: {}", JsonHelper.getSchemaName(jsonResponseSchema), taskResultJson.toPrettyString());
-
-                    result.set(task.getResponseProperty(), taskResultJson);
+                if (loopPos.isNull()) {
+                    logger.error("Cannot loop on '{}', target does not exist", task.getLoopOn());
+                    continue;
                 }
+
+                if (!loopPos.isArray()) {
+                    logger.error("Cannot loop on '{}', since it is not an array", task.getLoopOn());
+                    continue;
+                }
+
+                int loopIndex=0;
+                for (JsonNode loop : loopPos) {
+                    logger.info("===>[{}] Task: {} - {}", loopIndex,task.getId(), task.getName());
+
+                    LinkedList<ChatMessage> messages = new LinkedList<>();
+                    String systemPrompt;
+                    String userPrompt;
+
+                    chatMemory.clear();
+
+                    templateContext.setVariable("loopIndex", loopIndex);
+
+                    if (origSystemPrompt != null) {
+                        systemPrompt = templateEngine.process(origSystemPrompt, templateContext);
+                        messages.add(SystemMessage.from(systemPrompt));
+                    }
+
+                    if (origUserPrompt!= null) {
+                        userPrompt = templateEngine.process(origUserPrompt, templateContext);
+                        messages.add(UserMessage.from(userPrompt));
+                    }
+
+                    String taskResultString = executeMessages(execContext,
+                            messages,
+                            jsonResponseRawSchema,
+                            jsonResponseSchema);
+
+                    if (taskResultString != null && !taskResultString.isEmpty()) {
+                        try (JsonParser parser = factory.createParser(taskResultString)) {
+                            JsonNode taskResultJson = mapper.readTree(parser);
+                            logger.info("===>[{}] {}: {}", loopIndex,JsonHelper.getSchemaName(jsonResponseSchema), taskResultJson.toPrettyString());
+
+                            ((ObjectNode)loop).set(task.getResponseProperty(), taskResultJson);
+
+                            logger.info("Current result written to '{}'",resultPath);
+                            JsonHelper.writeResult(result, mapper,resultPath);
+
+                        }
+                    } else {
+                        logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
+                    }
+
+                    loopIndex++;
+                }
+                templateContext.removeVariable("loopIndex");
             }
             else {
-                logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
-            }
+                LinkedList<ChatMessage> messages = new LinkedList<>();
+                String systemPrompt;
+                String userPrompt;
 
-            logger.info("Current result written to '{}'",resultPath);
-            JsonHelper.writeResult(result, mapper,resultPath);
+                chatMemory.clear();
+
+                if (origSystemPrompt != null) {
+                    systemPrompt = templateEngine.process(origSystemPrompt, templateContext);
+                    messages.add(SystemMessage.from(systemPrompt));
+                }
+
+                if (origUserPrompt!= null) {
+                    userPrompt = templateEngine.process(origUserPrompt, templateContext);
+                    messages.add(UserMessage.from(userPrompt));
+                }
+
+                String taskResultString = executeMessages(execContext,
+                        messages,
+                        jsonResponseRawSchema,
+                        jsonResponseSchema);
+
+                if (taskResultString != null && !taskResultString.isEmpty()) {
+                    try (JsonParser parser = factory.createParser(taskResultString)) {
+                        JsonNode taskResultJson = mapper.readTree(parser);
+                        logger.info("===> {}: {}", JsonHelper.getSchemaName(jsonResponseSchema), taskResultJson.toPrettyString());
+
+                        result.set(task.getResponseProperty(), taskResultJson);
+
+                        logger.info("Current result written to '{}'",resultPath);
+                        JsonHelper.writeResult(result, mapper,resultPath);
+                    }
+                } else {
+                    logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
+                }
+            }
         }
 
         return 0;

@@ -2,12 +2,6 @@
 
 Locate the directories representing build modules
 
-## Solution strategy
-
-* Use the "FindMatchingFiles" tool (possibly repeatedly) to scan the project directory for
-source code modules by searching for build system files and their location in the directory structure.
-* Return the list of directories representing a source code module together with an optional name for the module.
-
 ## Facts
 
 The project name is: [(${state.project.name})]
@@ -15,8 +9,8 @@ The project name is: [(${state.project.name})]
 The following build systems are used:
 
 [# th:each="buildsystem : ${state.build.buildsystems}" th:remove="tag"]
- * [(${buildsystem.name})]
-[/]
+* [(${buildsystem.name})]
+  [/]
 
 Here is a table to map build systems to glob expressions for finding build system files:
 
@@ -24,6 +18,12 @@ Here is a table to map build systems to glob expressions for finding build syste
 |------------|-----------------|
 |Maven       | "{,**/}pom.xml" |
 |Gradle      | "{,**/}*.grade" |
+
+## Solution strategy
+
+* Use the "FindMatchingFiles" tool (possibly repeatedly) to scan the project directory for
+source code modules by searching for build system files and their location in the directory structure.
+* Return the list of directories representing a source code module together with an optional name for the module.
 
 ## Hints
 

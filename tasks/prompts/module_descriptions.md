@@ -2,35 +2,35 @@
 
 * I want a short description for each code module found before.
 
-## Solution strategy
-
-* Use the "GetFilesOverview" Tool (possibly repeatedly) to scan each module directory.
-* Analyse the purpose of each module based on the file names and their structure.
-* Return a list of modules together with their description
-
 ## Facts
 
 The following build systems have been identified:
 
 [# th:each="buildsystem : ${state.build.buildsystems}" th:remove="tag"]
 * [(${buildsystem.name})]
-[/]
+  [/]
 
 The following build modules have been identified:
 
 [# th:each="module : ${state.modules.modules}" th:remove="tag"]
 * "[(${module.path})]"
-[/]
+  [/]
 
 The following programming languages have been identified:
 
 [# th:each="language : ${state.programming_languages.programming_languages}" th:remove="tag"]
 * [(${language.name})]
-[/]
+  [/]
 
 From the README we have extracted the following general project description:
 
 "[(${state.project.goal})]"
+
+## Solution strategy
+
+* Use the "GetFilesOverview" Tool (possibly repeatedly) to scan each module directory.
+* Analyse the purpose of each module based on the file names and their structure.
+* Return a list of modules together with their description
 
 ## Hints
 

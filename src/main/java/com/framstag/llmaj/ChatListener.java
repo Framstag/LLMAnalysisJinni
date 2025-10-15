@@ -53,11 +53,12 @@ public class ChatListener implements ChatModelListener {
 
     @Override
     public void onRequest(ChatModelRequestContext requestContext) {
-        logger.info("REQUEST {} {}",
-        requestContext.chatRequest().modelName(),
-        requestContext.chatRequest().responseFormat()!= null ?
-            requestContext.chatRequest().responseFormat().type() :
-            "");
+        logger.info("REQUEST {} - {} - {}",
+                requestContext.chatRequest().modelName(),
+                requestContext.chatRequest().responseFormat() != null ?
+                        requestContext.chatRequest().responseFormat().type() : "",
+                requestContext.chatRequest().maxOutputTokens() != null ?
+                        "max token "+ requestContext.chatRequest().maxOutputTokens() : " ? ");
 
         if (!requestContext.chatRequest().messages().isEmpty()) {
             logMessage(requestContext.chatRequest().messages().getLast());
@@ -66,10 +67,11 @@ public class ChatListener implements ChatModelListener {
 
     @Override
     public void onResponse(ChatModelResponseContext responseContext) {
-        logger.info("RESPONSE {} {} {}",
-         responseContext.chatResponse().modelName(),
-         responseContext.chatResponse().tokenUsage().totalTokenCount(),
-         responseContext.chatResponse().finishReason());
+        logger.info("RESPONSE {} - token in {} - token out {} - reason {}",
+                responseContext.chatResponse().modelName(),
+                responseContext.chatResponse().tokenUsage().inputTokenCount(),
+                responseContext.chatResponse().tokenUsage().outputTokenCount(),
+                responseContext.chatResponse().finishReason());
 
          if (responseContext.chatResponse().aiMessage() != null) {
             logAiMessage(responseContext.chatResponse().aiMessage());

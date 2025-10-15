@@ -2,29 +2,29 @@
 
 * Describe the principle architecture of a module
 
-## Solution strategy
-
-* Use the "GetFilesOverview" Tool (possibly repeatedly) to scan each module directory.
-* Analyse the architecture of each module based on the file names and their structure.
-* Return a list of modules together with a description of their description.
-
 ## Facts
 
 The following modules have been identified:
 
 [# th:each="module : ${state.module_descriptions.modules}" th:remove="tag"]
 * "[(${module.path})]" - "[(${module.desc})]"
-[/]
+  [/]
 
 The following programming languages have been identified:
 
 [# th:each="language : ${state.programming_languages.programming_languages}" th:remove="tag"]
 * [(${language.name})]
-[/]
+  [/]
 
 From the README we have extracted the following general project description:
 
 "[(${state.project.goal})]"
+
+## Solution strategy
+
+* Use the "GetFilesOverview" Tool (possibly repeatedly) to scan each module directory.
+* Analyse the architecture of each module based on the file names and their structure.
+* Return a list of modules together with a description of their description.
 
 ## Hints
 

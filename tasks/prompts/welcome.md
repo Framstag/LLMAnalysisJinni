@@ -1,8 +1,13 @@
+## Context
+
 Hello :-)
 
-To Check that everything works, please use the given ToolsVersion function to state the name and version
-of the tools.
+## Solution Strategy
 
-If you have successfully called the function, just return the version.
+* To Check that everything works, please use the given 'ToolsVersion' tool to state the version
+  of the tools.
 
-Afterward, wait for further instructions.
+## Hints
+
+* If you have successfully called the function, just return the version.
+* Afterward, wait for further instructions.

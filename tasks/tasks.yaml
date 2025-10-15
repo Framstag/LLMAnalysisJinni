@@ -49,10 +49,9 @@ responseProperty: programming_languages
 dependsOn:
   - buildsystems
   - modules
-  - project_summary
-
 tags:
   - programming_language
+loopOn: /modules/modules
 ---
 id: DescribeModules
 name: Get a description for each module
@@ -62,6 +61,7 @@ responseProperty: module_descriptions
 active: true
 tags:
   - module_description
+loopOn: /modules/modules
 ---
 id: ModuleArchitecture
 name: Get a description of the principle architecture for each module
@@ -71,6 +71,7 @@ responseProperty: module_architecture
 active: true
 tags:
   - module_architecture
+loopOn: /modules/modules
 ---
 id: SBOMLocation
 name: Location of SBOM

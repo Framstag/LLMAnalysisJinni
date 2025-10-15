@@ -21,6 +21,7 @@ public class TaskDefinition {
     private String responseProperty;
     private Set<String> tags = new HashSet<>();
     private Set<String> dependsOn = new HashSet<>();
+    private String loopOn;
 
     public String getId() {
         return id;
@@ -62,6 +63,14 @@ public class TaskDefinition {
         return dependsOn;
     }
 
+    public boolean hasLoopOn() {
+        return loopOn != null && !loopOn.isEmpty();
+    }
+
+    public String getLoopOn() {
+        return loopOn;
+    }
+
     public static List<TaskDefinition> loadTasks(Path path) throws IOException {
 
         YAMLFactory yamlFactory = new YAMLFactory();
@@ -70,7 +79,6 @@ public class TaskDefinition {
         YAMLParser parser = yamlFactory.createParser(path.toFile());
         return mapper.readValues(parser,new TypeReference<TaskDefinition>(){}).readAll();
     }
-
 
     @Override
     public String toString() {
@@ -84,6 +92,7 @@ public class TaskDefinition {
                 ", responseProperty='" + responseProperty + '\'' +
                 ", tags=" + tags +
                 ", dependsOn=" + dependsOn +
+                ", loopOn='" + loopOn + '\'' +
                 '}';
     }
 }
