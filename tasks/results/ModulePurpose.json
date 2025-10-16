@@ -1,0 +1,16 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ModulePurpose",
+    "description": "Description of the purpose of a module",
+    "type": "object",
+    "properties": {
+        "reasoning" : {
+          "type": "string",
+          "description": "Description of the reasoning that lead to the given finding"
+        },
+        "purpose": {
+          "type": "string",
+          "description": "The purpose for the module"
+        }
+    }
+}

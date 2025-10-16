@@ -23,6 +23,10 @@
                     "name": {
                       "type": "string",
                       "description": "The name of the module (optional)"
+                    },
+                    "root": {
+                      "type": "boolean",
+                      "description": "true, if the module is a root module, else false"
                     }
                 }
             }

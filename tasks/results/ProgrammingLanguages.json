@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ProgrammingLanguages",
+  "title": "Programming Languages",
   "description": "List of programming languages",
   "type": "object",
   "properties": {
-    "programming_languages": {
+    "programmingLanguages": {
       "type": "array",
       "description": "List of programming languages",
       "items": {

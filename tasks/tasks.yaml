@@ -45,7 +45,7 @@ id: ProgrammingLanguages
 name: Programming languages
 prompt: tasks/prompts/programming_languages.md
 responseFormat: tasks/results/ProgrammingLanguages.json
-responseProperty: programming_languages
+responseProperty: programmingLanguages
 dependsOn:
   - buildsystems
   - modules
@@ -53,11 +53,11 @@ tags:
   - programming_language
 loopOn: /modules/modules
 ---
-id: DescribeModules
-name: Get a description for each module
-prompt: tasks/prompts/module_descriptions.md
-responseFormat: tasks/results/ModuleDescriptions.json
-responseProperty: module_descriptions
+id: ModulePurpose
+name: Get a purpose for each module
+prompt: tasks/prompts/module_purpose.md
+responseFormat: tasks/results/ModulePurpose.json
+responseProperty: purpose
 active: true
 tags:
   - module_description
@@ -67,7 +67,7 @@ id: ModuleArchitecture
 name: Get a description of the principle architecture for each module
 prompt: tasks/prompts/module_architecture.md
 responseFormat: tasks/results/ModuleArchitecture.json
-responseProperty: module_architecture
+responseProperty: architecture
 active: true
 tags:
   - module_architecture

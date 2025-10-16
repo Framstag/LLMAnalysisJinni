@@ -77,7 +77,7 @@ public class AnalyseCmd implements Callable<Integer> {
     @Option(names={"--chatWindowsSize"}, arity = "1", defaultValue="50", description = "The number of messages to memorize between prompts")
     int chatWindowSize;
 
-    @Option(names={"--requestTimeout"}, arity = "1", defaultValue="30", description = "Request timeout in minutes")
+    @Option(names={"--requestTimeout"}, arity = "1", defaultValue="60", description = "Request timeout in minutes")
     int requestTimeout;
 
     @Option(names={"--maxToken"}, arity = "1", defaultValue="32768", description = "Maximum number of tokens to allow")
@@ -155,10 +155,6 @@ public class AnalyseCmd implements Callable<Integer> {
 
         List<TaskDefinition> tasks = TaskDefinition.loadTasks(Path.of("tasks/tasks.yaml"));
 
-        for  (TaskDefinition task : tasks) {
-            logger.info("Task {}", task);
-        }
-
         ChatModel model = OllamaChatModel.builder()
                 .modelName(modelName)
                 .baseUrl(modelUrl.toString())
@@ -223,11 +219,11 @@ public class AnalyseCmd implements Callable<Integer> {
         templateEngine.setTemplateResolver(templateResolver);
 
         for (TaskDefinition task : tasks) {
+            logger.info("--O Task: {} - {}", task.getId(), task.getName());
+
             if (executeOnly != null && !executeOnly.isEmpty() && !executeOnly.contains(task.getId())) {
                 continue;
             }
-
-            logger.info("===> Task: {} - {}", task.getId(), task.getName());
 
             if (!task.isActive()) {
                 logger.warn("Task is not active, skipping!");
@@ -327,6 +323,8 @@ public class AnalyseCmd implements Callable<Integer> {
                 LinkedList<ChatMessage> messages = new LinkedList<>();
                 String systemPrompt;
                 String userPrompt;
+
+                logger.info("===> Task: {} - {}", task.getId(), task.getName());
 
                 chatMemory.clear();
 

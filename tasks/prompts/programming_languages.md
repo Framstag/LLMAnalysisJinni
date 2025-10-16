@@ -7,20 +7,32 @@
 
 ## Facts
 
-The following modules have been identified:
-
-[# th:each="module : ${state.modules.modules}" th:remove="tag"]
-* "[(${module.name})]" in "[(${module.path})]"
-  [/]
-
-The current module to analyse is named: "[(${state.modules.modules[loopIndex].name})]"
-The path of this build module is: "[(${state.modules.modules[loopIndex].path})]"
-
 The following build systems have been identified:
 
 [# th:each="buildsystem : ${state.build.buildsystems}" th:remove="tag"]
-* [(${buildsystem.name})]
-  [/]
+* Build System: '[(${buildsystem.name})]', variant: '[(${buildsystem.variant})]'
+[/]
+
+
+Depending on the build system the following source directories can be expected:
+
+|Build System |Variant     | Source-Directories |
+|-------------|------------|--------------------|
+|Maven        |            | src                |
+|Gradle       | Classic    | src                |
+|Gradle       | Kotlin DSL | src                |
+
+The following modules have been identified:
+
+[# th:each="module : ${state.modules.modules}" th:remove="tag"]
+* Module "[(${module.name})]" in directory "[(${module.path})]"
+[/]
+
+Regarding the now to be analyzed module
+
+The current module to analyse is named: "[(${state.modules.modules[loopIndex].name})]"
+The path of this build module is: "[(${state.modules.modules[loopIndex].path})]"
+The current module is a root module: [(${state.modules.modules[loopIndex].root})]
 
 Here is a table that maps each programming languages to a wildcard expression:
 
@@ -35,14 +47,14 @@ Here is a table that maps each programming languages to a wildcard expression:
 
 ## Solution strategy
 
-* If there are multiple modules and the current module path is "", assume that it does not have sources and just return immediately.  
-* Scan the build module directory root for files typical for a programming language.
+* If there are multiple modules and the current module path is the root module, assume that it does not have sources and do not look for programming languages and respond without gathering these information.  
+* If it is not the root module, scan the build module directory root for files typical for a programming language.
 * Sum up all found programming languages.
 
 ## Hints
 
-* You must call the "FileCountPerFileTypeAndDirectory" tool for the build module path.
-* From the result you should deduct which programming languages are used in this module.
+* If you decided to look for programming language usage, you must call the "FileCountPerFileTypeAndDirectory" tool for the source directory (if defined by the build system) or the build module path. In that case you should deduct which programming languages are used in this module.
+* It may be possible, that a modules does not hold any source code but it only a build submodule that creates other artefacts.
 * Do not try to read individual files at this point!
 * Do not use any other tool!
-* It may be possible that a possible does not hold any source code but it only a build submodule that creates other artefacts.
+* You must only return clean JSON content without any prefix or postfix!

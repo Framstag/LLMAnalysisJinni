@@ -1,39 +1,16 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "ModuleArchitecture",
-    "description": "List of modules together with a description of their descriptions",
+    "description": "Description of the architecture of a module",
     "type": "object",
     "properties": {
-        "reasoning" : {
-          "type": "string",
-          "description": "Description of the reasoning that lead to the given finding"
-        },
-        "modules": {
-            "type": "array",
-            "description": "List of source code modules",
-            "items": {
-                "type": "object",
-                "title": "Module",
-                "description": "A source code module of the project",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "Directory of the module"
-                    },
-                    "name": {
-                      "type": "string",
-                      "description": "The name of the module (optional)"
-                    },
-                    "architecture": {
-                      "type": "string",
-                      "description": "The description of the architecture of the module"
-                    },
-                    "reasoning" : {
-                      "type": "string",
-                      "description": "Description of the reasoning that lead to the given finding"
-                    }
-                }
-            }
-        }
+          "architecture": {
+            "type": "string",
+            "description": "The description of the architecture of the module"
+          },
+          "reasoning" : {
+            "type": "string",
+            "description": "Description of the reasoning that lead to the given finding"
+          }
     }
 }

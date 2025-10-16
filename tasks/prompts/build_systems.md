@@ -8,7 +8,7 @@
 The following table shows wildcards matching specific files for the given build system:
 
 |Build System |Variant     |Wildcard Expression |
-  |-------------|------------|--------------------|
+|-------------|------------|--------------------|
 |Maven        |            | "pom.xml"          |
 |Gradle       | Classic    | "*.grade"          |
 |Gradle       | Kotlin DSL | "*gradle.kts"      |
@@ -20,4 +20,4 @@ The following table shows wildcards matching specific files for the given build 
 
 ## Hints
 
-* To look fort certain file use the 'FileCountPerFileType' tool. Pass to it the root directory and a list of wildcard expression matching files of the various build systems.
+* To look fort certain files use the 'FileCountPerFileType' tool. Pass to it the root directory and a list of wildcard expression matching files of the various build systems.
