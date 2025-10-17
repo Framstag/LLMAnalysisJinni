@@ -147,45 +147,61 @@ public class FileTool {
                 .toList();
     }
 
-    @Tool(name = "FindMatchingFiles",
+    @Tool(name = "GetMatchingFilesInDirRecursively",
             value =
                     """
-                            Return all files in the project directory that match the given wildcard
+                            Returns a list of files in the given sub directory and recursively all of its sub directories
+                            that match one of the given wildcards.
                             """)
-    public List<String> findMatchingFiles(@P("The wildcard expression, using '*' as placeholder") String wildcard) throws IOException {
-        logger.info("## FindMatchingFiles('{}')", wildcard);
-        String glob;
+    public List<FilesInDirectory> getMatchingFilesInDirRecursively(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only") String path,
+                                                                   @P("A list of wildcards to scan for") List<String> wildcards) throws IOException {
+        logger.info("## GetMatchingFilesInDirRecursively('{}')", path, wildcards);
 
-        if (wildcard == null || wildcard.isEmpty()) {
-            glob = "glob:*";
-        } else {
-            glob = "glob:" + wildcard;
-        }
+        Map<String,Set<String>> result = new HashMap<>();
 
         Path rootPath = Path.of(context.getProjectRoot());
+        Path relativePath = Path.of(path);
 
-        List<String> result = new LinkedList<>();
+        Path startPath = rootPath.resolve(relativePath);
+
+        if (!accessAllowed(rootPath, startPath)) {
+            logger.error("Not allowed to access '{}' ('{}' '{}')", path,rootPath,relativePath);
+            return Collections.emptyList();
+        }
 
         FileVisitor<Path> matcherVisitor = new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attribs) {
+
+                Path directory = rootPath.relativize(file.getParent());
+                Path filename = file.getFileName();
                 FileSystem fs = FileSystems.getDefault();
-                PathMatcher matcher = fs.getPathMatcher(glob);
-                Path name = rootPath.relativize(file);
-                if (matcher.matches(name)) {
-                    result.add(name.toString());
+
+                for (String wildcard : wildcards) {
+                    PathMatcher matcher = fs.getPathMatcher("glob:"+wildcard);
+                    if (matcher.matches(file.getFileName())) {
+
+                        if (!result.containsKey(directory.toString())) {
+                            result.put(directory.toString(), new HashSet<>());
+                        }
+
+                        result.get(directory.toString()).add(filename.toString());
+                    }
                 }
+
                 return FileVisitResult.CONTINUE;
             }
         };
 
-        Files.walkFileTree(rootPath, matcherVisitor);
+        Files.walkFileTree(startPath, matcherVisitor);
 
         logger.info("# =>");
-        result.forEach(file -> logger.info("# File: '{}", file));
+        result.forEach((key, value) -> logger.info("# Directory: '{}' -> '{}'", key, value));
         logger.info("# done.");
 
-        return result;
+        return result.entrySet().stream()
+                .map(entry -> new FilesInDirectory(entry.getKey(),entry.getValue().stream().toList()))
+                .toList();
     }
 
     @Tool(name = "GetFilesCount",

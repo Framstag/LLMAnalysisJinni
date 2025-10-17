@@ -8,6 +8,10 @@
           "type": "string",
           "description": "Reasoning that lead to the given result"
         },
+      "found" : {
+        "type": "boolean",
+        "description": "'True', if the location was found, else 'false'"
+      },
         "path": {
             "type": "string",
             "description": "Full path of the file relative to project root"

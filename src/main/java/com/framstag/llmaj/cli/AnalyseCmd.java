@@ -80,7 +80,7 @@ public class AnalyseCmd implements Callable<Integer> {
     @Option(names={"--requestTimeout"}, arity = "1", defaultValue="120", description = "Request timeout in minutes")
     int requestTimeout;
 
-    @Option(names={"--maxToken"}, arity = "1", defaultValue="32768", description = "Maximum number of tokens to allow")
+    @Option(names={"--maxToken"}, arity = "1", defaultValue="65536", description = "Maximum number of tokens to allow")
     int maxToken;
 
     @Parameters(index = "0",description = "Path to the root directory of the project to analyse")

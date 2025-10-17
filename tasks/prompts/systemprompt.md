@@ -38,10 +38,6 @@ As you are a software architect you should use a language with the following att
 
 I offer you a number of functions you can call. for some of them I give you now further guidance:
 
-* You must pass a wildcard glob expression to the FindMatchingFiles tool. This tool allows you
-  to get a list of files in the project directory, matching the expression. Make sure to pass only
-  one expression.
-  A possible example for looking for all Java files would be '*.java'.
 * Make sure to only use path **relative** to the project root. So e.g. do not use '/src/main/java' but 'src/main/java',
 
 ## Your response

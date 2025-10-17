@@ -67,38 +67,30 @@ public class FileToolTest {
     }
 
     @Test
-    void findFileInRoot() throws IOException {
-        List<String> result = fileTool.findMatchingFiles("pom.xml");
+    void findMatchingFileInRootDir() throws IOException {
+        List<FilesInDirectory> result = fileTool.getMatchingFilesInDirRecursively("",List.of("pom.xml"));
 
-        assertEquals(List.of("pom.xml"), result);
+        assertEquals(1, result.size());
+        assertEquals("", result.getFirst().directory());
+        assertEquals("pom.xml", result.getFirst().files().getFirst());
     }
 
     @Test
-    void findFileInSubDirWithColonGlobs() throws IOException {
-        List<String> result = fileTool.findMatchingFiles("{,**/}Main.java");
+    void findMatchingFileInSubDir() throws IOException {
+        List<FilesInDirectory> result = fileTool.getMatchingFilesInDirRecursively("",List.of("Main.java"));
 
-        assertEquals(List.of("src/main/java/com/framstag/llmaj/Main.java"), result);
+        assertEquals(1, result.size());
+        assertEquals("src/main/java/com/framstag/llmaj", result.getFirst().directory());
+        assertEquals("Main.java", result.getFirst().files().getFirst());
     }
 
     @Test
-    void findFileInRootWithColonGlobs() throws IOException {
-        List<String> result = fileTool.findMatchingFiles("{,**/}pom.xml");
+    void findExactlyMatchingFileInSubDir() throws IOException {
+        List<FilesInDirectory> result = fileTool.getMatchingFilesInDirRecursively("src",List.of("logback.xml"));
 
-        assertEquals(List.of("pom.xml"), result);
-    }
-
-    @Test
-    void findSBOMInPathWithSimpleGlob() throws IOException {
-        List<String> result = fileTool.findMatchingFiles("**/bom.json");
-
-        assertEquals(List.of("target/bom.json"), result);
-    }
-
-    @Test
-    void findFileInPathWithComplexGlob() throws IOException {
-        List<String> result = fileTool.findMatchingFiles("src/**/logback.xml");
-
-        assertEquals(List.of("src/main/resources/logback.xml"), result);
+        assertEquals(1, result.size());
+        assertEquals("src/main/resources", result.getFirst().directory());
+        assertEquals("logback.xml", result.getFirst().files().getFirst());
     }
 
     @Test
