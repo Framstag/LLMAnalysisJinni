@@ -63,13 +63,11 @@ Depending on the build system the following source directories can be expected:
 
 * If there are multiple modules and the current module path is the root module, assume that it does not have sources and do not look for programming languages and respond without gathering these information.
 * If it is not the root module, scan the build module directory root for files typical for a programming language.
-* Use the "GetFilesOverview" Tool (possibly repeatedly) to scan each module directory. Either for the source directory, if defined by the build system, or for module directory, if not.
-* Analyse the purpose of each module based on the file names and their structure.
-* Return the purpose of the module
+* Use the "GetAllFilesInDirRecursively" Tool to scan the module directory. 
+* Call it either for the source directory, if defined by the build system, or for module directory, if not.
+* Analyse the purpose of the module based on the file names and their structure.
+* Return the purpose of the module.
 
 ## Hints
 
-* You can iteratively use the "GetFilesOverview" tool using wildcards specific for a programming language.
-* Use a call for each module root.
-* Make use you use a high value for "depth" to make sure you will see the code files.
 * You must only return clean JSON content without any prefix or postfix!

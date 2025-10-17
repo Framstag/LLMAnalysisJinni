@@ -1,11 +1,10 @@
 package com.framstag.llmaj.tools.file;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +29,20 @@ public class FileToolTest {
             Paths.get("").toAbsolutePath().toString());
 
         fileTool = new FileTool(context);
+    }
+
+    @Test
+    void GetAllFilesInDirWithoutSubdir() throws IOException {
+        List<String> result = fileTool.getAllFilesInDir("src/main/java/com/framstag/llmaj");
+
+        assertEquals(4, result.size());
+    }
+
+    @Test
+    void GetAllFilesInDirWithSubdir() throws IOException {
+        List<FilesInDirectory> result = fileTool.getAllFilesInDirRecursively("src/test/java/com/framstag/llmaj");
+
+        assertEquals(2, result.size());
     }
 
     @Test
@@ -84,34 +97,6 @@ public class FileToolTest {
     @Test
     void findFileInPathWithComplexGlob() throws IOException {
         List<String> result = fileTool.findMatchingFiles("src/**/logback.xml");
-
-        assertEquals(List.of("src/main/resources/logback.xml"), result);
-    }
-
-    @Test
-    void getOverviewInRootAbsolute() throws IOException {
-        List<String> result = fileTool.getFilesOverview("/src/main/Java","*.java",0);
-
-        assertEquals(List.of(), result);
-    }
-
-    @Test
-    void getOverviewInRootWitheDepth0Match() throws IOException {
-        List<String> result = fileTool.getFilesOverview("","*.xml",0);
-
-        assertEquals(List.of("pom.xml"), result);
-    }
-
-    @Test
-    void getOverviewInSrcWitheDepth1NoMatch() throws IOException {
-        List<String> result = fileTool.getFilesOverview("src","*.xml",1);
-
-        assertEquals(Collections.emptyList(), result);
-    }
-
-    @Test
-    void getOverviewInSrcWitheDepth2() throws IOException {
-        List<String> result = fileTool.getFilesOverview("src","*.xml",2);
 
         assertEquals(List.of("src/main/resources/logback.xml"), result);
     }

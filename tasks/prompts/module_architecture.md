@@ -25,7 +25,10 @@ Regarding the now to be analyzed module
 The current module to analyse is named: "[(${state.modules.modules[loopIndex].name})]"
 The path of this build module is: "[(${state.modules.modules[loopIndex].path})]"
 The current module is a root module: [(${state.modules.modules[loopIndex].root})]
+
+[# th:if="${state.modules.modules[loopIndex].purpose != null && state.modules.modules[loopIndex].purpose.purpose != null}"]
 The purpose this build module is: "[(${state.modules.modules[loopIndex].purpose.purpose})]"
+[/]
 
 The following programming languages have been identified for this module:
 
@@ -37,14 +40,14 @@ The following programming languages have been identified for this module:
 
 * If there are multiple modules and the current module path is the root module, assume that it does not have sources and respond without gathering these information.
 * If it is not the root module, scan the build module directory root for files typical for the used programming language.
-* Use the "GetFilesOverview" Tool to scan each module directory. Either for the source directory, if defined by the build system, or the module directory, if not.
-* Analyse the architecture of each module based on the file names and their structure.
+* Use the "GetAllFilesInDirRecursively" Tool to scan the module directory.
+* Call it either for the source directory, if defined by the build system, or the module directory, if not.
+* Analyse the architecture of the module based on the file names and their structure.
 * Return the architecture description of the module.
-* You mus not scan individual files yet.
+* You must not scan individual files yet.
+* You thus must not use other tools!
 
 ## Hints
 
-* You can iteratively use the "GetFilesOverview" tool using wildcards specific for a programming language.
-* Make use you use a high value for "depth" to make sure you will see the code files.
 * You must only return clean JSON content without any prefix or postfix!
 

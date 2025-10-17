@@ -17,7 +17,7 @@ public class FileTool {
 
     private final AnalysisContext context;
 
-    private boolean allowedAccess(Path root, Path path) {
+    private boolean accessAllowed(Path root, Path path) {
         Path absoluteRoot = root.toAbsolutePath().normalize();
         Path absoluteFilePath = root.resolve(path).toAbsolutePath().normalize();
 
@@ -45,6 +45,106 @@ public class FileTool {
 
     public FileTool(AnalysisContext context) {
         this.context = context;
+    }
+
+    @Tool(name = "GetAllFilesInDir",
+            value =
+                    """
+                            Returns a list of files in the given sub directory.
+                            Directories will NOT get recursively visited,
+                            """)
+    public List<String> getAllFilesInDir(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only") String path) throws IOException {
+        logger.info("## GetAllFilesInDir('{}')", path);
+
+        List<String> result = new LinkedList<>();
+
+        Path rootPath = Path.of(context.getProjectRoot());
+        Path relativePath = Path.of(path);
+
+        Path startPath = rootPath.resolve(relativePath);
+
+        if (!accessAllowed(rootPath, startPath)) {
+            logger.error("Not allowed to access '{}' ('{}' '{}')", path,rootPath,relativePath);
+            return result;
+        }
+
+        FileVisitor<Path> matcherVisitor = new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                if (dir == startPath) {
+                    return FileVisitResult.CONTINUE;
+                }
+
+                return FileVisitResult.SKIP_SUBTREE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attribs) {
+
+                FileSystem fs = FileSystems.getDefault();
+                Path name = rootPath.relativize(file);
+
+                result.add(name.toString());
+
+                return FileVisitResult.CONTINUE;
+            }
+        };
+
+        Files.walkFileTree(startPath, matcherVisitor);
+
+        logger.info("# =>");
+        result.forEach(file -> logger.info("# File: '{}", file));
+        logger.info("# done.");
+
+        return result;
+    }
+
+    @Tool(name = "GetAllFilesInDirRecursively",
+            value =
+                    """
+                            Returns a list of files in the given sub directory and recursively all of its sub directories.
+                            """)
+    public List<FilesInDirectory> getAllFilesInDirRecursively(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only") String path) throws IOException {
+        logger.info("## GetAllFilesInDirRecursively('{}')", path);
+
+        Map<String,List<String>> result = new HashMap<>();
+
+        Path rootPath = Path.of(context.getProjectRoot());
+        Path relativePath = Path.of(path);
+
+        Path startPath = rootPath.resolve(relativePath);
+
+        if (!accessAllowed(rootPath, startPath)) {
+            logger.error("Not allowed to access '{}' ('{}' '{}')", path,rootPath,relativePath);
+            return Collections.emptyList();
+        }
+
+        FileVisitor<Path> matcherVisitor = new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attribs) {
+
+                Path directory = rootPath.relativize(file.getParent());
+                Path filename = file.getFileName();
+
+                if (!result.containsKey(directory.toString())) {
+                    result.put(directory.toString(), new LinkedList<>());
+                }
+
+                result.get(directory.toString()).add(filename.toString());
+
+                return FileVisitResult.CONTINUE;
+            }
+        };
+
+        Files.walkFileTree(startPath, matcherVisitor);
+
+        logger.info("# =>");
+        result.forEach((key, value) -> logger.info("# Directory: '{}' -> '{}'", key, value));
+        logger.info("# done.");
+
+        return result.entrySet().stream()
+                .map(entry -> new FilesInDirectory(entry.getKey(),entry.getValue()))
+                .toList();
     }
 
     @Tool(name = "FindMatchingFiles",
@@ -88,72 +188,6 @@ public class FileTool {
         return result;
     }
 
-    @Tool(name = "GetFilesOverview",
-            value =
-                    """
-                            Returns recursively a list of files in the given sub directory.
-                            Files must match the given glob expression.
-                            Directories will be descended up to the given depth.
-                            """)
-    public List<String> getFilesOverview(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only") String path,
-                                         @P("The wildcard expression for the filename to match, use '*' to match all files") String wildcard,
-                                         @P("Depth of directory hierarchy to show, should be greater than 0") int depth) throws IOException {
-        logger.info("## GetFilesOverview('{}','{}',{})", path, wildcard, depth);
-        String glob;
-
-        if (wildcard == null || wildcard.isEmpty()) {
-            glob = "glob:*";
-        } else {
-            glob = "glob:" + wildcard;
-        }
-
-        List<String> result = new LinkedList<>();
-
-        Path rootPath = Path.of(context.getProjectRoot());
-        Path relativePath = Path.of(path);
-
-        Path startPath = rootPath.resolve(relativePath);
-
-        if (!allowedAccess(rootPath, startPath)) {
-            logger.error("Not allowed to access '{}' ('{}' '{}')", path,rootPath,relativePath);
-            return result;
-        }
-
-        FileVisitor<Path> matcherVisitor = new SimpleFileVisitor<>() {
-            @Override
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                int relativeDepth = getRelativeDepth(startPath, dir);
-                if ( relativeDepth > depth) {
-                    return FileVisitResult.SKIP_SUBTREE;
-                }
-
-                return FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attribs) {
-
-                FileSystem fs = FileSystems.getDefault();
-                PathMatcher matcher = fs.getPathMatcher(glob);
-                Path name = rootPath.relativize(file);
-
-                if (matcher.matches(file.getFileName())) {
-                    result.add(name.toString());
-                }
-
-                return FileVisitResult.CONTINUE;
-            }
-        };
-
-        Files.walkFileTree(startPath, matcherVisitor);
-
-        logger.info("# =>");
-        result.forEach(file -> logger.info("# File: '{}", file));
-        logger.info("# done.");
-
-        return result;
-    }
-
     @Tool(name = "GetFilesCount",
             value =
                     """
@@ -178,7 +212,7 @@ public class FileTool {
 
         Path startPath = rootPath.resolve(relativePath);
 
-        if (!allowedAccess(rootPath, startPath)) {
+        if (!accessAllowed(rootPath, startPath)) {
             logger.error("Not allowed to access '{}' ('{}' '{}')", path,rootPath,relativePath);
             return matchingFilesCount.get();
         }
@@ -226,7 +260,7 @@ public class FileTool {
 
         String result;
 
-        if (!allowedAccess(root, filePath)) {
+        if (!accessAllowed(root, filePath)) {
             result = "ERROR";
         } else if (filePath.toFile().exists()) {
             result = "true";
@@ -255,7 +289,7 @@ public class FileTool {
 
         Path startPath = rootPath.resolve(relativePath);
 
-        if (!allowedAccess(rootPath, startPath)) {
+        if (!accessAllowed(rootPath, startPath)) {
             logger.error("Not allowed to access '{}' ('{}' '{}')", path,rootPath,relativePath);
             return Collections.emptyList();
         }
@@ -310,7 +344,7 @@ public class FileTool {
 
         Path startPath = rootPath.resolve(relativePath);
 
-        if (!allowedAccess(rootPath, startPath)) {
+        if (!accessAllowed(rootPath, startPath)) {
             logger.error("Not allowed to access '{}' ('{}' '{}')", path,rootPath,relativePath);
             return Collections.emptyList();
         }
@@ -361,7 +395,7 @@ public class FileTool {
         Path root = Path.of(context.getProjectRoot());
         Path filePath = Path.of(file);
 
-        if (!allowedAccess(root, filePath)) {
+        if (!accessAllowed(root, filePath)) {
             return "ERROR";
         }
 

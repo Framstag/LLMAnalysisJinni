@@ -77,7 +77,7 @@ public class AnalyseCmd implements Callable<Integer> {
     @Option(names={"--chatWindowsSize"}, arity = "1", defaultValue="50", description = "The number of messages to memorize between prompts")
     int chatWindowSize;
 
-    @Option(names={"--requestTimeout"}, arity = "1", defaultValue="60", description = "Request timeout in minutes")
+    @Option(names={"--requestTimeout"}, arity = "1", defaultValue="120", description = "Request timeout in minutes")
     int requestTimeout;
 
     @Option(names={"--maxToken"}, arity = "1", defaultValue="32768", description = "Maximum number of tokens to allow")
