@@ -17,9 +17,10 @@ public class StateManager {
     private static final Logger logger = LoggerFactory.getLogger(StateManager.class);
     private static final ObjectMapper mapper;
 
-    Path               workingDirectory;
-    Context            templateContext;
-    ObjectNode         analysisState;
+    final Path         workingDirectory;
+    final Context      templateContext;
+    final ObjectNode   analysisState;
+
     JsonNode           loopPos;
     Iterator<JsonNode> loopIterator;
     int                loopIndex;
@@ -90,8 +91,6 @@ public class StateManager {
     }
 
     public boolean startLoop(String loopOn) {
-        logger.info("Starting loop on '{}'", loopOn);
-
         if (loopPos != null) {
             logger.error("Loop already started");
             return false;
@@ -119,8 +118,6 @@ public class StateManager {
     }
 
     public boolean canLoop() {
-        logger.info("Can loop: {}", loopIterator.hasNext());
-
         if (loopPos == null) {
             logger.error("Not in loop");
             return false;
@@ -144,8 +141,6 @@ public class StateManager {
 
         templateContext.setVariable("loopIndex", loopIndex);
         loopValue = loopIterator.next();
-
-        logger.info("LoopNext: {} {}", loopIndex, loopValue);
     }
 
     public int getLoopIndex() {

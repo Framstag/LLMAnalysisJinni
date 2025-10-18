@@ -7,9 +7,9 @@ We want to identify this file below the project directory.
 
 A SBOM file could have one of the following names:
 
-* 'bom.json' or '*bom*.json' 
-* 'sbom.json' or '*sbom*.json'
-* A '*.json' file in a directory containing "bom" in its name.
+* 'bom.json' 
+* 'sbom.json'
+* 'application.cdx.json'
 
 ## Solution strategy
 

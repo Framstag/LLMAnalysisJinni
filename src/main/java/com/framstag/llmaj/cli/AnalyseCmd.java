@@ -10,6 +10,7 @@ import com.framstag.llmaj.ChatListener;
 import com.framstag.llmaj.json.JsonHelper;
 import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
+import com.framstag.llmaj.tasks.TaskManager;
 import com.framstag.llmaj.tools.file.FileTool;
 import com.framstag.llmaj.tools.info.InfoTool;
 import com.framstag.llmaj.tools.sbom.SBOMTool;
@@ -84,7 +85,10 @@ public class AnalyseCmd implements Callable<Integer> {
     @Parameters(index = "0",description = "Path to the root directory of the project to analyse")
     String projectRoot;
 
-    @Parameters(index = "1",description = "Path to the working directory where result of analysis is stored")
+    @Parameters(index = "1",description = "Path to the directory with the concrete analysis definition")
+    String analysisDirectory;
+
+    @Parameters(index = "2",description = "Path to the working directory where result of analysis is stored")
     String workingDirectory;
 
     private UserMessage patchUserMessageWithSchema(UserMessage um, JsonNode responseSchema)
@@ -153,8 +157,6 @@ public class AnalyseCmd implements Callable<Integer> {
                 "1.0.0",
                 projectRoot);
 
-        List<TaskDefinition> tasks = TaskDefinition.loadTasks(Path.of("tasks/tasks.yaml"));
-
         ChatModel model = OllamaChatModel.builder()
                 .modelName(modelName)
                 .baseUrl(modelUrl.toString())
@@ -193,6 +195,7 @@ public class AnalyseCmd implements Callable<Integer> {
         mapper.findAndRegisterModules();
         JsonFactory factory = mapper.getFactory();
 
+        TaskManager taskManager = TaskManager.initializeTasks(Path.of(analysisDirectory),executeOnly);
         StateManager stateManager = StateManager.initializeState(Path.of(workingDirectory));
 
         TemplateEngine templateEngine = new TemplateEngine();
@@ -203,17 +206,10 @@ public class AnalyseCmd implements Callable<Integer> {
 
         templateEngine.setTemplateResolver(templateResolver);
 
-        for (TaskDefinition task : tasks) {
-            logger.info("--O Task: {} - {}", task.getId(), task.getName());
+        taskManager.dump();
 
-            if (executeOnly != null && !executeOnly.isEmpty() && !executeOnly.contains(task.getId())) {
-                continue;
-            }
-
-            if (!task.isActive()) {
-                logger.warn("Task is not active, skipping!");
-                continue;
-            }
+        while (taskManager.hasPendingTasks()) {
+            TaskDefinition task = taskManager.getNextTask();
 
             ToolService toolService = new ToolService();
             toolService.tools(List.of(infoTool, fileTool, sbomTool));
@@ -339,6 +335,8 @@ public class AnalyseCmd implements Callable<Integer> {
                     logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
                 }
             }
+
+            taskManager.markTasksAsSuccessful(task.getId());
         }
 
         return 0;
