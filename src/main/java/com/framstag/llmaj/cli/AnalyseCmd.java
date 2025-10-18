@@ -4,12 +4,11 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.framstag.llmaj.AnalysisContext;
 import com.framstag.llmaj.ChatExecutionContext;
 import com.framstag.llmaj.ChatListener;
 import com.framstag.llmaj.json.JsonHelper;
-import com.framstag.llmaj.json.JsonNodeModelWrapper;
+import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
 import com.framstag.llmaj.tools.file.FileTool;
 import com.framstag.llmaj.tools.info.InfoTool;
@@ -34,7 +33,6 @@ import dev.langchain4j.service.tool.ToolServiceResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.StringTemplateResolver;
 import picocli.CommandLine.Command;
@@ -183,8 +181,6 @@ public class AnalyseCmd implements Callable<Integer> {
         logger.info("Workspace:      '{}'", workingDirectory);
         logger.info("<< Parameter");
 
-        Path resultPath = Path.of(workingDirectory).resolve("state.json");
-
         InfoTool infoTool = new InfoTool(context);
         FileTool fileTool = new FileTool(context);
         SBOMTool sbomTool = new SBOMTool(context);
@@ -197,25 +193,9 @@ public class AnalyseCmd implements Callable<Integer> {
         mapper.findAndRegisterModules();
         JsonFactory factory = mapper.getFactory();
 
-        ObjectNode result = mapper.createObjectNode();
-
-        if (resultPath.toFile().exists() && resultPath.toFile().isFile()) {
-            logger.info("Loading result from '{}'",resultPath);
-
-            JsonNode fileContent = JsonHelper.readResult(mapper,resultPath);
-
-            if (fileContent instanceof ObjectNode) {
-                result = (ObjectNode) fileContent;
-            }
-            else {
-                logger.error("Result is not an Json Object, ignore content");
-            }
-        }
+        StateManager stateManager = StateManager.initializeState(Path.of(workingDirectory));
 
         TemplateEngine templateEngine = new TemplateEngine();
-
-        Context templateContext = new Context();
-        templateContext.setVariable("state", new JsonNodeModelWrapper(result));
 
         StringTemplateResolver templateResolver = new StringTemplateResolver();
         templateResolver.setTemplateMode(TemplateMode.TEXT);
@@ -266,21 +246,17 @@ public class AnalyseCmd implements Callable<Integer> {
             JsonNode jsonResponseSchema = mapper.readTree(jsonResponseRawSchema);
 
             if (task.hasLoopOn()) {
-                JsonNode loopPos = result.at(task.getLoopOn());
-
-                if (loopPos.isNull()) {
-                    logger.error("Cannot loop on '{}', target does not exist", task.getLoopOn());
+                if (!stateManager.startLoop(task.getLoopOn())) {
                     continue;
                 }
 
-                if (!loopPos.isArray()) {
-                    logger.error("Cannot loop on '{}', since it is not an array", task.getLoopOn());
-                    continue;
-                }
+                while (stateManager.canLoop()) {
+                    stateManager.loopNext();
 
-                int loopIndex=0;
-                for (JsonNode loop : loopPos) {
-                    logger.info("===>[{}] Task: {} - {}", loopIndex,task.getId(), task.getName());
+                    logger.info("===>[{}] Task: {} - {}",
+                            stateManager.getLoopIndex(),
+                            task.getId(),
+                            task.getName());
 
                     LinkedList<ChatMessage> messages = new LinkedList<>();
                     String systemPrompt;
@@ -288,15 +264,15 @@ public class AnalyseCmd implements Callable<Integer> {
 
                     chatMemory.clear();
 
-                    templateContext.setVariable("loopIndex", loopIndex);
-
                     if (origSystemPrompt != null) {
-                        systemPrompt = templateEngine.process(origSystemPrompt, templateContext);
+                        systemPrompt = templateEngine.process(origSystemPrompt,
+                                stateManager.getTemplateContext());
                         messages.add(SystemMessage.from(systemPrompt));
                     }
 
                     if (origUserPrompt!= null) {
-                        userPrompt = templateEngine.process(origUserPrompt, templateContext);
+                        userPrompt = templateEngine.process(origUserPrompt,
+                                stateManager.getTemplateContext());
                         messages.add(UserMessage.from(userPrompt));
                     }
 
@@ -308,38 +284,41 @@ public class AnalyseCmd implements Callable<Integer> {
                     if (taskResultString != null && !taskResultString.isEmpty()) {
                         try (JsonParser parser = factory.createParser(taskResultString)) {
                             JsonNode taskResultJson = mapper.readTree(parser);
-                            logger.info("===>[{}] {}: {}", loopIndex,JsonHelper.getSchemaName(jsonResponseSchema), taskResultJson.toPrettyString());
+                            logger.info("===>[{}] {}: {}",
+                                    stateManager.getLoopIndex(),
+                                    JsonHelper.getSchemaName(jsonResponseSchema),
+                                    taskResultJson.toPrettyString());
 
-                            ((ObjectNode)loop).set(task.getResponseProperty(), taskResultJson);
-
-                            logger.info("Current result written to '{}'",resultPath);
-                            JsonHelper.writeResult(result, mapper,resultPath);
-
+                            stateManager.updateLoopState(task.getResponseProperty(), taskResultJson);
+                            stateManager.saveState();
                         }
                     } else {
                         logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
                     }
-
-                    loopIndex++;
                 }
-                templateContext.removeVariable("loopIndex");
+
+                stateManager.endLoop();
             }
             else {
                 LinkedList<ChatMessage> messages = new LinkedList<>();
                 String systemPrompt;
                 String userPrompt;
 
-                logger.info("===> Task: {} - {}", task.getId(), task.getName());
+                logger.info("===> Task: {} - {}",
+                        task.getId(),
+                        task.getName());
 
                 chatMemory.clear();
 
                 if (origSystemPrompt != null) {
-                    systemPrompt = templateEngine.process(origSystemPrompt, templateContext);
+                    systemPrompt = templateEngine.process(origSystemPrompt,
+                            stateManager.getTemplateContext());
                     messages.add(SystemMessage.from(systemPrompt));
                 }
 
                 if (origUserPrompt!= null) {
-                    userPrompt = templateEngine.process(origUserPrompt, templateContext);
+                    userPrompt = templateEngine.process(origUserPrompt,
+                            stateManager.getTemplateContext());
                     messages.add(UserMessage.from(userPrompt));
                 }
 
@@ -353,10 +332,8 @@ public class AnalyseCmd implements Callable<Integer> {
                         JsonNode taskResultJson = mapper.readTree(parser);
                         logger.info("===> {}: {}", JsonHelper.getSchemaName(jsonResponseSchema), taskResultJson.toPrettyString());
 
-                        result.set(task.getResponseProperty(), taskResultJson);
-
-                        logger.info("Current result written to '{}'",resultPath);
-                        JsonHelper.writeResult(result, mapper,resultPath);
+                        stateManager.updateState(task.getResponseProperty(), taskResultJson);
+                        stateManager.saveState();
                     }
                 } else {
                     logger.error("No response from chat model, possibly json response was requested but is not supported by model?");

@@ -40,5 +40,7 @@ source code modules by searching for the relevant build system files.
 * * A plain list of submodules in the root directory 
 * * A hierarchical directory and module structure.  
 * Mark the root module in the response. 
+* You must not use the "GetAllFilesInDirRecursively" tool,since this will not perform on larger projects!
+* You must not read individual build files in this stage!
 
 

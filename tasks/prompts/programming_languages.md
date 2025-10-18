@@ -58,3 +58,4 @@ Here is a table that maps each programming languages to a wildcard expression:
 * Do not try to read individual files at this point!
 * Do not use any other tool!
 * You must only return clean JSON content without any prefix or postfix!
+* You must not use the "GetAllFilesInDirRecursively" for the root directory, since this will not perform for larger projects.

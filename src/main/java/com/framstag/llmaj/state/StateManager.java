@@ -1,0 +1,185 @@
+package com.framstag.llmaj.state;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.framstag.llmaj.json.JsonNodeModelWrapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.thymeleaf.context.Context;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Iterator;
+
+public class StateManager {
+    private static final Logger logger = LoggerFactory.getLogger(StateManager.class);
+    private static final ObjectMapper mapper;
+
+    Path               workingDirectory;
+    Context            templateContext;
+    ObjectNode         analysisState;
+    JsonNode           loopPos;
+    Iterator<JsonNode> loopIterator;
+    int                loopIndex;
+    JsonNode           loopValue;
+
+    static {
+        mapper = new ObjectMapper();
+        mapper.findAndRegisterModules();
+    }
+
+    private StateManager(Path workingDirectory,
+                         Context templateContext,
+                         ObjectNode analysisState) {
+        this.workingDirectory = workingDirectory;
+        this.templateContext = templateContext;
+        this.analysisState = analysisState;
+    }
+
+    private static Path getStateFilePath(Path workingDirectory) {
+        return workingDirectory.resolve("state.json");
+    }
+
+    private static JsonNode readStateFromFile(Path path) {
+        try {
+            return StateManager.mapper.readTree(path.toFile());
+        } catch (IOException e) {
+            logger.error("Exception while writing result to file", e);
+        }
+
+        return null;
+    }
+
+    private static void writeStateToFile(JsonNode result, Path path) {
+        try {
+            File file = path.toFile();
+            StateManager.mapper.writerWithDefaultPrettyPrinter().writeValue(file, result);
+        } catch (IOException e) {
+            logger.error("Exception while writing result to file", e);
+        }
+    }
+
+    public static StateManager initializeState(Path workingDirectory) {
+        ObjectNode analysisState = mapper.createObjectNode();
+
+        Path stateFilePath = getStateFilePath(workingDirectory);
+        File stateFile = stateFilePath.toFile();
+
+        if (stateFile.exists() && stateFile.isFile()) {
+            logger.info("Loading current analysis state from '{}'...", stateFilePath);
+
+            JsonNode fileContent = readStateFromFile(stateFilePath);
+
+            if (fileContent instanceof ObjectNode) {
+                analysisState = (ObjectNode) fileContent;
+            } else {
+                logger.error("Analyse state is not an Json Object, ignore content, continue with empty state");
+            }
+        }
+
+        Context templateContext = new Context();
+        templateContext.setVariable("state", new JsonNodeModelWrapper(analysisState));
+
+        return new StateManager(workingDirectory, templateContext, analysisState);
+    }
+
+    public Context getTemplateContext() {
+        return templateContext;
+    }
+
+    public boolean startLoop(String loopOn) {
+        logger.info("Starting loop on '{}'", loopOn);
+
+        if (loopPos != null) {
+            logger.error("Loop already started");
+            return false;
+        }
+
+        loopPos = analysisState.at(loopOn);
+
+        if (loopPos.isNull()) {
+            logger.error("Cannot loop on '{}', target does not exist", loopOn);
+            loopPos = null;
+            return false;
+        }
+
+        if (!loopPos.isArray()) {
+            logger.error("Cannot loop on '{}', since it is not an array", loopOn);
+            loopPos = null;
+            return false;
+        }
+
+        loopIndex = -1;
+        templateContext.setVariable("loopIndex", loopIndex);
+        loopIterator = loopPos.iterator();
+
+        return true;
+    }
+
+    public boolean canLoop() {
+        logger.info("Can loop: {}", loopIterator.hasNext());
+
+        if (loopPos == null) {
+            logger.error("Not in loop");
+            return false;
+        }
+
+        return loopIterator.hasNext();
+    }
+
+    public void loopNext() {
+        if (loopPos == null) {
+            logger.error("Not in loop");
+            return;
+        }
+
+        if (loopValue == null) {
+            loopIndex = 0;
+        }
+        else {
+            loopIndex++;
+        }
+
+        templateContext.setVariable("loopIndex", loopIndex);
+        loopValue = loopIterator.next();
+
+        logger.info("LoopNext: {} {}", loopIndex, loopValue);
+    }
+
+    public int getLoopIndex() {
+        if (loopPos == null) {
+            logger.error("Not in loop");
+            return 0;
+        }
+
+        return loopIndex;
+    }
+
+    public void updateLoopState(String path,JsonNode value) {
+        ((ObjectNode)loopValue).set(path, value);
+    }
+
+    public void endLoop() {
+        if (loopPos == null) {
+            logger.error("Not in loop");
+            return;
+        }
+
+        loopPos = null;
+        loopIterator = null;
+        loopValue = null;
+        templateContext.removeVariable("loopIndex");
+    }
+
+    public void updateState(String path, JsonNode value) {
+        analysisState.set(path, value);
+    }
+
+    public void saveState() {
+        Path stateFilePath=getStateFilePath(workingDirectory);
+        logger.info("Writing current analysis state  to '{}'...",stateFilePath);
+        writeStateToFile(analysisState, stateFilePath);
+    }
+}

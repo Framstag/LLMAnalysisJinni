@@ -20,4 +20,5 @@ A SBOM file could have one of the following names:
 
 * We expect the SBOM to be placed somewhere in the project directory.
 * You can search for possible candidates yourself using the 'GetMatchingFilesInDirRecursively' tool passing all possible wildcards.
+* Do not call the tool "GetAllFilesInDirRecursively", since it will not perform in larger projects.
 * Select the best match, based on directory and file names.
