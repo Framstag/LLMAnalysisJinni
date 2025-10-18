@@ -24,25 +24,6 @@ public class FileTool {
         return absoluteFilePath.startsWith(absoluteRoot);
     }
 
-    /**
-     * Returns the depth of subPath relative to rootPath.
-     * For example:
-     * rootPath = /home/user
-     * subPath  = /home/user/projects/java/app
-     * Result   = 3 (projects -> java -> app)
-     */
-    private int getRelativeDepth(Path rootPath, Path subPath) {
-        // Ensure both paths are absolute and normalized
-        Path normalizedRoot = rootPath.toAbsolutePath().normalize();
-        Path normalizedSub = rootPath.resolve(subPath).toAbsolutePath().normalize();
-
-        if (!normalizedSub.startsWith(normalizedRoot)) {
-            throw new IllegalArgumentException("subPath must be inside rootPath");
-        }
-
-        return normalizedSub.getNameCount()- normalizedRoot.getNameCount();
-    }
-
     public FileTool(AnalysisContext context) {
         this.context = context;
     }
@@ -151,11 +132,11 @@ public class FileTool {
             value =
                     """
                             Returns a list of files in the given sub directory and recursively all of its sub directories
-                            that match one of the given wildcards.
+                            that match one of the list of the given wildcards.
                             """)
     public List<FilesInDirectory> getMatchingFilesInDirRecursively(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only") String path,
                                                                    @P("A list of wildcards to scan for") List<String> wildcards) throws IOException {
-        logger.info("## GetMatchingFilesInDirRecursively('{}')", path, wildcards);
+        logger.info("## GetMatchingFilesInDirRecursively('{}', {})", path, wildcards);
 
         Map<String,Set<String>> result = new HashMap<>();
 
@@ -234,10 +215,6 @@ public class FileTool {
         }
 
         FileVisitor<Path> matcherVisitor = new SimpleFileVisitor<>() {
-            @Override
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                return FileVisitResult.CONTINUE;
-            }
 
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attribs) {
@@ -311,10 +288,6 @@ public class FileTool {
         }
 
         FileVisitor<Path> matcherVisitor = new SimpleFileVisitor<>() {
-            @Override
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                return FileVisitResult.CONTINUE;
-            }
 
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attribs) {
@@ -366,11 +339,6 @@ public class FileTool {
         }
 
         FileVisitor<Path> matcherVisitor = new SimpleFileVisitor<>() {
-            @Override
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                return FileVisitResult.CONTINUE;
-            }
-
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attribs) {
 

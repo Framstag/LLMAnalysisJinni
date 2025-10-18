@@ -86,6 +86,8 @@ public class AnalyseCmd implements Callable<Integer> {
     @Parameters(index = "0",description = "Path to the root directory of the project to analyse")
     String projectRoot;
 
+    @Parameters(index = "1",description = "Path to the working directory where result of analysis is stored")
+    String workingDirectory;
 
     private UserMessage patchUserMessageWithSchema(UserMessage um, JsonNode responseSchema)
     {
@@ -168,7 +170,7 @@ public class AnalyseCmd implements Callable<Integer> {
                 .numCtx(maxToken)
                 .build();
 
-        logger.info("== Parameter");
+        logger.info(">> Parameter");
         logger.info("Model provider: '{}'", model.provider().name());
         logger.info("URL:            '{}'",modelUrl.toString());
         logger.info("Timeout:        {} minute(s)", requestTimeout);
@@ -177,8 +179,11 @@ public class AnalyseCmd implements Callable<Integer> {
         logger.info("Model name:     '{}'", modelName);
         logger.info("Maximum tokens: {}", maxToken);
         logger.info("==");
+        logger.info("Project:        '{}'", projectRoot);
+        logger.info("Workspace:      '{}'", workingDirectory);
+        logger.info("<< Parameter");
 
-        Path resultPath = Path.of("result.json");
+        Path resultPath = Path.of(workingDirectory).resolve("state.json");
 
         InfoTool infoTool = new InfoTool(context);
         FileTool fileTool = new FileTool(context);

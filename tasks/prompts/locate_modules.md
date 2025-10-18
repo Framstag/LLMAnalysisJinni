@@ -1,6 +1,6 @@
 ## Current Goal
 
-Locate the directories representing build modules
+Locate alle directories representing build modules
 
 ## Facts
 
@@ -12,17 +12,20 @@ The following build systems are used:
 * Build System: '[(${buildsystem.name})]', variant: '[(${buildsystem.variant})]'
 [/]
 
-|Build System |Variant     |Wildcard Expression |
-|-------------|------------|--------------------|
-|Maven        |            | "pom.xml"          |
-|Gradle       | Classic    | "*.grade"          |
-|Gradle       | Kotlin DSL | "*gradle.kts"      |
+The following table shows wildcards matching the specific files for the given build systems:
+
+| Build System | Variant    | Wildcard Expression |
+|--------------|------------|---------------------|
+| Maven        |            | "pom.xml"           |
+| Gradle       | Classic    | "*.gradle"          |
+| Gradle       | Kotlin DSL | "*.gradle.kts"      |
 
 ## Solution strategy
 
-* Use the "FileCountPerFileTypeAndDirectory" tool to scan the project directory for
-source code modules by searching for build system files and their location in the directory structure.
-* Build files may be positioned not only in the module root, but in subdirectories. Make sure you still list  
+* Use the "GetMatchingFilesInDirRecursively" tool using the wildcards for the used build tools to scan the project directory for
+source code modules by searching for the relevant build system files.
+* From the location of these files deduct the individual build modules directory root.
+* Build files may be positioned not only in the module root, but optionally also in subdirectories. Make sure you still list  
   the module root directory in this case.
 * Return the list of directories representing a source code module together with an optional name for the module.
 
@@ -30,10 +33,12 @@ source code modules by searching for build system files and their location in th
 
 * Return the directory, where the build files are located, as module path.
 * The name of the module can get extracted from the directory name of the module.
-  In case of the root directory, you should use the project name as module name.
+  In case of the root directory holding build files, you should use the project name as module name.
 * The code may use multiple build systems. In this case return each module directory only once.
-* Module structure may be either a plain list of submodules in the root directory or a common subdirectory 
-  or - less likely -  might use a hierarchical directory structure.  
+* Possible module structures:
+* * A single-module project with a build files only in the project root directory
+* * A plain list of submodules in the root directory 
+* * A hierarchical directory and module structure.  
 * Mark the root module in the response. 
 
 

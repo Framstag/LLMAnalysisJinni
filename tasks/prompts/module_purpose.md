@@ -16,15 +16,17 @@ The following build systems have been identified:
 * Build System: '[(${buildsystem.name})]', variant: '[(${buildsystem.variant})]'
 [/]
 
+The following build modules have been identified:
+
 [# th:each="module : ${state.modules.modules}" th:remove="tag"]
 * Module "[(${module.name})]" in directory "[(${module.path})]"
 [/]
 
-Regarding the now to be analyzed module
+Regarding the now to be analyzed module:
 
-The current module to analyse is named: "[(${state.modules.modules[loopIndex].name})]"
-The path of this build module is: "[(${state.modules.modules[loopIndex].path})]"
-The current module is a root module: [(${state.modules.modules[loopIndex].root})]
+* The current module to analyse is named: "[(${state.modules.modules[loopIndex].name})]"
+* The path of this build module is: "[(${state.modules.modules[loopIndex].path})]"
+* The current module is a root module: [(${state.modules.modules[loopIndex].root})]
 
 The following programming languages have been identified for this module:
 
@@ -45,11 +47,11 @@ Here is a table that maps each programming languages to a wildcard expression:
 
 The following table shows wildcards matching specific files for the given build system:
 
-|Build System |Variant     |Wildcard Expression |
-|-------------|------------|--------------------|
-|Maven        |            | "pom.xml"          |
-|Gradle       | Classic    | "*.grade"          |
-|Gradle       | Kotlin DSL | "*gradle.kts"      |
+| Build System | Variant    | Wildcard Expression |
+|--------------|------------|---------------------|
+| Maven        |            | "pom.xml"           |
+| Gradle       | Classic    | "*.gradle"          |
+| Gradle       | Kotlin DSL | "*gradle.kts"       |
 
 Depending on the build system the following source directories can be expected:
 
@@ -62,8 +64,9 @@ Depending on the build system the following source directories can be expected:
 ## Solution strategy
 
 * If there are multiple modules and the current module path is the root module, assume that it does not have sources and do not look for programming languages and respond without gathering these information.
+* If this is the root module and it is the only module of the project, scan the build module directory root for files typical for a programming language.
 * If it is not the root module, scan the build module directory root for files typical for a programming language.
-* Use the "GetAllFilesInDirRecursively" Tool to scan the module directory. 
+* Use the "GetMatchingFilesInDirRecursively" Tool to scan the module directory. 
 * Call it either for the source directory, if defined by the build system, or for module directory, if not.
 * Analyse the purpose of the module based on the file names and their structure.
 * Return the purpose of the module.
