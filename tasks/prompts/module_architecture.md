@@ -38,6 +38,33 @@ The following programming languages have been identified for this module:
 * Programming language "[(${language.name})]"
 [/]
 
+Here is a table that maps each programming languages to a wildcard expression:
+
+| Programming language | Wildcard Expression |
+|----------------------|---------------------|
+| Java                 | *.java              |
+| Kotlin               | *.kt                |
+| Javascript           | *.js                |
+| Typescript           | *.ts                |
+| C++                  | *.(h|hpp|cpp|cc)    |
+| Gradle Kotlin DSL    | *.kts               |
+
+The following table shows wildcards matching specific files for the given build system:
+
+| Build System | Variant    | Wildcard Expression |
+|--------------|------------|---------------------|
+| Maven        |            | "pom.xml"           |
+| Gradle       | Classic    | "*.gradle"          |
+| Gradle       | Kotlin DSL | "*gradle.kts"       |
+
+Depending on the build system the following source directories can be expected:
+
+|Build System |Variant     | Source-Directories |
+|-------------|------------|--------------------|
+|Maven        |            | src                |
+|Gradle       | Classic    | src                |
+|Gradle       | Kotlin DSL | src                |
+
 ## Solution strategy
 
 * If there are multiple modules and the current module path is the root module, assume that it does not have sources and respond without gathering these information.

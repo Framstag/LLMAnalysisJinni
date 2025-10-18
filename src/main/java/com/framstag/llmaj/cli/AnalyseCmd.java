@@ -17,6 +17,7 @@ import com.framstag.llmaj.tools.sbom.SBOMTool;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.invocation.InvocationContext;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
@@ -28,7 +29,9 @@ import dev.langchain4j.model.chat.request.json.JsonRawSchema;
 import dev.langchain4j.model.chat.request.json.JsonSchema;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.ollama.OllamaChatModel;
+import dev.langchain4j.observability.api.DefaultAiServiceListenerRegistrar;
 import dev.langchain4j.service.output.ServiceOutputParser;
+import dev.langchain4j.service.tool.ToolExecutor;
 import dev.langchain4j.service.tool.ToolService;
 import dev.langchain4j.service.tool.ToolServiceResult;
 import org.slf4j.Logger;
@@ -44,6 +47,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -71,7 +75,7 @@ public class AnalyseCmd implements Callable<Integer> {
     boolean logResponse = false;
 
     @Option(names={"-o","--executeOnly"}, arity = "1..*", description = "A list of task ids, that should only be executed")
-    Set<String> executeOnly;
+    Set<String> executeOnly = new HashSet<>();
 
     @Option(names={"--chatWindowsSize"}, arity = "1", defaultValue="50", description = "The number of messages to memorize between prompts")
     int chatWindowSize;
@@ -136,15 +140,18 @@ public class AnalyseCmd implements Callable<Integer> {
 
         ChatResponse initialResponse = executionContext.getChatModel().chat(request);
 
+        InvocationContext invocationContext = InvocationContext.builder().build();
+
         ToolServiceResult toolResult =
                 executionContext.getToolService().executeInferenceAndToolsLoop(initialResponse,
                         request.parameters(),
                         executionContext.getMemory().messages(),
                         executionContext.getChatModel(),
                         executionContext.getMemory(),
-                        null,
+                        invocationContext,
                         executionContext.getToolService().toolExecutors(),
-                        true);
+                        true,
+                        new DefaultAiServiceListenerRegistrar());
 
         ChatResponse finalResponse = toolResult.finalResponse();
 
@@ -195,7 +202,9 @@ public class AnalyseCmd implements Callable<Integer> {
         mapper.findAndRegisterModules();
         JsonFactory factory = mapper.getFactory();
 
-        TaskManager taskManager = TaskManager.initializeTasks(Path.of(analysisDirectory),executeOnly);
+        TaskManager taskManager = TaskManager.initializeTasks(Path.of(analysisDirectory),
+                Path.of(workingDirectory),
+                executeOnly);
         StateManager stateManager = StateManager.initializeState(Path.of(workingDirectory));
 
         TemplateEngine templateEngine = new TemplateEngine();
@@ -336,7 +345,7 @@ public class AnalyseCmd implements Callable<Integer> {
                 }
             }
 
-            taskManager.markTasksAsSuccessful(task.getId());
+            taskManager.markTaskAsSuccessful(task.getId());
         }
 
         return 0;

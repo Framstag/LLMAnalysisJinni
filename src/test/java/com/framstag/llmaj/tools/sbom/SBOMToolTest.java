@@ -11,13 +11,14 @@ import com.framstag.llmaj.AnalysisContext;
 
 public class SBOMToolTest {
     private static final List<String> CURRENT_DEPENDENCIES = List.of(
-        "pkg:maven/ch.qos.logback/logback-classic@1.5.18?type=jar",
+        "pkg:maven/ch.qos.logback/logback-classic@1.5.19?type=jar",
         "pkg:maven/com.fasterxml.jackson.dataformat/jackson-dataformat-yaml@2.19.2?type=jar",
         "pkg:maven/com.fasterxml.jackson.datatype/jackson-datatype-jdk8@2.19.2?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-ollama@1.3.0?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j@1.3.0?type=jar",
+        "pkg:maven/com.fasterxml.jackson.datatype/jackson-datatype-jsr310@2.19.2?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j-ollama@1.7.1?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j@1.7.1?type=jar",
         "pkg:maven/info.picocli/picocli@4.7.7?type=jar",
-        "pkg:maven/org.cyclonedx/cyclonedx-core-java@10.2.1?type=jar",
+        "pkg:maven/org.cyclonedx/cyclonedx-core-java@11.0.0?type=jar",
         "pkg:maven/org.thymeleaf/thymeleaf@3.1.3.RELEASE?type=jar"
     );
 

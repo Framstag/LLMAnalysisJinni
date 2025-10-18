@@ -1,10 +1,16 @@
 ## Current Goal
 
 Now that we have a list of technologies used based on the list of dependencies
-try to description the used technology stack in relation to common technology stacks.
+try to describe the used technology stack in relation to common technology stacks.
+
+## Facts
+
+The path of the SBOM file is '[(${state.sbom.path})]'.
 
 ## Solution strategy
 
+* Check, if the SBOM ist already loaded.
+* If not, load it from the given file.
 * Get the list of dependencies from the loaded SBOM
 * Based on the list of dependencies identify the used the technology stack.
 

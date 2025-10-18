@@ -72,9 +72,9 @@ public class TaskDefinition {
     }
 
     public static List<TaskDefinition> loadTasks(Path path) throws IOException {
-
         YAMLFactory yamlFactory = new YAMLFactory();
         ObjectMapper mapper = new ObjectMapper(yamlFactory);
+        mapper.findAndRegisterModules();
 
         YAMLParser parser = yamlFactory.createParser(path.toFile());
         return mapper.readValues(parser,new TypeReference<TaskDefinition>(){}).readAll();

@@ -1,23 +1,42 @@
 package com.framstag.llmaj.tasks;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.framstag.llmaj.state.StateManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Set;
+import java.time.ZonedDateTime;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class TaskManager {
     private static final Logger logger = LoggerFactory.getLogger(TaskManager.class);
+    private static final ObjectMapper mapper;
 
+    private final Path workingDirectory;
     private final List<TaskDefinition> allTasks;
     private final Set<String> pendingTaskIds;
+    private final Map<String,TaskState> taskStateMap;
 
-    private TaskManager(List<TaskDefinition> allTasks,
+    static {
+        mapper = JsonMapper.builder()
+                .findAndAddModules()
+                .build();
+    }
+
+    private TaskManager(Path workingDirectory,
+                        List<TaskDefinition> allTasks,
+                        Map<String,TaskState> taskStateMap,
                         Set<String> pendingTaskIds) {
+        this.workingDirectory = workingDirectory;
         this.allTasks =allTasks;
+        this.taskStateMap = taskStateMap;
         this.pendingTaskIds = pendingTaskIds;
     }
 
@@ -30,6 +49,24 @@ public class TaskManager {
         }
         else {
             return " ";
+        }
+    }
+
+    private static Path getStateFilePath(Path workingDirectory) {
+        return workingDirectory.resolve("state.json");
+    }
+
+    private void saveState() {
+        Path stateFilePath=getStateFilePath(workingDirectory);
+        File stateFile = stateFilePath.toFile();
+
+        logger.info("Writing current execution state  to '{}'...",stateFilePath);
+
+        try {
+            TaskState[] taskStates = taskStateMap.values().toArray(TaskState[]::new);
+            mapper.writerWithDefaultPrettyPrinter().writeValue(stateFile, taskStates);
+        } catch (IOException e) {
+            logger.error("Exception while writing result to file", e);
         }
     }
 
@@ -55,21 +92,46 @@ public class TaskManager {
         return null;
     }
 
-    public void markTasksAsSuccessful(String taskId) {
+    public void markTaskAsSuccessful(String taskId) {
         if (!pendingTaskIds.contains(taskId)) {
             logger.error("Trying to mark task with id {} as finished, though it is not pending!", taskId);
             return;
         }
 
         pendingTaskIds.remove(taskId);
+
+        taskStateMap.put(taskId,
+                new TaskState(taskId,
+                        ZonedDateTime.now(),
+                        true));
+
+        saveState();
     }
 
-    public static TaskManager initializeTasks(Path analyseDirectory, Set<String> executeOnly) throws IOException {
-        Path taskFile = analyseDirectory.resolve("tasks.yaml");
+    public void markTaskAsFailed(String taskId) {
+        if (!pendingTaskIds.contains(taskId)) {
+            logger.error("Trying to mark task with id {} as finished, though it is not pending!", taskId);
+            return;
+        }
 
-        List<TaskDefinition> allTasks = TaskDefinition.loadTasks(taskFile).stream()
-                .filter(TaskDefinition::isActive)
-                .toList();
+        pendingTaskIds.remove(taskId);
+
+        taskStateMap.put(taskId,
+                new TaskState(taskId,
+                        ZonedDateTime.now(),
+                        false));
+
+        saveState();
+    }
+
+    public static TaskManager initializeTasks(Path analyseDirectory,
+                                              Path workingDirectory,
+                                              Set<String> executeOnly) throws IOException {
+        Path taskFilePath = analyseDirectory.resolve("tasks.yaml");
+        Path stateFilePath = workingDirectory.resolve("state.json");
+        File stateFile = stateFilePath.toFile();
+
+        List<TaskDefinition> allTasks = TaskDefinition.loadTasks(taskFilePath);
 
         for (TaskDefinition task : allTasks) {
             if (executeOnly.contains(task.getId())&& !task.isActive()) {
@@ -94,6 +156,24 @@ public class TaskManager {
                     .collect(Collectors.toSet());
         }
 
-        return new TaskManager(allTasks, pendingTaskIds);
+        Map<String,TaskState> taskStateMap;
+        if (stateFile.exists() && stateFile.isFile()) {
+            taskStateMap = Arrays.stream(TaskState.loadTaskState(stateFilePath))
+                    .collect(Collectors.toMap(TaskState::taskId, Function.identity()));
+        }
+        else {
+            taskStateMap = new HashMap<>();
+        }
+
+        taskStateMap.forEach((taskId, state) -> {
+            if (state.success()) {
+                pendingTaskIds.remove(taskId);
+            }
+        });
+
+        return new TaskManager(workingDirectory,
+                allTasks,
+                taskStateMap,
+                pendingTaskIds);
     }
 }
