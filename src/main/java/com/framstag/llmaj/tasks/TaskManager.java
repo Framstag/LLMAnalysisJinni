@@ -1,9 +1,7 @@
 package com.framstag.llmaj.tasks;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.framstag.llmaj.state.StateManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
