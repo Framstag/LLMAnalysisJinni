@@ -38,6 +38,110 @@ public class TaskManager {
         this.pendingTaskIds = pendingTaskIds;
     }
 
+    private static void markDependentTasks(TaskDefinition task,
+                                           Map<String, List<TaskDefinition>> taskListMap,
+                                           Set<TaskDefinition> markedTask) {
+        for (String tag : task.getDependsOn()) {
+            for (TaskDefinition dependentTask : taskListMap.get(tag)) {
+                if (!markedTask.contains(dependentTask)) {
+                    markedTask.add(dependentTask);
+                    markDependentTasks(dependentTask, taskListMap, markedTask);
+                }
+            }
+        }
+    }
+
+    private static boolean validateRequiredFields(List<TaskDefinition> tasks) {
+        boolean errorsFound = false;
+
+        for (TaskDefinition task : tasks) {
+            if (!task.hasSystemPrompt() && !task.hasPrompt()) {
+                logger.error("Task '{}' has neither system prompt nor normal prompt!", task.getId());
+
+                errorsFound = true;
+            }
+
+            if (!task.hasResponseFormat()) {
+                logger.error("Task '{}' has no response format defined!", task.getId());
+
+                errorsFound = true;
+            }
+        }
+
+        return !errorsFound;
+    }
+
+    private static boolean validateDependsOn(List<TaskDefinition> tasks) {
+        boolean errorsFound = false;
+
+        // Collect all tags
+        Set<String> allTags = tasks.stream()
+                .map(TaskDefinition::getTags)
+                .flatMap(Collection::stream)
+                .collect(Collectors.toSet());
+
+        // Check dependsOn only references existing tags
+        for  (TaskDefinition task : tasks) {
+            for (String tag : task.getDependsOn()) {
+                if (!allTags.contains(tag)) {
+                    logger.error("Task '{}' depends on Tag '{}', which is not defined by any task",
+                            task.getId(),
+                            tag);
+                    errorsFound = true;
+                }
+            }
+        }
+
+        return !errorsFound;
+    }
+
+    private static boolean validateExecuteVsActive(List<TaskDefinition> tasks,Set<String> executeOnly) {
+        boolean errorsFound = false;
+
+        for (TaskDefinition task : tasks) {
+            if (executeOnly.contains(task.getId()) && !task.isActive()) {
+                logger.warn("Task '{}' was marked for execution, but is not active => ignoring execution",
+                        task.getId());
+
+                errorsFound = true;
+            }
+        }
+
+        return !errorsFound;
+    }
+
+    private static boolean validateNoDependencyCycles(List<TaskDefinition> tasks) {
+        boolean errorsFound = false;
+
+        // Build a map of tags to tasks
+        Map<String,List<TaskDefinition>> taskListMap = new HashMap<>();
+
+        for (TaskDefinition task : tasks) {
+            for (String tag : task.getTags()) {
+                if (!taskListMap.containsKey(tag)) {
+                    taskListMap.put(tag, new LinkedList<>());
+                }
+
+                taskListMap.get(tag).add(task);
+            }
+        }
+
+        // See if we can mark all tasks
+        for (TaskDefinition task : tasks) {
+            Set<TaskDefinition> markedTasks = new HashSet<>();
+
+            markDependentTasks(task,taskListMap,markedTasks);
+
+            if (markedTasks.contains(task)) {
+                logger.error("The task '{}' starts a dependency cycle", task.getId());
+
+                errorsFound = true;
+            }
+        }
+
+        return !errorsFound;
+    }
+
     private String getTaskStatus(TaskDefinition task, boolean pending) {
         if (!task.isActive()) {
             return "/";
@@ -131,23 +235,13 @@ public class TaskManager {
 
         List<TaskDefinition> allTasks = TaskDefinition.loadTasks(taskFilePath);
 
-        for (TaskDefinition task : allTasks) {
-            if (executeOnly.contains(task.getId())&& !task.isActive()) {
-                logger.warn("Task '{}' was marked for execution, but is not active => ignoring execution",
-                        task.getId());
-            }
+        if (!validateRequiredFields(allTasks) ||
+            !validateDependsOn(allTasks) ||
+            !validateExecuteVsActive(allTasks,executeOnly) ||
+            !validateNoDependencyCycles(allTasks)) {
+            logger.error("There were errors in the task definitions");
 
-            if (!task.hasSystemPrompt() && !task.hasPrompt()) {
-                logger.error("Task '{}' has neither system prompt nor normal prompt!", task.getId());
-
-                return null;
-            }
-
-            if (!task.hasResponseFormat()) {
-                logger.error("Task '{}' has no response format defined!", task.getId());
-
-                return null;
-            }
+            return null;
         }
 
         Set<String> pendingTaskIds;
