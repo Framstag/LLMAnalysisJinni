@@ -39,12 +39,24 @@ public class TaskDefinition {
         return systemPrompt;
     }
 
+    public boolean hasSystemPrompt() {
+        return systemPrompt != null && !systemPrompt.toString().isEmpty();
+    }
+
     public Path getPrompt() {
         return prompt;
     }
 
+    public boolean hasPrompt() {
+        return prompt != null && !prompt.toString().isEmpty();
+    }
+
     public Path getResponseFormat() {
         return responseFormat;
+    }
+
+    public boolean hasResponseFormat() {
+        return responseFormat != null && !responseFormat.toString().isEmpty();
     }
 
     public String getResponseProperty() {

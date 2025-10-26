@@ -38,11 +38,11 @@ mvn verify
 A typical call would be:
 
 ```
-analyse --modelUrl http://<ollama-url> --model "gpt-oss:20b" ../<project to analyze>
+analyse --modelUrl http://<ollama-url> --model "gpt-oss:20b" <project to analyze> <task directory> <workspace directory>
 ```
 
 In this case all active tasks in the configuration file are
-call one after another and a result.json is created in the 
-current directory.
+call one after another and an `analysis.json` (containing the analysis result) and a `state.json` (containing tasks execution information) is created in the 
+workspace directory.
 
 The given LLM is used by calling the given ollama instance.

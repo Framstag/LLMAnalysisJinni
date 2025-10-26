@@ -236,16 +236,6 @@ public class AnalyseCmd implements Callable<Integer> {
                 origUserPrompt = Files.readString(task.getPrompt());
             }
 
-            if (origSystemPrompt == null && origUserPrompt == null) {
-                logger.error("Task {} has no prompts, skipping", task.getId());
-                continue;
-            }
-
-            if (task.getResponseFormat() == null) {
-                logger.error("Task {} has no response format, skipping", task.getId());
-                continue;
-            }
-
             String jsonResponseRawSchema = Files.readString(task.getResponseFormat());
             JsonNode jsonResponseSchema = mapper.readTree(jsonResponseRawSchema);
 

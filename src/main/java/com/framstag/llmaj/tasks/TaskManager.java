@@ -136,6 +136,18 @@ public class TaskManager {
                 logger.warn("Task '{}' was marked for execution, but is not active => ignoring execution",
                         task.getId());
             }
+
+            if (!task.hasSystemPrompt() && !task.hasPrompt()) {
+                logger.error("Task '{}' has neither system prompt nor normal prompt!", task.getId());
+
+                return null;
+            }
+
+            if (!task.hasResponseFormat()) {
+                logger.error("Task '{}' has no response format defined!", task.getId());
+
+                return null;
+            }
         }
 
         Set<String> pendingTaskIds;
