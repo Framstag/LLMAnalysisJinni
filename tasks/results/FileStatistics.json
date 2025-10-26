@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FileStatistics",
+  "description": "Some basic file statistics for a module and its programming languages",
+  "type": "object",
+  "properties": {
+    "fileStatistics": {
+      "type": "array",
+      "description": "Some basic file statistics",
+      "items": {
+        "type": "object",
+        "title": "FileStatisticsPerProgrammingLanguage",
+        "description": "Some file based statistic per programming language",
+        "properties": {
+          "reasoning": {
+            "type": "string",
+            "description": "Description of the reasoning that lead to the given finding"
+          },
+          "programmingLanguage": {
+            "type": "string",
+            "description": "The name of the programming language"
+          },
+          "wildcard": {
+            "type": "string",
+            "description": "The wildcard used"
+          },
+          "fileCount": {
+            "type": "integer",
+            "description": "The number of files of this programming language found"
+          },
+          "lineCount": {
+            "type": "integer",
+            "description": "The number of lines over all files of this programming language"
+          }
+        }
+      }
+    }
+  }
+}

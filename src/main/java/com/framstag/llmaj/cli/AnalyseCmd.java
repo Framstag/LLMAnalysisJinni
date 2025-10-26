@@ -12,6 +12,7 @@ import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
 import com.framstag.llmaj.tasks.TaskManager;
 import com.framstag.llmaj.tools.file.FileTool;
+import com.framstag.llmaj.tools.filestatistics.FileStatisticsTool;
 import com.framstag.llmaj.tools.info.InfoTool;
 import com.framstag.llmaj.tools.sbom.SBOMTool;
 import dev.langchain4j.data.message.ChatMessage;
@@ -192,6 +193,8 @@ public class AnalyseCmd implements Callable<Integer> {
         InfoTool infoTool = new InfoTool(context);
         FileTool fileTool = new FileTool(context);
         SBOMTool sbomTool = new SBOMTool(context);
+        FileStatisticsTool fileStatisticsTool = new FileStatisticsTool(context);
+        List<Object> toolList = List.of(infoTool, fileTool, sbomTool,fileStatisticsTool);
 
         ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(chatWindowSize);
 
@@ -220,7 +223,7 @@ public class AnalyseCmd implements Callable<Integer> {
             TaskDefinition task = taskManager.getNextTask();
 
             ToolService toolService = new ToolService();
-            toolService.tools(List.of(infoTool, fileTool, sbomTool));
+            toolService.tools(toolList);
 
             ChatExecutionContext execContext =
                     new ChatExecutionContext(model, chatMemory, toolService, outputParser);

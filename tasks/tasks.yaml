@@ -59,6 +59,10 @@ prompt: tasks/prompts/module_purpose.md
 responseFormat: tasks/results/ModulePurpose.json
 responseProperty: purpose
 active: true
+dependsOn:
+  - buildsystems
+  - modules
+  - programming_language
 tags:
   - module_description
 loopOn: /modules/modules
@@ -69,6 +73,11 @@ prompt: tasks/prompts/module_architecture.md
 responseFormat: tasks/results/ModuleArchitecture.json
 responseProperty: architecture
 active: true
+dependsOn:
+  - buildsystems
+  - modules
+  - programming_language
+  - module_description
 tags:
   - module_architecture
 loopOn: /modules/modules
@@ -120,3 +129,16 @@ dependsOn:
   - sbom
 tags:
   - license_evaluation
+---
+id: FileStatistics
+name: Collect some statics of some file types
+prompt: tasks/prompts/file_statistics.md
+responseFormat: tasks/results/FileStatistics.json
+responseProperty: fileStatisticsPerProgrammingLanguage
+dependsOn:
+  - buildsystems
+  - modules
+  - programming_language
+tags:
+  - file_statistics
+loopOn: /modules/modules

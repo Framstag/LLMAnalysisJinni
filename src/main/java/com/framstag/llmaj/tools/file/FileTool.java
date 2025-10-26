@@ -1,28 +1,35 @@
 package com.framstag.llmaj.tools.file;
 
 import com.framstag.llmaj.AnalysisContext;
+import com.framstag.llmaj.file.FileHelper;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.PathMatcher;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class FileTool {
     private static final Logger logger = LoggerFactory.getLogger(FileTool.class);
 
     private final AnalysisContext context;
-
-    private boolean accessAllowed(Path root, Path path) {
-        Path absoluteRoot = root.toAbsolutePath().normalize();
-        Path absoluteFilePath = root.resolve(path).toAbsolutePath().normalize();
-
-        return absoluteFilePath.startsWith(absoluteRoot);
-    }
 
     public FileTool(AnalysisContext context) {
         this.context = context;
@@ -44,7 +51,7 @@ public class FileTool {
 
         Path startPath = rootPath.resolve(relativePath);
 
-        if (!accessAllowed(rootPath, startPath)) {
+        if (!FileHelper.accessAllowed(rootPath, startPath)) {
             logger.error("Not allowed to access '{}' ('{}' '{}')", path,rootPath,relativePath);
             return result;
         }
@@ -95,7 +102,7 @@ public class FileTool {
 
         Path startPath = rootPath.resolve(relativePath);
 
-        if (!accessAllowed(rootPath, startPath)) {
+        if (!FileHelper.accessAllowed(rootPath, startPath)) {
             logger.error("Not allowed to access '{}' ('{}' '{}')", path,rootPath,relativePath);
             return Collections.emptyList();
         }
@@ -145,7 +152,7 @@ public class FileTool {
 
         Path startPath = rootPath.resolve(relativePath);
 
-        if (!accessAllowed(rootPath, startPath)) {
+        if (!FileHelper.accessAllowed(rootPath, startPath)) {
             logger.error("Not allowed to access '{}' ('{}' '{}')", path,rootPath,relativePath);
             return Collections.emptyList();
         }
@@ -209,7 +216,7 @@ public class FileTool {
 
         Path startPath = rootPath.resolve(relativePath);
 
-        if (!accessAllowed(rootPath, startPath)) {
+        if (!FileHelper.accessAllowed(rootPath, startPath)) {
             logger.error("Not allowed to access '{}' ('{}' '{}')", path,rootPath,relativePath);
             return matchingFilesCount.get();
         }
@@ -253,7 +260,7 @@ public class FileTool {
 
         String result;
 
-        if (!accessAllowed(root, filePath)) {
+        if (!FileHelper.accessAllowed(root, filePath)) {
             result = "ERROR";
         } else if (filePath.toFile().exists()) {
             result = "true";
@@ -282,7 +289,7 @@ public class FileTool {
 
         Path startPath = rootPath.resolve(relativePath);
 
-        if (!accessAllowed(rootPath, startPath)) {
+        if (!FileHelper.accessAllowed(rootPath, startPath)) {
             logger.error("Not allowed to access '{}' ('{}' '{}')", path,rootPath,relativePath);
             return Collections.emptyList();
         }
@@ -333,7 +340,7 @@ public class FileTool {
 
         Path startPath = rootPath.resolve(relativePath);
 
-        if (!accessAllowed(rootPath, startPath)) {
+        if (!FileHelper.accessAllowed(rootPath, startPath)) {
             logger.error("Not allowed to access '{}' ('{}' '{}')", path,rootPath,relativePath);
             return Collections.emptyList();
         }
@@ -379,7 +386,7 @@ public class FileTool {
         Path root = Path.of(context.getProjectRoot());
         Path filePath = Path.of(file);
 
-        if (!accessAllowed(root, filePath)) {
+        if (!FileHelper.accessAllowed(root, filePath)) {
             return "ERROR";
         }
 
