@@ -20,6 +20,9 @@ public class TaskManager {
     private final Path workingDirectory;
     private final List<TaskDefinition> allTasks;
     private final Set<String> pendingTaskIds;
+    private final Set<String> successfullyProcessedTaskIds;
+    private final Set<String> scheduledTags;
+
     private final Map<String,TaskState> taskStateMap;
 
     static {
@@ -31,11 +34,15 @@ public class TaskManager {
     private TaskManager(Path workingDirectory,
                         List<TaskDefinition> allTasks,
                         Map<String,TaskState> taskStateMap,
-                        Set<String> pendingTaskIds) {
+                        Set<String> pendingTaskIds,
+                        Set<String> successfullyProcessedTaskIds,
+                        Set<String> scheduledTags) {
         this.workingDirectory = workingDirectory;
         this.allTasks =allTasks;
         this.taskStateMap = taskStateMap;
         this.pendingTaskIds = pendingTaskIds;
+        this.successfullyProcessedTaskIds = successfullyProcessedTaskIds;
+        this.scheduledTags= scheduledTags;
     }
 
     private static void markDependentTasks(TaskDefinition task,
@@ -142,15 +149,18 @@ public class TaskManager {
         return !errorsFound;
     }
 
-    private String getTaskStatus(TaskDefinition task, boolean pending) {
+    private String getTaskStatus(TaskDefinition task, boolean pending, boolean successful) {
         if (!task.isActive()) {
             return "/";
         }
-        else if (pending) {
+        else if (successful) {
             return "x";
         }
-        else {
+        else if (pending) {
             return " ";
+        }
+        else {
+            return "-";
         }
     }
 
@@ -172,21 +182,22 @@ public class TaskManager {
         }
     }
 
-    public void dump() {
-        for (TaskDefinition task : this.allTasks) {
-            logger.info("Task: [{}] {}",
-                    getTaskStatus(task, pendingTaskIds.contains(task.getId())),
-                    task);
-        }
-    }
+    private TaskDefinition calculateNextTask() {
+        List<TaskDefinition> toBeScheduledTasks = allTasks.stream()
+                .filter(task -> pendingTaskIds.contains(task.getId()))
+                .toList();
 
-    public boolean hasPendingTasks() {
-        return !pendingTaskIds.isEmpty();
-    }
+        for (TaskDefinition task : toBeScheduledTasks) {
+            boolean scheduled = true;
 
-    public TaskDefinition getNextTask() {
-        for (TaskDefinition task : this.allTasks) {
-            if (pendingTaskIds.contains(task.getId())) {
+            for (String dependsOn : task.getDependsOn()) {
+                if (!scheduledTags.contains(dependsOn)) {
+                    scheduled = false;
+                    break;
+                }
+            }
+
+            if (scheduled) {
                 return task;
             }
         }
@@ -194,13 +205,36 @@ public class TaskManager {
         return null;
     }
 
-    public void markTaskAsSuccessful(String taskId) {
+    public void dump() {
+        for (TaskDefinition task : this.allTasks) {
+            logger.info("Task: [{}] {}",
+                    getTaskStatus(task,
+                            pendingTaskIds.contains(task.getId()),
+                            successfullyProcessedTaskIds.contains(task.getId())),
+                    task);
+        }
+    }
+
+    public boolean hasPendingTasks() {
+        return calculateNextTask() != null;
+    }
+
+    public TaskDefinition getNextTask() {
+        return calculateNextTask();
+    }
+
+    public void markTaskAsSuccessful(TaskDefinition task) {
+        String taskId = task.getId();
+
         if (!pendingTaskIds.contains(taskId)) {
-            logger.error("Trying to mark task with id {} as finished, though it is not pending!", taskId);
+            logger.error("Trying to mark task with id {} as finished, though it is not pending!",
+                    taskId);
             return;
         }
 
         pendingTaskIds.remove(taskId);
+        successfullyProcessedTaskIds.add(taskId);
+        scheduledTags.addAll(task.getTags());
 
         taskStateMap.put(taskId,
                 new TaskState(taskId,
@@ -210,7 +244,9 @@ public class TaskManager {
         saveState();
     }
 
-    public void markTaskAsFailed(String taskId) {
+    public void markTaskAsFailed(TaskDefinition task) {
+        String taskId = task.getId();
+
         if (!pendingTaskIds.contains(taskId)) {
             logger.error("Trying to mark task with id {} as finished, though it is not pending!", taskId);
             return;
@@ -244,6 +280,10 @@ public class TaskManager {
             return null;
         }
 
+        Map<String, TaskDefinition> taskByIdMap = new HashMap<>();
+
+        allTasks.forEach(task -> taskByIdMap.put(task.getId(), task));
+
         Set<String> pendingTaskIds;
 
         if (executeOnly != null && !executeOnly.isEmpty()) {
@@ -261,6 +301,7 @@ public class TaskManager {
         }
 
         Map<String,TaskState> taskStateMap;
+
         if (stateFile.exists() && stateFile.isFile()) {
             taskStateMap = Arrays.stream(TaskState.loadTaskState(stateFilePath))
                     .collect(Collectors.toMap(TaskState::taskId, Function.identity()));
@@ -269,15 +310,28 @@ public class TaskManager {
             taskStateMap = new HashMap<>();
         }
 
+        Set<String> successfullyProcessedTaskIds = new HashSet<>();
+
         taskStateMap.forEach((taskId, state) -> {
             if (state.success()) {
                 pendingTaskIds.remove(taskId);
+                successfullyProcessedTaskIds.add(taskId);
+            }
+        });
+
+        Set<String> scheduledTags = new HashSet<>();
+
+        taskStateMap.forEach((taskId, state) -> {
+            if (state.success()) {
+                scheduledTags.addAll(taskByIdMap.get(taskId).getTags());
             }
         });
 
         return new TaskManager(workingDirectory,
                 allTasks,
                 taskStateMap,
-                pendingTaskIds);
+                pendingTaskIds,
+                successfullyProcessedTaskIds,
+                scheduledTags);
     }
 }

@@ -337,7 +337,7 @@ public class AnalyseCmd implements Callable<Integer> {
                 }
             }
 
-            taskManager.markTaskAsSuccessful(task.getId());
+            taskManager.markTaskAsSuccessful(task);
         }
 
         return 0;
