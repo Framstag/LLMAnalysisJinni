@@ -6,6 +6,8 @@ import picocli.CommandLine.Command;
 @Command(name = "LLMAnalysisJinni",
         subcommands = {
                 AnalyseCmd.class,
+                StateCmd.class,
+                StateClearCmd.class,
                 CommandLine.HelpCommand.class
         },
         mixinStandardHelpOptions = true)

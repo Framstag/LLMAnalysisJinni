@@ -11,6 +11,7 @@ import com.framstag.llmaj.json.JsonHelper;
 import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
 import com.framstag.llmaj.tasks.TaskManager;
+import com.framstag.llmaj.templating.RawFileResolver;
 import com.framstag.llmaj.tools.file.FileTool;
 import com.framstag.llmaj.tools.filestatistics.FileStatisticsTool;
 import com.framstag.llmaj.tools.info.InfoTool;
@@ -34,10 +35,13 @@ import dev.langchain4j.observability.api.DefaultAiServiceListenerRegistrar;
 import dev.langchain4j.service.output.ServiceOutputParser;
 import dev.langchain4j.service.tool.ToolService;
 import dev.langchain4j.service.tool.ToolServiceResult;
+import org.apache.commons.codec.CharEncoding;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.dialect.IDialect;
 import org.thymeleaf.templatemode.TemplateMode;
+import org.thymeleaf.templateresolver.FileTemplateResolver;
 import org.thymeleaf.templateresolver.StringTemplateResolver;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -46,6 +50,7 @@ import picocli.CommandLine.Parameters;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -211,11 +216,12 @@ public class AnalyseCmd implements Callable<Integer> {
 
         TemplateEngine templateEngine = new TemplateEngine();
 
+        templateEngine.addTemplateResolver(new RawFileResolver(Path.of(analysisDirectory)));
+
         StringTemplateResolver templateResolver = new StringTemplateResolver();
         templateResolver.setTemplateMode(TemplateMode.TEXT);
         templateResolver.setCacheable(false);
-
-        templateEngine.setTemplateResolver(templateResolver);
+        templateEngine.addTemplateResolver(templateResolver);
 
         taskManager.dump();
 

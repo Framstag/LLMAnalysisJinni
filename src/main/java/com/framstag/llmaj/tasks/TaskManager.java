@@ -16,6 +16,8 @@ import java.util.stream.Collectors;
 public class TaskManager {
     private static final Logger logger = LoggerFactory.getLogger(TaskManager.class);
     private static final ObjectMapper mapper;
+    public static final String STATE_JSON_FILENAME = "state.json";
+    public static final String TASKS_YAML_FILENAME = "tasks.yaml";
 
     private final Path workingDirectory;
     private final List<TaskDefinition> allTasks;
@@ -43,6 +45,22 @@ public class TaskManager {
         this.pendingTaskIds = pendingTaskIds;
         this.successfullyProcessedTaskIds = successfullyProcessedTaskIds;
         this.scheduledTags= scheduledTags;
+    }
+
+    public static boolean deleteStateFile(Path workingDirectory) {
+        File stateFile = workingDirectory.resolve(STATE_JSON_FILENAME).toFile();
+
+        if (!stateFile.exists() || !stateFile.isFile()) {
+            logger.warn("State file {} does not exist or is not a file", stateFile.getAbsolutePath());
+            return false;
+        }
+
+        if (!stateFile.delete()) {
+            logger.warn("Unable to delete file {}", stateFile.getAbsolutePath());
+            return false;
+        }
+
+        return true;
     }
 
     private static void markDependentTasks(TaskDefinition task,
@@ -265,8 +283,8 @@ public class TaskManager {
     public static TaskManager initializeTasks(Path analyseDirectory,
                                               Path workingDirectory,
                                               Set<String> executeOnly) throws IOException {
-        Path taskFilePath = analyseDirectory.resolve("tasks.yaml");
-        Path stateFilePath = workingDirectory.resolve("state.json");
+        Path taskFilePath = analyseDirectory.resolve(TASKS_YAML_FILENAME);
+        Path stateFilePath = workingDirectory.resolve(STATE_JSON_FILENAME);
         File stateFile = stateFilePath.toFile();
 
         List<TaskDefinition> allTasks = TaskDefinition.loadTasks(taskFilePath);
