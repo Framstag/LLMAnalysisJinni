@@ -7,7 +7,6 @@ import picocli.CommandLine.Command;
         subcommands = {
                 AnalyseCmd.class,
                 StateCmd.class,
-                StateClearCmd.class,
                 CommandLine.HelpCommand.class
         },
         mixinStandardHelpOptions = true)

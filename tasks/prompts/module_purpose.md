@@ -36,21 +36,9 @@ The following programming languages have been identified for this module:
 
 [# th:insert="~{facts/programming_language_wildcards}" /]
 
-The following table shows wildcards matching specific files for the given build system:
+[# th:insert="~{facts/build_system_wildcards}" /]
 
-| Build System | Variant    | Wildcard Expression |
-|--------------|------------|---------------------|
-| Maven        |            | "pom.xml"           |
-| Gradle       | Classic    | "*.gradle"          |
-| Gradle       | Kotlin DSL | "*gradle.kts"       |
-
-Depending on the build system the following source directories can be expected:
-
-|Build System |Variant     | Source-Directories |
-|-------------|------------|--------------------|
-|Maven        |            | src                |
-|Gradle       | Classic    | src                |
-|Gradle       | Kotlin DSL | src                |
+[# th:insert="~{facts/build_system_directories}" /]
 
 ## Solution strategy
 

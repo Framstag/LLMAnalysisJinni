@@ -13,13 +13,7 @@ The following build systems have been identified:
 * Build System: '[(${buildsystem.name})]', variant: '[(${buildsystem.variant})]'
 [/]
 
-Depending on the build system the following source directories can be expected:
-
-|Build System |Variant     | Source-Directories |
-|-------------|------------|--------------------|
-|Maven        |            | src                |
-|Gradle       | Classic    | src                |
-|Gradle       | Kotlin DSL | src                |
+[# th:insert="~{facts/build_system_directories}" /]
 
 The following modules have been identified:
 

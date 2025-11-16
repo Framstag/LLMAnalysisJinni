@@ -12,13 +12,7 @@ The following build systems are used:
 * Build System: '[(${buildsystem.name})]', variant: '[(${buildsystem.variant})]'
 [/]
 
-The following table shows wildcards matching the specific files for the given build systems:
-
-| Build System | Variant    | Wildcard Expression |
-|--------------|------------|---------------------|
-| Maven        |            | "pom.xml"           |
-| Gradle       | Classic    | "*.gradle"          |
-| Gradle       | Kotlin DSL | "*.gradle.kts"      |
+[# th:insert="~{facts/build_system_wildcards}" /]
 
 ## Solution strategy
 
