@@ -13,9 +13,11 @@ Also part of the solution is using JSON as result type together with explicit cr
 
 The software and the prompts are licensed under GPL.
 
-## Build
+## Setup
 
-We develop using Java 25.
+We use [Mise](https://mise.jdx.dev/) for a definition of used developer tools versions. Seethe `mise.toml` for details.
+
+## Build
 
 For simpler test setup we use the repository itself for testing.
 
