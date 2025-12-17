@@ -165,7 +165,11 @@ public class SBOMTool {
         List<String> licenses = new LinkedList<>();
 
         for (LicenseChoice choice : licenseChoices) {
-            if (!choice.getLicenses().isEmpty()) {
+            if (choice == null) {
+                continue;
+            }
+
+            if (choice.getLicenses()!= null && !choice.getLicenses().isEmpty()) {
                 for (var license : choice.getLicenses()) {
                     String licenseName = license.getName() != null ? license.getName() : license.getId();
                     licenses.add(licenseName);
@@ -196,6 +200,9 @@ public class SBOMTool {
 
         String id = bom.getMetadata().getComponent().getBomRef();
 
+        logger.info("Root component has bom-ref '{}'", id);
+
+
         Map<String,Dependency> dependencyMap = bom.getDependencies()
                 .stream()
                 .collect(Collectors.toMap(Dependency::getRef, Function.identity()));
@@ -204,12 +211,16 @@ public class SBOMTool {
                 .stream()
                 .collect(Collectors.toMap(Component::getBomRef, Function.identity()));
 
+        logger.info("Finding dependency entry for root component ...");
+
         Dependency rootDependency = dependencyMap.get(id);
 
         if (rootDependency == null) {
             logger.error("No root dependency found in SBOM for id '{}'", id);
             return List.of();
         }
+
+        logger.info("Finding direct dependencies of root component ...");
 
         return  rootDependency.getDependencies()
                 .stream()
