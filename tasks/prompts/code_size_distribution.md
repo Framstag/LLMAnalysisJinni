@@ -5,21 +5,10 @@ give an architectural judgment regarding the quality of code based on this distr
 
 ## Facts
 
-
-The following metrics have been measured regarding the detected modules. Each module has its own subchapter.
-
-[# th:each="module : ${state.modules.modules}" th:remove="tag"]
-
-### Module "[(${module.name})]"
-
-[# th:each="statistics : ${module.fileStatisticsPerProgrammingLanguage.fileStatistics}" th:remove="tag"]
-Programming language: "[(${statistics.programmingLanguage})]"
-
-* File wildcard: "[(${statistics.wildcard})]"
-* File count in module: [(${statistics.fileCount})]
-* Line count of all files in module: [(${statistics.lineCount})]
-[/]
-[/]
+|Module|Programming Language|File count|lines of code|
+|------|--------------------|----------|-------------|
+[# th:each="module : ${state.modules.modules}"][# th:each="statistics : ${module.fileStatisticsPerProgrammingLanguage.fileStatistics}"]|[(${module.name})]|[(${statistics.programmingLanguage})]|[(${statistics.fileCount})]|[(${statistics.lineCount})]|
+[/][/]
 
 ## Solution strategy
 
