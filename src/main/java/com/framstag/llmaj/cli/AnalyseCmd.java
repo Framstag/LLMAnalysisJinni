@@ -8,6 +8,7 @@ import com.framstag.llmaj.AnalysisContext;
 import com.framstag.llmaj.ChatExecutionContext;
 import com.framstag.llmaj.ChatListener;
 import com.framstag.llmaj.json.JsonHelper;
+import com.framstag.llmaj.lc4j.ChatExecutor;
 import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
 import com.framstag.llmaj.tasks.TaskManager;
@@ -144,15 +145,12 @@ public class AnalyseCmd implements Callable<Integer> {
         InvocationContext invocationContext = InvocationContext.builder().build();
 
         ToolServiceResult toolResult =
-                executionContext.getToolService().executeInferenceAndToolsLoop(initialResponse,
+                new ChatExecutor().execute(initialResponse,
                         request.parameters(),
-                        executionContext.getMemory().messages(),
                         executionContext.getChatModel(),
                         executionContext.getMemory(),
                         invocationContext,
-                        executionContext.getToolService().toolExecutors(),
-                        true,
-                        new DefaultAiServiceListenerRegistrar());
+                        executionContext.getToolService().toolExecutors());
 
         ChatResponse finalResponse = toolResult.finalResponse();
 
