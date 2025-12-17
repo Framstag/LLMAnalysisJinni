@@ -100,15 +100,15 @@ dependsOn:
 tags:
   - sbom
 ---
-id: TechnologyList
-name: Get list of Technologies
-prompt: tasks/prompts/list_of_technologies.md
+id: DependencyList
+name: Get list of Dependencies
+prompt: tasks/prompts/list_of_dependencies.md
 responseFormat: tasks/results/DependencyList.json
-responseProperty: technologies
+responseProperty: dependencies
 dependsOn:
   - sbom
 tags:
-  - technologies
+  - dependencies
 ---
 id: TechnologyStack
 name: Description of the technology stack
@@ -142,3 +142,13 @@ dependsOn:
 tags:
   - file_statistics
 loopOn: /modules/modules
+---
+id: CodeSizeDistribution
+name: Evaluate file count and line count statistics
+prompt: tasks/prompts/code_size_distribution.md
+responseFormat: tasks/results/ArchitectureEvaluation.json
+responseProperty: code_size_distribution
+dependsOn:
+  - file_statistics
+tags:
+  - code_size_evaluation

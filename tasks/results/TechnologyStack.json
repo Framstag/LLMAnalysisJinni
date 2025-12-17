@@ -4,6 +4,10 @@
     "description": "Represents a description of the technology stack used in the project",
     "type": "object",
     "properties": {
+        "reasoning": {
+            "type": "string",
+            "description": "Reasoning that lead to the given result"
+        },
         "description": {
             "type": "string",
             "description": "General description of the used stack as free-form text"

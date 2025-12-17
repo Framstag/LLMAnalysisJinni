@@ -1,9 +1,13 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "DependencyList",
-    "description": "Dependencies of the appliction",
+    "description": "Dependencies of the application",
     "type": "object",
     "properties": {
+        "reasoning": {
+            "type": "string",
+            "description": "Reasoning that lead to the given result"
+        },
         "dependencies": {
             "type": "array",
             "description": "List of all dependencies",

@@ -4,6 +4,10 @@
     "description": "Evaluation of the used licenses in the application",
     "type": "object",
     "properties": {
+        "reasoning": {
+            "type": "string",
+            "description": "Reasoning that lead to the given result"
+        },
         "summary": {
             "type": "string",
             "description": "Summary of used licenses"

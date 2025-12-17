@@ -1,0 +1,43 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ArchitectureEvaluation",
+    "description": "A number of evaluation points",
+    "type": "object",
+    "properties": {
+        "reasoning": {
+            "type": "string",
+            "description": "Reasoning that lead to the given result"
+        },
+        "evaluations": {
+            "type": "array",
+            "description": "List of evaluations",
+            "items": {
+                "type": "object",
+                "title": "Evaluation",
+                "description": "An individual evaluation",
+                "properties": {
+                    "aspect": {
+                        "type": "string",
+                        "description": "Short description of the evaluated aspect"
+                    },
+                    "expectation": {
+                        "type": "string",
+                        "description": "Expectation in the context of the aspect analyzed"
+                    },
+                    "reasoning": {
+                        "type": "string",
+                        "description": "Reasoning that lead to the finding"
+                    },
+                    "finding": {
+                        "type": "string",
+                        "description": "The actual finding"
+                    },
+                    "recommendation": {
+                        "type": "string",
+                        "description": "Recommendation of action to improve the situation"
+                    }
+                }
+            }
+        }
+    }
+}
