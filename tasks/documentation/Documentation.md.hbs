@@ -189,10 +189,17 @@ Each module may have a different purpose.
 We list all identified purposes:
 
 {{#if modules.modules}}
-|Module|Purpose|Reasoning|
-|------|--------|---------|
-{{#modules.modules~}}
-|{{name}}|{{purpose.purpose}}|{{purpose.reasoning}}|
+{{#modules.modules}}
+#### Module "{{name}}"
+
+##### Purpose
+
+{{purpose.purpose}}
+
+##### Reasoning
+
+{{purpose.reasoning}}
+
 {{/modules.modules}}
 {{/if}}
 
@@ -202,10 +209,16 @@ Different modules may use different architecture patterns.
 We list the identified architecture per module.
 
 {{#if modules.modules}}
-|Module|Architecture|Reasoning|
-|------|--------|---------|
-{{#modules.modules~}}
-|{{name}}|{{architecture.architecture}}|{{architecture.reasoning}}|
+{{#modules.modules}}
+#### Module "{{name}}"
+
+##### Architecture
+
+{{architecture.architecture}}
+
+##### Reasoning
+
+{{architecture.reasoning}}
 {{/modules.modules}}
 {{/if}}
 
@@ -221,8 +234,8 @@ We gather some file statistics per module and programming language:
 {{#modules.modules~}}
 {{#fileStatisticsPerProgrammingLanguage.fileStatistics~}}
 |{{name}}|{{programmingLanguage}}|{{fileCount}}|{{lineCount}}|
-{{/fileStatisticsPerProgrammingLanguage.fileStatistics}}
-{{/modules.modules}}
+{{/fileStatisticsPerProgrammingLanguage.fileStatistics~}}
+{{/modules.modules~}}
 {{/if}}
 
 ### Analysis of code size distribution
