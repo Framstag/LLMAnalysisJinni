@@ -27,7 +27,7 @@ public class DocumentCmd implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        logger.info("Generating documentation for working directory '{}'...", workingDirectory);
+        logger.info("Generating documentation for analysis result in directory '{}'...", workingDirectory);
 
         StateManager stateManager = StateManager.initializeState(Path.of(workingDirectory));
 
@@ -44,7 +44,10 @@ public class DocumentCmd implements Callable<Integer> {
 
         String templateResult = template.apply(stateManager.getStateObject());
 
+
         Path outputFile = Path.of(workingDirectory).resolve("Documentation.md");
+
+        logger.info("Storing result in '{}'...", outputFile);
 
         Files.writeString(outputFile,templateResult);
 
