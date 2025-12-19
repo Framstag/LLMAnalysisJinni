@@ -92,6 +92,10 @@ public class StateManager {
         return templateContext;
     }
 
+    public Object getStateObject() {
+        return new JsonNodeModelWrapper(analysisState);
+    }
+
     public boolean startLoop(String loopOn) {
         if (loopPos != null) {
             logger.error("Loop already started");

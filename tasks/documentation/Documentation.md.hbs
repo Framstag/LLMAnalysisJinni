@@ -1,0 +1,236 @@
+# Result of Architecture Analysis
+
+[TOC]
+
+## Project Summary
+
+### Metadata
+
+The project has the following metadata
+
+|Attribute|Data|
+|---------|----|
+{{#if project.name~}}
+|Name|{{project.name}}|
+{{/if~}}
+{{#if project.version~}}
+|Version|{{project.version}}|
+{{/if~}}
+{{#if project.license~}}
+|License|{{project.license}}|
+{{/if~}}
+{{#if project.repository~}}
+|Repository|{{project.repository}}|
+{{/if~}}
+{{#if project.issueTracker~}}
+|Issue tracker|{{project.issueTracker}}|
+{{/if~}}
+{{noop}}
+
+### Links
+
+The following links were detected for the application with the given purpose:
+
+|Link|Purpose|
+|----|-------|
+{{#project.links~}}
+|{{url}}|{{desc}}|
+{{/project.links}}
+
+### Demo
+
+{{#if project.demo}}
+The following information regarding a project demo were found:
+
+>>{{project.demo}}
+{{else}}
+No information regarding a project demo were found.
+{{/if}}
+
+### Build
+
+{{#if project.preconditionBuild}}
+The following information have been state for successful build:
+
+    {{project.preconditionBuild}}
+{{else}}
+    No explicit preconditions regarding build of the project have been given.
+{{/if}}
+
+{{#if build.buildsystems}}
+The following build systems have been identified:
+
+|Build system|Variant|Reasoning|
+|------------|-------|---------|
+{{#build.buildsystems~}}
+|{{name}}|{{variant}}|{{reasoning}}|
+{{/build.buildsystems}}
+{{else}}
+No information regarding used build systems have been found
+{{/if}}
+
+### Run
+
+{{#if project.preconditionRun}}
+The following information have been state for successful run:
+
+    {{project.preconditionRun}}
+{{else}}
+    No explicit preconditions regarding run of the project have been given.
+{{/if}}
+
+## SBOM
+
+{{#if sbom.found}}
+An SBOM has been found under the following location: `{{sbom.path}}`
+{{else}}
+No SBOM has been found
+{{/if}}
+
+### Direct dependencies
+
+We try to detect direct project dependencies based on the contents of the SBOM.
+
+{{#if dependencies.dependencies}}
+The application has the following direct dependencies:
+
+|GroupId|Name|Version|
+|------------|-------|---------|
+{{#dependencies.dependencies~}}
+|{{groupId}}|{{name}}|{{version}}|
+{{/dependencies.dependencies}}
+{{else}}
+No dependencies have been found.
+
+Reason:
+  {{dependencies.reasoning}}
+{{/if}}
+
+### License evaluation
+
+We analyze used licenses based on the contents of the SBOM
+
+{{#if licenseEvaluation}}
+#### Summary of license usage
+
+{{licenseEvaluation.summary}}
+
+#### Evaluation of license usage
+
+{{licenseEvaluation.problems}}
+
+{{else}}
+No information regarding licenses based on the contents of a SBOM could be gathered.
+{{/if}}
+
+### Technology stack
+
+Based on the given direct dependencies we try to analyze the technology stack of the application.
+
+{{#if technologyStack}}
+
+#### Reasoning
+
+The stack was identified based on the following reasoning:
+
+{{technologyStack.reasoning}}
+
+#### Stack
+
+The following stack has been identified:
+
+{{technologyStack.description}}
+
+#### Derivations
+
+This results in the following derivations of the stack standard:
+
+{{technologyStack.derivation}}
+
+
+{{else}}
+{{/if}}
+
+## Modules
+
+### Overview
+
+Software may consist of multiple (build) modules.
+In the case of this application the following modules have been identified:
+
+{{#if modules.modules}}
+
+|Name|Path|Is root|
+|------------|-------|---------|
+{{#modules.modules~}}
+|{{name}}|`{{path}}`|{{root}}|
+{{/modules.modules}}
+
+{{/if}}
+
+### Programming languages per module
+
+Different modules may make use of different programming languages.
+We give an overview:
+
+{{#if modules.modules}}
+|Module|Language|Reasoning|
+|------|--------|---------|
+{{#modules.modules~}}
+{{#programmingLanguages.programmingLanguages~}}
+|{{../name}}|{{name}}|{{reasoning}}|
+{{/programmingLanguages.programmingLanguages~}}
+{{/modules.modules}}
+{{/if}}
+
+### Purpose per module
+
+Each module may have a different purpose.
+We list all identified purposes:
+
+{{#if modules.modules}}
+|Module|Purpose|Reasoning|
+|------|--------|---------|
+{{#modules.modules~}}
+|{{name}}|{{purpose.purpose}}|{{purpose.reasoning}}|
+{{/modules.modules}}
+{{/if}}
+
+#### Architecture per module
+
+Different modules may use different architecture patterns.
+We list the identified architecture per module.
+
+{{#if modules.modules}}
+|Module|Architecture|Reasoning|
+|------|--------|---------|
+{{#modules.modules~}}
+|{{name}}|{{architecture.architecture}}|{{architecture.reasoning}}|
+{{/modules.modules}}
+{{/if}}
+
+## Architecture Analysis
+
+### File statistics per module
+
+We gather some file statistics per module and programming language:
+
+{{#if modules.modules}}
+|Module|Programming Language|FileCount|Lines of code|
+|------|--------------------|---------|-------------|
+{{#modules.modules~}}
+{{#fileStatisticsPerProgrammingLanguage.fileStatistics~}}
+|{{name}}|{{programmingLanguage}}|{{fileCount}}|{{lineCount}}|
+{{/fileStatisticsPerProgrammingLanguage.fileStatistics}}
+{{/modules.modules}}
+{{/if}}
+
+### Analysis of code size distribution
+
+We got the following findings:
+
+|Expectation|Finding|Reasoning|Recommendation|
+|-----------|-------|---------|--------------|
+{{#code_size_distribution.evaluations~}}
+|{{expectation}}|{{finding}}|{{reasoning}}|{{recommendation}}|
+{{/code_size_distribution.evaluations}}

@@ -1,3 +1,4 @@
 [tools]
 java = "openjdk-25"
 maven = "3"
+pandoc = "latest"
