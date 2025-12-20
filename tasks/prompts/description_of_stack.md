@@ -5,7 +5,7 @@ try to describe the used technology stack in relation to common technology stack
 
 ## Facts
 
-The path of the SBOM file is '[(${state.sbom.path})]'.
+The path of the SBOM file is '{{sbom.path}}'.
 
 ## Solution strategy
 

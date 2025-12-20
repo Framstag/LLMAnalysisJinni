@@ -7,8 +7,12 @@ give an architectural judgment regarding the quality of code based on this distr
 
 |Module|Programming Language|File count|lines of code|
 |------|--------------------|----------|-------------|
-[# th:each="module : ${state.modules.modules}"][# th:each="statistics : ${module.fileStatisticsPerProgrammingLanguage.fileStatistics}"]|[(${module.name})]|[(${statistics.programmingLanguage})]|[(${statistics.fileCount})]|[(${statistics.lineCount})]|
-[/][/]
+{{#modules.modules~}}
+{{#fileStatisticsPerProgrammingLanguage.fileStatistics~}}
+|{{../name}}|{{programmingLanguage}}|{{fileCount}}|{{lineCount}}|
+{{/fileStatisticsPerProgrammingLanguage.fileStatistics~}}
+{{/modules.modules}}
+{{noop}}
 
 ## Solution strategy
 

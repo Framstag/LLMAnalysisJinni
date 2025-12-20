@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.framstag.llmaj.json.JsonNodeModelWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.thymeleaf.context.Context;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,7 +18,6 @@ public class StateManager {
     private static final ObjectMapper mapper;
 
     final Path         workingDirectory;
-    final Context      templateContext;
     final ObjectNode   analysisState;
 
     JsonNode           loopPos;
@@ -34,10 +32,8 @@ public class StateManager {
     }
 
     private StateManager(Path workingDirectory,
-                         Context templateContext,
                          ObjectNode analysisState) {
         this.workingDirectory = workingDirectory;
-        this.templateContext = templateContext;
         this.analysisState = analysisState;
     }
 
@@ -82,14 +78,7 @@ public class StateManager {
             }
         }
 
-        Context templateContext = new Context();
-        templateContext.setVariable("state", new JsonNodeModelWrapper(analysisState));
-
-        return new StateManager(workingDirectory, templateContext, analysisState);
-    }
-
-    public Context getTemplateContext() {
-        return templateContext;
+        return new StateManager(workingDirectory, analysisState);
     }
 
     public Object getStateObject() {
@@ -117,7 +106,6 @@ public class StateManager {
         }
 
         loopIndex = -1;
-        templateContext.setVariable("loopIndex", loopIndex);
         loopIterator = loopPos.iterator();
 
         return true;
@@ -145,7 +133,7 @@ public class StateManager {
             loopIndex++;
         }
 
-        templateContext.setVariable("loopIndex", loopIndex);
+        analysisState.put("loopIndex",loopIndex);
         loopValue = loopIterator.next();
     }
 
@@ -171,7 +159,8 @@ public class StateManager {
         loopPos = null;
         loopIterator = null;
         loopValue = null;
-        templateContext.removeVariable("loopIndex");
+        analysisState.remove("loopIndex");
+
     }
 
     public void updateState(String path, JsonNode value) {

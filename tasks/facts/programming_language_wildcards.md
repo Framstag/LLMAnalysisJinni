@@ -1,4 +1,4 @@
-Here is a table that maps each programming languages to a wildcard expression:
+Here is a table that maps each programming language to a wildcard expression:
 
 | Programming language | Wildcard Expression |
 |----------------------|---------------------|

@@ -1,8 +1,7 @@
 package com.framstag.llmaj.cli;
 
+import com.framstag.llmaj.handlebars.HandlebarsFactory;
 import com.framstag.llmaj.state.StateManager;
-import com.github.jknack.handlebars.EscapingStrategy;
-import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.io.FileTemplateLoader;
 import com.github.jknack.handlebars.io.TemplateLoader;
 import org.slf4j.Logger;
@@ -36,14 +35,12 @@ public class DocumentCmd implements Callable<Integer> {
                 .toString(),
                 ".hbs");
 
-        var handlebars = new Handlebars()
-                .with(EscapingStrategy.HTML_ENTITY)
+        var handlebars = HandlebarsFactory.create()
                 .with(loader);
 
         var template = handlebars.compile("Documentation.md");
 
         String templateResult = template.apply(stateManager.getStateObject());
-
 
         Path outputFile = Path.of(workingDirectory).resolve("Documentation.md");
 

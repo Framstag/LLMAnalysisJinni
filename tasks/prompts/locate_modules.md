@@ -1,18 +1,18 @@
 ## Current Goal
 
-Locate alle directories representing build modules
+Locate all directories representing build modules
 
 ## Facts
 
-The project name is: [(${state.project.name})]
+The project name is: "{{project.name}}"
 
 The following build systems are used:
 
-[# th:each="buildsystem : ${state.build.buildsystems}" th:remove="tag"]
-* Build System: '[(${buildsystem.name})]', variant: '[(${buildsystem.variant})]'
-[/]
+{{#build.buildsystems~}}
+* Build System: '{{name}}', variant: '{{variant}}'
+{{/build.buildsystems}}
 
-[# th:insert="~{facts/build_system_wildcards}" /]
+{{> facts/build_system_wildcards.md}}
 
 ## Solution strategy
 

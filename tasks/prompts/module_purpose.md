@@ -8,37 +8,39 @@
 
 From the README we have extracted the following general project description:
 
-"[(${state.project.goal})]"
+"{{project.goal}}"
 
 The following build systems have been identified:
 
-[# th:each="buildsystem : ${state.build.buildsystems}" th:remove="tag"]
-* Build System: '[(${buildsystem.name})]', variant: '[(${buildsystem.variant})]'
-[/]
+{{#build.buildsystems~}}
+* Build System: '{{name}}', variant: '{{variant}}'
+{{/build.buildsystems}}
 
 The following build modules have been identified:
 
-[# th:each="module : ${state.modules.modules}" th:remove="tag"]
-* Module "[(${module.name})]" in directory "[(${module.path})]"
-[/]
+{{#modules.modules~}}
+* Module "{{name}}" in directory "{{path}}"
+{{/modules.modules}}
 
 Regarding the now to be analyzed module:
 
-* The current module to analyse is named: "[(${state.modules.modules[loopIndex].name})]"
-* The path of this build module is: "[(${state.modules.modules[loopIndex].path})]"
-* The current module is a root module: [(${state.modules.modules[loopIndex].root})]
+{{#with (lookup modules.modules loopIndex)}}
+The current module to analyse is named: "{{name}}"
+The path of this build module is: "{{path}}"
+The current module is a root module: {{root}}
 
 The following programming languages have been identified for this module:
 
-[# th:each="language : ${state.modules.modules[loopIndex].programmingLanguages.programmingLanguages}" th:remove="tag"]
-* Programming language "[(${language.name})]"
-[/]
+{{#programmingLanguages.programmingLanguages~}}
+* Programming language "{{name}}"
+{{/programmingLanguages.programmingLanguages}}
+{{/with}}
 
-[# th:insert="~{facts/programming_language_wildcards}" /]
+{{> facts/programming_language_wildcards.md}}
 
-[# th:insert="~{facts/build_system_wildcards}" /]
+{{> facts/build_system_wildcards.md}}
 
-[# th:insert="~{facts/build_system_directories}" /]
+{{> facts/build_system_directories.md}}
 
 ## Solution strategy
 

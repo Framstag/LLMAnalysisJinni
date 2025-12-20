@@ -4,7 +4,7 @@ Load the located SBOM file to make it available for further tool requests.
 
 ## Facts
 
-The path of the SBOM file is '[(${state.sbom.path})]'.
+The path of the SBOM file is '{{sbom.path}}'.
 
 ## Solution strategy
 

@@ -7,16 +7,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.framstag.llmaj.AnalysisContext;
 import com.framstag.llmaj.ChatExecutionContext;
 import com.framstag.llmaj.ChatListener;
+import com.framstag.llmaj.handlebars.HandlebarsFactory;
 import com.framstag.llmaj.json.JsonHelper;
 import com.framstag.llmaj.lc4j.ChatExecutor;
 import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
 import com.framstag.llmaj.tasks.TaskManager;
-import com.framstag.llmaj.templating.RawFileResolver;
 import com.framstag.llmaj.tools.file.FileTool;
 import com.framstag.llmaj.tools.filestatistics.FileStatisticsTool;
 import com.framstag.llmaj.tools.info.InfoTool;
 import com.framstag.llmaj.tools.sbom.SBOMTool;
+import com.github.jknack.handlebars.Template;
+import com.github.jknack.handlebars.io.FileTemplateLoader;
+import com.github.jknack.handlebars.io.TemplateLoader;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -37,9 +40,6 @@ import dev.langchain4j.service.tool.ToolService;
 import dev.langchain4j.service.tool.ToolServiceResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.templatemode.TemplateMode;
-import org.thymeleaf.templateresolver.StringTemplateResolver;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -207,14 +207,12 @@ public class AnalyseCmd implements Callable<Integer> {
                 executeOnly);
         StateManager stateManager = StateManager.initializeState(Path.of(workingDirectory));
 
-        TemplateEngine templateEngine = new TemplateEngine();
+        TemplateLoader templateLoader = new FileTemplateLoader(Path.of(analysisDirectory)
+                .toString(),
+                "");
 
-        templateEngine.addTemplateResolver(new RawFileResolver(Path.of(analysisDirectory)));
-
-        StringTemplateResolver templateResolver = new StringTemplateResolver();
-        templateResolver.setTemplateMode(TemplateMode.TEXT);
-        templateResolver.setCacheable(false);
-        templateEngine.addTemplateResolver(templateResolver);
+        var templateEngine = HandlebarsFactory.create()
+                .with(templateLoader);
 
         taskManager.dump();
 
@@ -261,14 +259,15 @@ public class AnalyseCmd implements Callable<Integer> {
                     chatMemory.clear();
 
                     if (origSystemPrompt != null) {
-                        systemPrompt = templateEngine.process(origSystemPrompt,
-                                stateManager.getTemplateContext());
+                        Template template = templateEngine.compileInline(origSystemPrompt);
+                        systemPrompt = template.apply(stateManager.getStateObject());
                         messages.add(SystemMessage.from(systemPrompt));
                     }
 
                     if (origUserPrompt!= null) {
-                        userPrompt = templateEngine.process(origUserPrompt,
-                                stateManager.getTemplateContext());
+                        Template template = templateEngine.compileInline(origUserPrompt);
+                        userPrompt = template.apply(stateManager.getStateObject());
+
                         messages.add(UserMessage.from(userPrompt));
                     }
 
@@ -307,14 +306,15 @@ public class AnalyseCmd implements Callable<Integer> {
                 chatMemory.clear();
 
                 if (origSystemPrompt != null) {
-                    systemPrompt = templateEngine.process(origSystemPrompt,
-                            stateManager.getTemplateContext());
+                    Template template = templateEngine.compileInline(origSystemPrompt);
+                    systemPrompt = template.apply(stateManager.getStateObject());
                     messages.add(SystemMessage.from(systemPrompt));
                 }
 
                 if (origUserPrompt!= null) {
-                    userPrompt = templateEngine.process(origUserPrompt,
-                            stateManager.getTemplateContext());
+                    Template template = templateEngine.compileInline(origUserPrompt);
+                    userPrompt = template.apply(stateManager.getStateObject());
+
                     messages.add(UserMessage.from(userPrompt));
                 }
 

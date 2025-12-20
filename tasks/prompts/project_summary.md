@@ -6,7 +6,7 @@ your response.
 
 ## Solution strategy
 
-* Load the README file under '[(${state.readme.path})]' using the 'ReadFile' tool.
+* Load the README file under the path '{{readme.path}}' using the 'ReadFile' tool.
 * Summarize the gathered information regarding the project and return them by using the given JSON structure.
 
 ## Hint

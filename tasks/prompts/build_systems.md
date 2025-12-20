@@ -5,7 +5,7 @@
 
 ## Facts
 
-[# th:insert="~{facts/build_system_wildcards}" /]
+{{> facts/build_system_wildcards.md}}
 
 ## Solution strategy
 
