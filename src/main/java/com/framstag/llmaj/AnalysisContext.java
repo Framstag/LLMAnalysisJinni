@@ -1,14 +1,21 @@
 package com.framstag.llmaj;
 
+import java.nio.file.Path;
+
 public class AnalysisContext {
     private final String name;
     private final String version;
-    private final String projectRoot;
+    private final Path projectRoot;
+    private final Path workingDirectory;
 
-    public AnalysisContext(String name, String version, String projectRoot) {
+    public AnalysisContext(String name,
+                           String version,
+                           Path projectRoot,
+                           Path workingDirectory) {
         this.name = name;
         this.version = version;
         this.projectRoot = projectRoot;
+        this.workingDirectory = workingDirectory;
     }
 
     public String getName() {
@@ -19,7 +26,11 @@ public class AnalysisContext {
         return version;
     }
 
-    public String getProjectRoot() {
+    public Path getProjectRoot() {
         return projectRoot;
+    }
+
+    public Path getWorkingDirectory() {
+        return workingDirectory;
     }
 }

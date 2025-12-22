@@ -13,10 +13,7 @@ import com.framstag.llmaj.lc4j.ChatExecutor;
 import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
 import com.framstag.llmaj.tasks.TaskManager;
-import com.framstag.llmaj.tools.file.FileTool;
-import com.framstag.llmaj.tools.filestatistics.FileStatisticsTool;
-import com.framstag.llmaj.tools.info.InfoTool;
-import com.framstag.llmaj.tools.sbom.SBOMTool;
+import com.framstag.llmaj.tools.ToolFactory;
 import com.github.jknack.handlebars.Template;
 import com.github.jknack.handlebars.io.FileTemplateLoader;
 import com.github.jknack.handlebars.io.TemplateLoader;
@@ -160,7 +157,8 @@ public class AnalyseCmd implements Callable<Integer> {
     public Integer call() throws Exception {
         AnalysisContext context = new AnalysisContext("ArchitectureAnalysis",
                 "1.0.0",
-                projectRoot);
+                Path.of(projectRoot),
+                Path.of(workingDirectory));
 
         ChatModel model = OllamaChatModel.builder()
                 .modelName(modelName)
@@ -188,11 +186,7 @@ public class AnalyseCmd implements Callable<Integer> {
         logger.info("Workspace:      '{}'", workingDirectory);
         logger.info("<< Parameter");
 
-        InfoTool infoTool = new InfoTool(context);
-        FileTool fileTool = new FileTool(context);
-        SBOMTool sbomTool = new SBOMTool(context);
-        FileStatisticsTool fileStatisticsTool = new FileStatisticsTool(context);
-        List<Object> toolList = List.of(infoTool, fileTool, sbomTool,fileStatisticsTool);
+        List<Object> toolList = ToolFactory.getToolInstanceList(context);
 
         ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(chatWindowSize);
 

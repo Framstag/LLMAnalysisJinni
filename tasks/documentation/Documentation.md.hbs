@@ -111,6 +111,16 @@ Reason:
 We analyze used licenses based on the contents of the SBOM
 
 {{#if licenseEvaluation}}
+#### List of used licenses
+
+The following licenses were directly or indirectly (via transitive dependencies) used:
+
+|License|
+|-------|
+{{#licenseEvaluation.licenses~}}
+|{{name}}|
+{{/licenseEvaluation.licenses~}}
+
 #### Summary of license usage
 
 {{licenseEvaluation.summary}}

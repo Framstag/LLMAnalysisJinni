@@ -8,22 +8,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.PathMatcher;
-import java.nio.file.SimpleFileVisitor;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class FileTool {
@@ -33,6 +20,7 @@ public class FileTool {
 
     public FileTool(AnalysisContext context) {
         this.context = context;
+        logger.info("FileTool initialized.");
     }
 
     @Tool(name = "GetAllFilesInDir",
@@ -46,7 +34,7 @@ public class FileTool {
 
         List<String> result = new LinkedList<>();
 
-        Path rootPath = Path.of(context.getProjectRoot());
+        Path rootPath = context.getProjectRoot();
         Path relativePath = Path.of(path);
 
         Path startPath = rootPath.resolve(relativePath);
@@ -97,7 +85,7 @@ public class FileTool {
 
         Map<String,List<String>> result = new HashMap<>();
 
-        Path rootPath = Path.of(context.getProjectRoot());
+        Path rootPath = context.getProjectRoot();
         Path relativePath = Path.of(path);
 
         Path startPath = rootPath.resolve(relativePath);
@@ -147,7 +135,7 @@ public class FileTool {
 
         Map<String,Set<String>> result = new HashMap<>();
 
-        Path rootPath = Path.of(context.getProjectRoot());
+        Path rootPath = context.getProjectRoot();
         Path relativePath = Path.of(path);
 
         Path startPath = rootPath.resolve(relativePath);
@@ -211,7 +199,7 @@ public class FileTool {
 
         AtomicInteger matchingFilesCount= new AtomicInteger(0);
 
-        Path rootPath = Path.of(context.getProjectRoot());
+        Path rootPath = context.getProjectRoot();
         Path relativePath = Path.of(path);
 
         Path startPath = rootPath.resolve(relativePath);
@@ -255,7 +243,7 @@ public class FileTool {
     public String fileExists(@P("The file name to check. The path should be relative to the project root directory") String file) {
         logger.info("## DoesFileExist('{}')", file);
 
-        Path root = Path.of(context.getProjectRoot());
+        Path root = context.getProjectRoot();
         Path filePath = Path.of(file);
 
         String result;
@@ -284,7 +272,7 @@ public class FileTool {
 
         final Map<String,Integer> result = new HashMap<>();
 
-        Path rootPath = Path.of(context.getProjectRoot());
+        Path rootPath = context.getProjectRoot();
         Path relativePath = Path.of(path);
 
         Path startPath = rootPath.resolve(relativePath);
@@ -335,7 +323,7 @@ public class FileTool {
 
         final Map<DirectoryAndWildcard,Integer> result = new HashMap<>();
 
-        Path rootPath = Path.of(context.getProjectRoot());
+        Path rootPath = context.getProjectRoot();
         Path relativePath = Path.of(path);
 
         Path startPath = rootPath.resolve(relativePath);
@@ -383,7 +371,7 @@ public class FileTool {
     public String readFile(@P("The file fo which its contents should be returned. The path should be relative to the project root directory") String file) throws IOException {
         logger.info("## ReadFile('{}')", file);
 
-        Path root = Path.of(context.getProjectRoot());
+        Path root = context.getProjectRoot();
         Path filePath = Path.of(file);
 
         if (!FileHelper.accessAllowed(root, filePath)) {

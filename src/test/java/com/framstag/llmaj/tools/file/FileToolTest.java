@@ -1,15 +1,13 @@
 package com.framstag.llmaj.tools.file;
 
-import java.io.IOException;
-import java.nio.file.FileVisitResult;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Paths;
-import java.util.List;
-
+import com.framstag.llmaj.AnalysisContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.framstag.llmaj.AnalysisContext;
+import java.io.IOException;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Paths;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -26,7 +24,8 @@ public class FileToolTest {
         context = new AnalysisContext(
             "ArchitectureAnalysis",
             "1.0.0",
-            Paths.get("").toAbsolutePath().toString());
+                Paths.get("").toAbsolutePath(),
+                Paths.get("").toAbsolutePath());
 
         fileTool = new FileTool(context);
     }

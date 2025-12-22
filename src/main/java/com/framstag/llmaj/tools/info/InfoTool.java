@@ -12,6 +12,7 @@ public class InfoTool {
 
     public InfoTool(AnalysisContext context) {
         this.context = context;
+        logger.info("InfoTool initialized.");
     }
 
     @Tool(name = "ToolsVersion", value = "Returns the version of the tools")

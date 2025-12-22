@@ -1,14 +1,11 @@
 package com.framstag.llmaj.tools.sbom;
 
 import com.framstag.llmaj.AnalysisContext;
+import de.siegmar.fastcsv.writer.CsvWriter;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import org.cyclonedx.exception.ParseException;
-import org.cyclonedx.model.Bom;
-import org.cyclonedx.model.Component;
-import org.cyclonedx.model.Dependency;
-import org.cyclonedx.model.LicenseChoice;
-import org.cyclonedx.model.Metadata;
+import org.cyclonedx.model.*;
 import org.cyclonedx.parsers.JsonParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,8 +67,79 @@ public class SBOMTool {
         }
     }
 
+    private List<License> getLicenses() {
+        List<LicenseChoice> licenseChoices = bom.getComponents()
+                .stream()
+                .map(Component::getLicenses)
+                .toList();
+
+        List<String> licenses = new LinkedList<>();
+
+        for (LicenseChoice choice : licenseChoices) {
+            if (choice == null) {
+                continue;
+            }
+
+            if (choice.getLicenses()!= null && !choice.getLicenses().isEmpty()) {
+                for (var license : choice.getLicenses()) {
+                    String licenseName = license.getName() != null ? license.getName() : license.getId();
+                    licenses.add(licenseName);
+                }
+            }
+            if (choice.getExpression() != null) {
+                licenses.add(choice.getExpression().getValue());
+            }
+        }
+
+        return licenses
+                .stream()
+                .distinct()
+                .sorted()
+                .map(License::new)
+                .collect(Collectors.toList());
+    }
+
+    private List<AppDependencyLicense> getDependencyLicenses() {
+        List<AppDependencyLicense> dependencies = new LinkedList<>();
+
+        for (Component component : bom.getComponents()) {
+            LicenseChoice choice = component.getLicenses();
+
+            StringBuilder licenseNameList = new StringBuilder();
+
+            if (choice != null && choice.getLicenses() != null && !choice.getLicenses().isEmpty()) {
+
+                for (var license : choice.getLicenses()) {
+                    String licenseName = license.getName() != null ? license.getName() : license.getId();
+                    if (licenseNameList.isEmpty()) {
+                        licenseNameList.append(licenseName);
+                    } else {
+                        licenseNameList.append(", ").append(licenseName);
+                    }
+                }
+            }
+            if (choice != null && choice.getExpression() != null) {
+                if (licenseNameList.isEmpty()) {
+                    licenseNameList.append(choice.getExpression().getValue());
+                } else {
+                    licenseNameList.append(", ").append(choice.getExpression().getValue());
+                }
+            }
+
+            dependencies.add(new AppDependencyLicense(component.getBomRef(),
+                    concatinateGroupIdAndName(component.getGroup(),component.getName()),
+                    component.getVersion(),
+                    licenseNameList.toString()));
+        }
+
+        return dependencies.stream()
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
     public SBOMTool(AnalysisContext context) {
         this.context = context;
+        logger.info("SBOMTool initialized.");
     }
 
     @Tool(name = "SBOMIsAlreadyLoaded",
@@ -107,7 +175,7 @@ public class SBOMTool {
     public String loadSBOM(@P("SBOM filename") String filename) {
         logger.info("## LoadSBOMFromFile('{}')", filename);
 
-        File file = Path.of(context.getProjectRoot()).resolve(filename).toFile();
+        File file = context.getProjectRoot().resolve(filename).toFile();
 
         if (!file.exists()) {
             logger.error("## LoadSBOMFromFile() => File '{}' does not exist", filename);
@@ -157,35 +225,7 @@ public class SBOMTool {
 
         assertSBOMLoaded();
 
-        List<LicenseChoice> licenseChoices = bom.getComponents()
-                                              .stream()
-                                              .map(Component::getLicenses)
-                                              .toList();
-
-        List<String> licenses = new LinkedList<>();
-
-        for (LicenseChoice choice : licenseChoices) {
-            if (choice == null) {
-                continue;
-            }
-
-            if (choice.getLicenses()!= null && !choice.getLicenses().isEmpty()) {
-                for (var license : choice.getLicenses()) {
-                    String licenseName = license.getName() != null ? license.getName() : license.getId();
-                    licenses.add(licenseName);
-                }
-            }
-            if (choice.getExpression() != null) {
-                licenses.add(choice.getExpression().getValue());
-            }
-        }
-
-        return licenses
-            .stream()
-            .distinct()
-            .sorted()
-            .map(License::new)
-            .collect(Collectors.toList());
+        return getLicenses();
     }
 
     @Tool(name="SBOMApplicationDependencies",
@@ -230,5 +270,39 @@ public class SBOMTool {
                         concatinateGroupIdAndName(component.getGroup(),component.getName()),
                         component.getVersion()))
                 .collect(Collectors.toList());
+    }
+
+    @Tool(name="SBOMWriteLicenseReports",
+            value =
+                    """
+                    Write various reports regarding used licenses.
+                    """)
+    public void writeLicencesReports() throws IOException {
+        logger.info("## SBOMWriteLicenseReports()");
+        Path listOfLicenseCSVFile = context.getWorkingDirectory().resolve("AllLicenses.csv");
+        Path listOfDependenciesAndLicenseCSVFile = context.getWorkingDirectory().resolve("DependenciesAndLicenses.csv");;
+
+        List<License> licenses = getLicenses();
+        CsvWriter.CsvWriterBuilder licensesWriter = CsvWriter.builder();
+
+        logger.info("List of licenses: {}",licenses);
+
+        try (CsvWriter csv = licensesWriter.build(listOfLicenseCSVFile)) {
+            csv.writeRecord("License");
+            licenses.forEach(license -> csv.writeRecord(license.description()));
+        }
+
+        List<AppDependencyLicense> dependencies  = getDependencyLicenses();
+        CsvWriter.CsvWriterBuilder dependenciesWriter = CsvWriter.builder();
+
+        logger.info("List of dependencies and their licenses: {}",dependencies);
+
+        try (CsvWriter csv = dependenciesWriter.build(listOfDependenciesAndLicenseCSVFile)) {
+            csv.writeRecord("Id", "Name", "Version", "Licenses");
+            dependencies.forEach(dependency -> csv.writeRecord(dependency.id(),
+                    dependency.name(),
+                    dependency.version(),
+                    dependency.licence()));
+        }
     }
 }

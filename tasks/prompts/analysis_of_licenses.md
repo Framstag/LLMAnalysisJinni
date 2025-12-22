@@ -12,7 +12,9 @@ The path of the SBOM file is '{{sbom.path}}'.
 
 * Check, if the SBOM ist already loaded.
 * If not, load it from the given file.
-* Get a list of Licenses by calling the SBOM tool, identify the licenses are return the evaluation summary afterward.
+* Initiate generation of reports regarding licenses by calling the tool 'SBOMWriteLicenseReports'.
+* Get a list of Licenses by calling the SBOM tool, identify the licenses and return the evaluation summary afterward.
+* Return the list of identified licenses in the response
 
 ## Hints
 

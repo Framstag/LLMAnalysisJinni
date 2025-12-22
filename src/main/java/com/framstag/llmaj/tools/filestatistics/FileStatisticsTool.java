@@ -8,14 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.PathMatcher;
-import java.nio.file.SimpleFileVisitor;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,6 +22,8 @@ public class FileStatisticsTool {
 
     public FileStatisticsTool(AnalysisContext context) {
         this.context = context;
+        logger.info("FileStatisticsTool initialized.");
+
     }
 
     @Tool(name = "GetStatisticsForMatchingFilesInDirRecursively",
@@ -42,7 +37,7 @@ public class FileStatisticsTool {
 
         Map<String, FileStatistics> result = new HashMap<>();
 
-        Path rootPath = Path.of(context.getProjectRoot());
+        Path rootPath = context.getProjectRoot();
         Path relativePath = Path.of(path);
 
         Path startPath = rootPath.resolve(relativePath);

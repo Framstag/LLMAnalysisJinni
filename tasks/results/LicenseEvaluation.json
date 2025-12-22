@@ -15,6 +15,21 @@
         "problems": {
             "type": "string",
             "description": "Description of any problems with the given licenses"
+        },
+        "licenses": {
+            "type": "array",
+            "description": "List of license",
+            "items": {
+                "type": "object",
+                "title": "License",
+                "description": "An individual License",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the license"
+                    }
+                }
+            }
         }
     }
 }

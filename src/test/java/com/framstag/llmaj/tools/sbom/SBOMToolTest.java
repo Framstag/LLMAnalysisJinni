@@ -1,13 +1,12 @@
 package com.framstag.llmaj.tools.sbom;
 
-import java.nio.file.Paths;
-import java.util.List;
-
+import com.framstag.llmaj.AnalysisContext;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.framstag.llmaj.AnalysisContext;
+import java.nio.file.Paths;
+import java.util.List;
 
 public class SBOMToolTest {
     private static final List<String> CURRENT_DEPENDENCIES = List.of(
@@ -39,7 +38,8 @@ public class SBOMToolTest {
         AnalysisContext context = new AnalysisContext(
                 "ArchitectureAnalysis",
                 "1.0.0",
-                Paths.get("").toAbsolutePath().toString());
+                Paths.get("").toAbsolutePath(),
+                Paths.get("").toAbsolutePath());
 
         sbomTool = new SBOMTool(context);
     }

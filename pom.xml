@@ -118,6 +118,13 @@
             <version>2.20.1</version>
         </dependency>
 
+        <!-- Reading and *writing* CSV files -->
+        <dependency>
+            <groupId>de.siegmar</groupId>
+            <artifactId>fastcsv</artifactId>
+            <version>4.1.0</version>
+        </dependency>
+
         <!-- Command line handling -->
         <dependency>
             <groupId>info.picocli</groupId>
