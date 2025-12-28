@@ -152,3 +152,15 @@ dependsOn:
   - file_statistics
 tags:
   - code_size_evaluation
+---
+id: ModuleAnalysisReports
+name: Collect analysis data per identified module
+prompt: tasks/prompts/module_analysis_reports.md
+responseFormat: tasks/results/ModuleAnalysisReports.json
+responseProperty: analysisReports
+dependsOn:
+  - modules
+  - programming_language
+tags:
+  - module_analysis_reports
+loopOn: /modules/modules

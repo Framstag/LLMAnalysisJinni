@@ -2,9 +2,9 @@ package com.framstag.llmaj.state;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.framstag.llmaj.json.JsonNodeModelWrapper;
+import com.framstag.llmaj.json.ObjectMapperFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,9 +26,7 @@ public class StateManager {
     JsonNode           loopValue;
 
     static {
-        mapper = JsonMapper.builder()
-                .findAndAddModules()
-                .build();
+        mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
     }
 
     private StateManager(Path workingDirectory,

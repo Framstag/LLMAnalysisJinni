@@ -75,3 +75,14 @@ For generating a documentation of the analysis a possible command line could be:
 ```
 document tasks workspaces/spring-petclinic
 ```
+
+## Implementation
+
+The implementation makes use of the following frameworks and libraries:
+
+* Langchain4j for accessing models in chat mode
+* Handlebars for templating of prompts and result document
+* Jackson for (de)serializing JSON and YAML
+* Picoli for CLI parsing
+* JavParser for parsing Java Files
+* FastCSV for writing CSV files

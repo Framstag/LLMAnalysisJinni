@@ -9,6 +9,7 @@ import com.framstag.llmaj.ChatExecutionContext;
 import com.framstag.llmaj.ChatListener;
 import com.framstag.llmaj.handlebars.HandlebarsFactory;
 import com.framstag.llmaj.json.JsonHelper;
+import com.framstag.llmaj.json.ObjectMapperFactory;
 import com.framstag.llmaj.lc4j.ChatExecutor;
 import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
@@ -192,8 +193,7 @@ public class AnalyseCmd implements Callable<Integer> {
 
         ServiceOutputParser outputParser = new ServiceOutputParser();
 
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.findAndRegisterModules();
+        ObjectMapper mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
         JsonFactory factory = mapper.getFactory();
 
         TaskManager taskManager = TaskManager.initializeTasks(Path.of(analysisDirectory),

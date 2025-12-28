@@ -118,6 +118,14 @@
             <version>2.20.1</version>
         </dependency>
 
+        <!-- Parsing Java code -->
+
+        <dependency>
+            <groupId>com.github.javaparser</groupId>
+            <artifactId>javaparser-symbol-solver-core</artifactId>
+            <version>3.27.1</version>
+        </dependency>
+
         <!-- Reading and *writing* CSV files -->
         <dependency>
             <groupId>de.siegmar</groupId>

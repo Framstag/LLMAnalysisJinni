@@ -1,0 +1,35 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ModuleAnalysisReport",
+    "description": "Creation of module analysis report",
+    "type": "object",
+    "properties": {
+        "reasoning": {
+            "type": "string",
+            "description": "Reasoning that lead to the given result"
+        },
+        "reports": {
+            "type": "array",
+            "description": "List of generated reports",
+            "items": {
+                "type": "object",
+                "title": "Report",
+                "description": "An individual report",
+                "properties": {
+                    "programmingLanguage": {
+                        "type": "string",
+                        "description": "Name of the programming language the report was generated for"
+                    },
+                    "reportName": {
+                        "type": "string",
+                        "description": "Name of the generated report"
+                    },
+                    "reasoning": {
+                        "type": "string",
+                        "description": "Reasoning that lead to the given result"
+                    }
+                }
+            }
+        }
+    }
+}

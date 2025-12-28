@@ -1,7 +1,7 @@
 package com.framstag.llmaj.tasks;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.framstag.llmaj.json.ObjectMapperFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,9 +28,7 @@ public class TaskManager {
     private final Map<String,TaskState> taskStateMap;
 
     static {
-        mapper = JsonMapper.builder()
-                .findAndAddModules()
-                .build();
+        mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
     }
 
     private TaskManager(Path workingDirectory,
