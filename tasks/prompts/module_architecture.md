@@ -13,7 +13,7 @@ From the README we have extracted the following general project description:
 The following build systems have been identified:
 
 {{#build.buildsystems~}}
-* Build System: '{{name}}', variant: '{variant}}'
+* Build System: '{{name}}', variant: '{{variant}}'
 {{/build.buildsystems}}
 
 The following build modules have been identified:

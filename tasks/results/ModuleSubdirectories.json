@@ -1,0 +1,36 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "SubDirectoryList",
+    "description": "List of categorized sub directories",
+    "type": "object",
+    "properties": {
+        "reasoning": {
+            "type": "string",
+            "description": "Reasoning that lead to the given result"
+        },
+        "directories": {
+            "type": "array",
+            "description": "List of all directories",
+            "items": {
+                "type": "object",
+                "title": "Director",
+                "description": "A specific directory",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path of the directory"
+                    },
+                    "categoryId": {
+                        "type": "string",
+                        "enum": ["Src", "GenSrc", "TestSrc", "TestGenSrc", "Obj", "TestObj"],
+                        "description": "Id of the category"
+                    },
+                    "desc": {
+                        "type": "string",
+                        "description": "Free form description of directory contents"
+                    }
+                }
+            }
+        }
+    }
+}

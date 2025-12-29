@@ -213,7 +213,31 @@ We list all identified purposes:
 {{/modules.modules}}
 {{/if}}
 
-#### Architecture per module
+### Directory structure per module
+
+Each module may have a different purpose.
+We list all identified purposes:
+
+{{#if modules.modules}}
+{{#modules.modules}}
+#### Module "{{name}}"
+
+##### Structure
+
+|Directory|CategoryId|Description|
+|---------|----------|-----------|
+{{#subdirectories.directories~}}
+|{{path}}|{{categoryId}}|{{desc}}|
+{{/subdirectories.directories}}
+
+##### Reasoning
+
+{{subdirectories.reasoning}}
+
+{{/modules.modules}}
+{{/if}}
+
+### Architecture per module
 
 Different modules may use different architecture patterns.
 We list the identified architecture per module.

@@ -127,10 +127,10 @@ public class FileTool {
             value =
                     """
                             Returns a list of files in the given sub directory and recursively all of its sub directories
-                            that match one of the list of the given wildcards.
+                            that match one of the list of the given filename wildcards.
                             """)
     public List<FilesInDirectory> getMatchingFilesInDirRecursively(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only") String path,
-                                                                   @P("A list of wildcards to scan for") List<String> wildcards) throws IOException {
+                                                                   @P("A list of filename wildcards for matching files to scan for. Make sure that the wildcards do not contain any path elements!") List<String> wildcards) throws IOException {
         logger.info("## GetMatchingFilesInDirRecursively('{}', {})", path, wildcards);
 
         Map<String,Set<String>> result = new HashMap<>();

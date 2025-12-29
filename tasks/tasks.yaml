@@ -153,6 +153,19 @@ dependsOn:
 tags:
   - code_size_evaluation
 ---
+id: ModuleSubdirectories
+name: Identify the root directories for various artifacts
+prompt: tasks/prompts/module_subdirectories.md
+responseFormat: tasks/results/ModuleSubdirectories.json
+responseProperty: subdirectories
+dependsOn:
+  - modules
+  - programming_language
+tags:
+  - module_subdirectories
+loopOn: /modules/modules
+
+---
 id: ModuleAnalysisReports
 name: Collect analysis data per identified module
 prompt: tasks/prompts/module_analysis_reports.md
@@ -161,6 +174,7 @@ responseProperty: analysisReports
 dependsOn:
   - modules
   - programming_language
+  - module_subdirectories
 tags:
   - module_analysis_reports
 loopOn: /modules/modules
