@@ -79,6 +79,10 @@ public class StateManager {
         return new StateManager(workingDirectory, analysisState);
     }
 
+    public ObjectNode getAnalysisState() {
+        return analysisState;
+    }
+
     public Object getStateObject() {
         return new JsonNodeModelWrapper(analysisState);
     }

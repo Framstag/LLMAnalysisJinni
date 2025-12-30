@@ -11,6 +11,8 @@ public class Clazz {
     private static final Logger logger = LoggerFactory.getLogger(Clazz.class);
 
     private final String qualifiedName;
+    private boolean isGenerated;
+    private boolean isProduction;
 
     @JsonIgnore
     private final Set<String> uniqueMethodNames = new HashSet<>();
@@ -24,10 +26,28 @@ public class Clazz {
 
     public Clazz(String qualifiedName) {
         this.qualifiedName = qualifiedName;
+        this.isGenerated = false;
+        this.isProduction = true;
     }
 
     public String getQualifiedName() {
         return qualifiedName;
+    }
+
+    public boolean isGenerated() {
+        return isGenerated;
+    }
+
+    public void setGenerated(boolean generated) {
+        isGenerated = generated;
+    }
+
+    public boolean isProduction() {
+        return isProduction;
+    }
+
+    public void setProduction(boolean production) {
+        isProduction = production;
     }
 
     public Method getOrAddMethodForce(String name, String descriptor) {

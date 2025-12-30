@@ -22,10 +22,9 @@ public class FileToolTest {
     @BeforeEach
     void initializeContext() {
         context = new AnalysisContext(
-            "ArchitectureAnalysis",
-            "1.0.0",
                 Paths.get("").toAbsolutePath(),
-                Paths.get("").toAbsolutePath());
+                Paths.get("").toAbsolutePath(),
+                null);
 
         fileTool = new FileTool(context);
     }
@@ -45,21 +44,21 @@ public class FileToolTest {
     }
 
     @Test
-    void fileExistsInRoot() throws IOException {
+    void fileExistsInRoot() {
         String result = fileTool.fileExists("pom.xml");
 
         assertEquals("true", result);
     }
 
     @Test
-    void fileExistsInSub() throws IOException {
+    void fileExistsInSub() {
         String result = fileTool.fileExists("src/main/resources/logback.xml");
 
         assertEquals("true", result);
     }
 
     @Test
-    void fileExistsRelativeOutside() throws IOException {
+    void fileExistsRelativeOutside() {
         String result = fileTool.fileExists("../bla.txt");
 
         assertEquals("ERROR", result);
@@ -100,7 +99,7 @@ public class FileToolTest {
     }
 
     @Test
-    void readNonExistingFile() throws IOException {
+    void readNonExistingFile() {
         assertThrows(NoSuchFileException.class, () -> {
             String fileContent = fileTool.readFile("pommes.xml");
         });

@@ -156,11 +156,6 @@ public class AnalyseCmd implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        AnalysisContext context = new AnalysisContext("ArchitectureAnalysis",
-                "1.0.0",
-                Path.of(projectRoot),
-                Path.of(workingDirectory));
-
         ChatModel model = OllamaChatModel.builder()
                 .modelName(modelName)
                 .baseUrl(modelUrl.toString())
@@ -187,8 +182,6 @@ public class AnalyseCmd implements Callable<Integer> {
         logger.info("Workspace:      '{}'", workingDirectory);
         logger.info("<< Parameter");
 
-        List<Object> toolList = ToolFactory.getToolInstanceList(context);
-
         ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(chatWindowSize);
 
         ServiceOutputParser outputParser = new ServiceOutputParser();
@@ -207,6 +200,13 @@ public class AnalyseCmd implements Callable<Integer> {
 
         var templateEngine = HandlebarsFactory.create()
                 .with(templateLoader);
+
+        AnalysisContext context = new AnalysisContext(
+                Path.of(projectRoot),
+                Path.of(workingDirectory),
+                stateManager.getAnalysisState());
+
+        List<Object> toolList = ToolFactory.getToolInstanceList(context);
 
         taskManager.dump();
 

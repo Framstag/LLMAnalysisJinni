@@ -1,9 +1,12 @@
 package com.framstag.llmaj.tools.java;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.framstag.llmaj.AnalysisContext;
 import com.framstag.llmaj.file.FileHelper;
 import com.framstag.llmaj.json.ObjectMapperFactory;
+import com.framstag.llmaj.tools.common.Distribution;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
@@ -14,7 +17,6 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.expr.ConditionalExpr;
 import com.github.javaparser.ast.stmt.*;
-import com.github.javaparser.resolution.TypeSolver;
 import com.github.javaparser.resolution.UnsolvedSymbolException;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
@@ -26,7 +28,6 @@ import dev.langchain4j.agent.tool.Tool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
@@ -36,10 +37,7 @@ import java.lang.classfile.constantpool.ClassEntry;
 import java.lang.reflect.AccessFlag;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Comparator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static com.github.javaparser.ast.expr.BinaryExpr.Operator.AND;
 import static com.github.javaparser.ast.expr.BinaryExpr.Operator.OR;
@@ -48,11 +46,95 @@ public class JavaTool {
     private static final Logger logger = LoggerFactory.getLogger(JavaTool.class);
 
     private final AnalysisContext context;
+    private final Map<String,Module> moduleMapCache = new HashMap<>();
 
     public JavaTool(AnalysisContext context) {
         this.context = context;
         logger.info("JavaTool initialized.");
 
+    }
+
+    private String moduleNameToReportName(String moduleName) {
+        return "Java_"+moduleName.replace(" ","_");
+    }
+
+    private static SubdirectoryCategory getCategoryOfFile(List<SpecialSubdirectory> specialSubdirectories,
+                                                   Path file, SubdirectoryCategory defaultValue) {
+
+        for (SpecialSubdirectory directory : specialSubdirectories) {
+            if (file.startsWith(directory.getPath())) {
+                return directory.getCategoryId();
+            }
+        }
+
+        return defaultValue;
+    }
+
+    private static void modifyClassAttributesByCategory(Clazz clazz, SubdirectoryCategory category) {
+        switch (category) {
+            case SRC, OBJ -> {
+                clazz.setProduction(true);
+                clazz.setGenerated(false);
+            }
+
+            case GEN_SRC -> {
+                clazz.setProduction(true);
+                clazz.setGenerated(true);
+            }
+            case TEST_SRC, TEST_OBJ -> {
+                clazz.setProduction(false);
+                clazz.setGenerated(false);
+            }
+            case TEST_GEN_SRC -> {
+                clazz.setProduction(false);
+                clazz.setGenerated(true);
+            }
+        }
+    }
+
+    private JsonNode getModuleWithByName(ObjectNode analysisState, String moduleName) {
+        JsonNode modulesSection = analysisState.get("modules");
+        JsonNode modulesArray = modulesSection.get("modules");
+
+
+        if (modulesArray.isArray()) {
+            for (JsonNode module : modulesArray) {
+                String currentModuleName = module.get("name").asText();
+                if (currentModuleName.equals(moduleName)) {
+                    return module;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private Path getModulePath(ObjectNode analysisState, String moduleName) {
+        JsonNode module = getModuleWithByName(analysisState, moduleName);
+
+        return Path.of(module.get("path").asText());
+    }
+
+    private List<SpecialSubdirectory> getSpecialSubdirectoriesFromState(String moduleName, Path modulePath) {
+        List<SpecialSubdirectory> result = new LinkedList<>();
+
+        ObjectNode analysisState = context.getAnalysisState();
+
+        JsonNode module = getModuleWithByName(analysisState, moduleName);
+        JsonNode subdirectories = module.get("subdirectories");
+        JsonNode directories = subdirectories.get("directories");
+
+        for (JsonNode directory : directories) {
+            String path = directory.get("path").asText();
+            String categoryId = directory.get("categoryId").asText("");
+            String description = directory.get("desc").asText("");
+
+            result.add(new SpecialSubdirectory(modulePath.resolve(path),
+                    SubdirectoryCategory.fromString(categoryId),
+                    description));
+        }
+
+        return result;
     }
 
     private static String getClassFileName(ClassOrInterfaceDeclaration decl) {
@@ -76,122 +158,130 @@ public class JavaTool {
         return name.toString();
     }
 
-    public static String getPackageName(ClassOrInterfaceDeclaration decl) {
+    private static String getPackageName(ClassOrInterfaceDeclaration decl) {
         return decl.findAncestor(CompilationUnit.class)
                 .flatMap(CompilationUnit::getPackageDeclaration)
                 .map(PackageDeclaration::getNameAsString)
                 .orElse("");
     }
-    @Tool(name = "JavaGenerateModuleAnalysisReport",
-            value =
-                    """
-                    Generates a report file containing raw data for further detailed architecture analysis.
-                    
-                    Returns the id of the report for further usage.
-                    """)
-    public String generateModuleAnalysisReport(@P("The name of the module")
-                                               String moduleName,
-                                               @P("The path to the module")
-                                               String modulePath) throws IOException {
-        logger.info("## JavaGenerateModuleAnalysisReport('{}','{}')",moduleName,modulePath);
 
-        Path rootPath = context.getProjectRoot();
-        Path relativePath = Path.of(modulePath);
+    private static void parseJavaFile(Path srcFile,
+                                      List<SpecialSubdirectory> specialSubdirectories,
+                                      Module module) {
+        try {
+            logger.info("Parsing java file '{}'...", srcFile);
 
-        Path startPath = rootPath.resolve(relativePath);
+            CompilationUnit cu = StaticJavaParser.parse(srcFile.toFile());
 
-        if (!FileHelper.accessAllowed(rootPath, startPath)) {
-            logger.error("Not allowed to access '{}' ('{}' '{}')", modulePath,rootPath,relativePath);
-            return "";
-        }
+            SubdirectoryCategory category = getCategoryOfFile(specialSubdirectories,srcFile,SubdirectoryCategory.OBJ);
 
-        Module module = new Module(moduleName);
+            for (ClassOrInterfaceDeclaration type : cu.findAll(ClassOrInterfaceDeclaration.class)) {
+                if (type.getFullyQualifiedName().isPresent()) {
+                    String packageName = getPackageName(type);
+                    String qualifiedName = getClassFileName(type);
+                    logger.info("Type: {} - {}",packageName, qualifiedName);
 
-        List<String> classWildcards = List.of("*.class");
-        List<Path> classFiles = new LinkedList<>();
+                    Package pck = module.getOrAddPackageByName(packageName);
+                    Clazz clazz = pck.getOrAddClassByName(qualifiedName);
 
-        FileVisitor<Path> classMatcherVisitor = new SimpleFileVisitor<>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attribs) {
+                    modifyClassAttributesByCategory(clazz,category);
 
-                FileSystem fs = FileSystems.getDefault();
+                    List<MethodDeclaration> methods = type.getMethods();
 
-                for (String wildcard : classWildcards) {
-                    PathMatcher matcher = fs.getPathMatcher("glob:"+wildcard);
-                    if (matcher.matches(file.getFileName())) {
-                        classFiles.add(file);
+                    for (MethodDeclaration methodDeclaration : methods) {
+                        ResolvedMethodDeclaration resolvedMethod = methodDeclaration.resolve();
+
+                        String methodName = resolvedMethod.getName();
+                        String methodDescriptor;
+
+                        try {
+                            methodDescriptor = resolvedMethod.getName()+resolvedMethod.toDescriptor();
+                        }
+                        catch (UnsolvedSymbolException e) {
+                            logger.debug("Cannot resolve Method API with class '{}' as parameter type",e.getName());
+                            methodDescriptor = null;
+                        }
+
+                        if (methodDeclaration.isAbstract()) {
+                            logger.debug("Skipping abstract method: '{}' / '{}'",methodName,methodDescriptor);
+                            continue;
+                        }
+
+                        if (methodDeclaration.getBody().isEmpty() ||
+                            methodDeclaration.getBody().get().getStatements().isEmpty()) {
+                            logger.debug("Skipping method without body: '{}' / '{}'",methodName,methodDescriptor);
+                            continue;
+                        }
+
+                        logger.debug("Method: {} / {}",
+                                methodName,
+                                methodDescriptor);
+
+                        Method method = clazz.getOrAddMethodHeuristic(methodName,methodDescriptor);
+
+                        if (method == null) {
+                            logger.warn("Method '{}' for class '{}' is overloaded, but we do not have a descriptor for differentiation, skipping...",
+                                    methodName,
+                                    qualifiedName);
+
+                            continue;
+                        }
+
+                        // All elements that create multiple executions paths
+                        List<CatchClause> catchClause = methodDeclaration.findAll(CatchClause.class);
+                        List<ConditionalExpr> ternaryExpr = methodDeclaration.findAll(ConditionalExpr.class);
+                        List<DoStmt> doStmts = methodDeclaration.findAll(DoStmt.class);
+                        List<ForStmt> forStmts = methodDeclaration.findAll(ForStmt.class);
+                        List<IfStmt> ifStmts = methodDeclaration.findAll(IfStmt.class);
+                        List<SwitchEntry> switchEntrys = methodDeclaration.findAll(SwitchEntry.class).stream().
+                                filter(s -> !s.isDefault())
+                                .toList();
+                        List<WhileStmt> whileStmts = methodDeclaration.findAll(WhileStmt.class);
+
+                        List<BinaryExpr> andExprs = methodDeclaration.findAll(BinaryExpr.class).stream().
+                                filter(f -> f.getOperator() == AND).toList();
+                        List<BinaryExpr> orExprs = methodDeclaration.findAll(BinaryExpr.class).stream().
+                                filter(f -> f.getOperator() == OR).toList();
+
+                        Integer cyclomaticComplexity = catchClause.size()+
+                                ternaryExpr.size() +
+                                doStmts.size() +
+                                forStmts.size() +
+                                ifStmts.size() +
+                                switchEntrys.size() +
+                                whileStmts.size() +
+                                andExprs.size() +
+                                orExprs.size() +
+                                1;
+
+                        method.setCyclomaticComplexity(cyclomaticComplexity);
                     }
                 }
-
-                return FileVisitResult.CONTINUE;
-            }
-        };
-
-        Files.walkFileTree(startPath, classMatcherVisitor);
-
-        logger.info("{} *.class file(s) found", classFiles.size());
-
-        for (Path classFile : classFiles) {
-            try {
-                logger.info("Parsing class file '{}'...", classFile);
-                ClassModel classModel = ClassFile.of().parse(classFile);
-                String packageName = classModel.thisClass().asSymbol().packageName();
-                String qualifiedName = classModel.thisClass().asSymbol().packageName()+"."+
-                classModel.thisClass().asSymbol().displayName();
-
-                logger.info("Type: {} - {}",packageName, qualifiedName);
-
-                Package pck = module.getOrAddPackageByName(packageName);
-                Clazz clazz = pck.getOrAddClassByName(qualifiedName);
-
-                if (classModel.superclass().isPresent()) {
-                    String parentQualifiedName = classModel.superclass().get().asSymbol().packageName()+"."+
-                            classModel.superclass().get().asSymbol().displayName();
-
-                    logger.debug("Parent: {}", parentQualifiedName);
-                }
-
-                for (ClassEntry interf : classModel.interfaces()) {
-                    logger.debug("Implements {}", interf.asInternalName());
-                }
-
-                for (MethodModel methodModel : classModel.methods()) {
-
-                    String methodName = methodModel.methodName().stringValue();
-                    String methodDescriptor = methodModel.methodName().stringValue()+MethodSignature.of(methodModel.methodTypeSymbol()).signatureString();
-
-                    if (methodModel.flags().has(AccessFlag.BRIDGE)) {
-                        logger.debug("Skipping bridge method: '{}'", methodDescriptor);
-                        continue;
-                    }
-
-                    if (methodModel.flags().has(AccessFlag.ABSTRACT)) {
-                        logger.debug("Skipping abstract method: '{}'", methodDescriptor);
-                        continue;
-                    }
-
-                    if (methodModel.flags().has(AccessFlag.SYNTHETIC)) {
-                        logger.debug("Skipping synthetic method: '{}'", methodDescriptor);
-                        continue;
-                    }
-
-                    if (methodModel.code().isEmpty() || methodModel.code().get().elementList().isEmpty()) {
-                        logger.debug("Skipping method without body: '{}'", methodDescriptor);
-                        continue;
-                    }
-
-                    logger.debug("Method: {} {}", methodDescriptor, methodModel.flags());
-
-                    Method method = clazz.getOrAddMethodForce(methodName,methodDescriptor);
-                }
-            }
-            catch (Exception e) {
-                logger.error("Error during class file parsing",e);
             }
         }
+        catch (Exception e) {
+            logger.error("Error during src file parsing",e);
+        }
+    }
 
-        List<String> srcWildcards = List.of("*.java");
-        List<Path> srcFiles = new LinkedList<>();
+    private static void dumpModuleToLog(Module module) {
+        logger.info(" === Packages, Classes & Methods");
+
+        for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
+            logger.info("# {}", pck.getName());
+
+            for (Clazz clazz : pck.getClasses().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                logger.info("  * {} {} {}", clazz.getQualifiedName(),clazz.isProduction(), clazz.isGenerated());
+
+                for (Method method : clazz.Methods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
+                    logger.info("    - {} {}", (method.getDescriptor() != null) ? method.getDescriptor() : method.getName(), method.getCyclomaticComplexity());
+                }
+            }
+        }
+    }
+
+    private static List<Path> getAllMatchingFilesInDirectoryRecursively(List<String> wildcards, Path startPath) throws IOException {
+        List<Path> files = new LinkedList<>();
 
         FileVisitor<Path> srcMatcherVisitor = new SimpleFileVisitor<>() {
             @Override
@@ -199,10 +289,10 @@ public class JavaTool {
 
                 FileSystem fs = FileSystems.getDefault();
 
-                for (String wildcard : srcWildcards) {
-                    PathMatcher matcher = fs.getPathMatcher("glob:"+wildcard);
+                for (String wildcard : wildcards) {
+                    PathMatcher matcher = fs.getPathMatcher("glob:" + wildcard);
                     if (matcher.matches(file.getFileName())) {
-                        srcFiles.add(file);
+                        files.add(file);
                     }
                 }
 
@@ -212,11 +302,138 @@ public class JavaTool {
 
         Files.walkFileTree(startPath, srcMatcherVisitor);
 
-        TypeSolver typeSolver = new CombinedTypeSolver(
-                new ReflectionTypeSolver(false),
-                new JavaParserTypeSolver(new File("/home/tim/projects/spring-petclinic/src/main/java")),
-                new JavaParserTypeSolver(new File("/home/tim/projects/spring-petclinic/src/test/java"))
+        return files;
+    }
+
+    private static void parseClassFile(Path classFile,
+                                       List<SpecialSubdirectory> specialSubdirectories,
+                                       Module module) {
+        try {
+            logger.info("Parsing class file '{}'...", classFile);
+            ClassModel classModel = ClassFile.of().parse(classFile);
+            String packageName = classModel.thisClass().asSymbol().packageName();
+            String qualifiedName = classModel.thisClass().asSymbol().packageName()+"."+
+            classModel.thisClass().asSymbol().displayName();
+
+            logger.info("Type: {} - {}",packageName, qualifiedName);
+
+            SubdirectoryCategory category = getCategoryOfFile(specialSubdirectories,classFile,SubdirectoryCategory.SRC);
+
+            Package pck = module.getOrAddPackageByName(packageName);
+            Clazz clazz = pck.getOrAddClassByName(qualifiedName);
+
+            modifyClassAttributesByCategory(clazz,category);
+
+            if (classModel.superclass().isPresent()) {
+                String parentQualifiedName = classModel.superclass().get().asSymbol().packageName()+"."+
+                        classModel.superclass().get().asSymbol().displayName();
+
+                logger.debug("Parent: {}", parentQualifiedName);
+            }
+
+            for (ClassEntry interf : classModel.interfaces()) {
+                logger.debug("Implements {}", interf.asInternalName());
+            }
+
+            for (MethodModel methodModel : classModel.methods()) {
+
+                String methodName = methodModel.methodName().stringValue();
+                String methodDescriptor = methodModel.methodName().stringValue()+MethodSignature.of(methodModel.methodTypeSymbol()).signatureString();
+
+                if (methodModel.flags().has(AccessFlag.BRIDGE)) {
+                    logger.debug("Skipping bridge method: '{}'", methodDescriptor);
+                    continue;
+                }
+
+                if (methodModel.flags().has(AccessFlag.ABSTRACT)) {
+                    logger.debug("Skipping abstract method: '{}'", methodDescriptor);
+                    continue;
+                }
+
+                if (methodModel.flags().has(AccessFlag.SYNTHETIC)) {
+                    logger.debug("Skipping synthetic method: '{}'", methodDescriptor);
+                    continue;
+                }
+
+                if (methodModel.code().isEmpty() || methodModel.code().get().elementList().isEmpty()) {
+                    logger.debug("Skipping method without body: '{}'", methodDescriptor);
+                    continue;
+                }
+
+                logger.debug("Method: {} {}", methodDescriptor, methodModel.flags());
+
+                Method method = clazz.getOrAddMethodForce(methodName,methodDescriptor);
+            }
+        }
+        catch (Exception e) {
+            logger.error("Error during class file parsing",e);
+        }
+    }
+
+    @Tool(name = "JavaGenerateModuleAnalysisReport",
+            value =
+                    """
+                    Generates a report file containing raw data for further detailed architecture analysis.
+                    
+                    Returns the id of the report for further usage.
+                    """)
+    public String generateModuleAnalysisReport(@P("The name of the module")
+                                               String moduleName) throws IOException {
+        logger.info("## JavaGenerateModuleAnalysisReport('{}')",moduleName);
+
+        Path rootPath = context.getProjectRoot();
+
+        Path modulePath = rootPath.resolve(getModulePath(context.getAnalysisState(), moduleName));
+
+        logger.info("Module directory: '{}'", modulePath);
+
+        Path startPath = rootPath.resolve(modulePath);
+
+        if (!FileHelper.accessAllowed(rootPath, startPath)) {
+            logger.error("Not allowed to access '{}' ('{}' '{}')", startPath,rootPath,modulePath);
+            return "";
+        }
+
+        List<SpecialSubdirectory> specialSubdirectories = getSpecialSubdirectoriesFromState(moduleName, modulePath);
+
+        for (SpecialSubdirectory directory : specialSubdirectories) {
+            Path specialPath = directory.getPath();
+
+            logger.info("Special directory of type {}: '{}' - {}", directory.getCategoryId(), specialPath, directory.getDescription());
+
+            if (!FileHelper.accessAllowed(rootPath, specialPath)) {
+                logger.error("Not allowed to access '{}' ('{}' '{}')", specialPath,rootPath,directory.getPath());
+                return "";
+            }
+        }
+
+        Module module = new Module(moduleName);
+
+        List<Path> classFiles = getAllMatchingFilesInDirectoryRecursively(List.of("*.class"),
+                startPath);
+
+        logger.info("{} *.class file(s) found", classFiles.size());
+
+        for (Path classFile : classFiles) {
+            parseClassFile(classFile, specialSubdirectories, module);
+        }
+
+        List<Path> srcFiles = getAllMatchingFilesInDirectoryRecursively(List.of("*.java"), startPath);
+
+        logger.info("{} *.java file(s) found", srcFiles.size());
+
+        CombinedTypeSolver typeSolver = new CombinedTypeSolver(
+                new ReflectionTypeSolver(false)
         );
+
+        for (SpecialSubdirectory directory : specialSubdirectories) {
+            if (directory.getCategoryId().isSrc()) {
+                Path specialPath = rootPath.resolve(directory.getPath());
+
+                logger.info("Adding '{}' as search path to java parser...", specialPath);
+                typeSolver.add(new JavaParserTypeSolver(specialPath.toFile()));
+            }
+        }
 
         JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
 
@@ -225,116 +442,16 @@ public class JavaTool {
                 .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21)
                 .setSymbolResolver(symbolSolver);
 
-        logger.info("{} *.java file(s) found", classFiles.size());
 
         for (Path srcFile : srcFiles) {
-            try {
-                logger.info("Parsing java file '{}'...", srcFile);
-
-                CompilationUnit cu = StaticJavaParser.parse(srcFile.toFile());
-
-                for (ClassOrInterfaceDeclaration type : cu.findAll(ClassOrInterfaceDeclaration.class)) {
-                    if (type.getFullyQualifiedName().isPresent()) {
-                        String packageName = getPackageName(type);
-                        String qualifiedName = getClassFileName(type);
-                        logger.info("Type: {} - {}",packageName, qualifiedName);
-
-                        Package pck = module.getOrAddPackageByName(packageName);
-                        Clazz clazz = pck.getOrAddClassByName(qualifiedName);
-
-                        List<MethodDeclaration> methods = type.getMethods();
-
-                        for (MethodDeclaration methodDeclaration : methods) {
-                            ResolvedMethodDeclaration resolvedMethod = methodDeclaration.resolve();
-
-                            String methodName = resolvedMethod.getName();
-                            String methodDescriptor;
-
-                            try {
-                                methodDescriptor = resolvedMethod.getName()+resolvedMethod.toDescriptor();
-                            }
-                            catch (UnsolvedSymbolException e) {
-                                logger.debug("Cannot resolve Method API with class '{}' as parameter type",e.getName());
-                                methodDescriptor = null;
-                            }
-
-                            if (methodDeclaration.isAbstract()) {
-                                logger.debug("Skipping abstract method: '{}' / '{}'",methodName,methodDescriptor);
-                                continue;
-                            }
-
-                            if (methodDeclaration.getBody().isEmpty() ||
-                                methodDeclaration.getBody().get().getStatements().isEmpty()) {
-                                logger.debug("Skipping method without body: '{}' / '{}'",methodName,methodDescriptor);
-                                continue;
-                            }
-
-                            logger.debug("Method: {} / {}",
-                                    methodName,
-                                    methodDescriptor);
-
-                            Method method = clazz.getOrAddMethodHeuristic(methodName,methodDescriptor);
-
-                            if (method == null) {
-                                logger.warn("Method '{}' for class '{}' is overloaded, but we do not have a descriptor for differentiation, skipping...",
-                                        methodName,
-                                        qualifiedName);
-
-                                continue;
-                            }
-
-                            // All elements that create multiple executions paths
-                            List<CatchClause> catchClause = methodDeclaration.findAll(CatchClause.class);
-                            List<ConditionalExpr> ternaryExpr = methodDeclaration.findAll(ConditionalExpr.class);
-                            List<DoStmt> doStmts = methodDeclaration.findAll(DoStmt.class);
-                            List<ForStmt> forStmts = methodDeclaration.findAll(ForStmt.class);
-                            List<IfStmt> ifStmts = methodDeclaration.findAll(IfStmt.class);
-                            List<SwitchEntry> switchEntrys = methodDeclaration.findAll(SwitchEntry.class).stream().
-                                    filter(s -> !s.isDefault())
-                                    .toList();
-                            List<WhileStmt> whileStmts = methodDeclaration.findAll(WhileStmt.class);
-
-                            List<BinaryExpr> andExprs = methodDeclaration.findAll(BinaryExpr.class).stream().
-                                    filter(f -> f.getOperator() == AND).toList();
-                            List<BinaryExpr> orExprs = methodDeclaration.findAll(BinaryExpr.class).stream().
-                                    filter(f -> f.getOperator() == OR).toList();
-
-                            Integer cyclomaticComplexity = catchClause.size()+
-                                    ternaryExpr.size() +
-                                    doStmts.size() +
-                                    forStmts.size() +
-                                    ifStmts.size() +
-                                    switchEntrys.size() +
-                                    whileStmts.size() +
-                                    andExprs.size() +
-                                    orExprs.size() +
-                                    1;
-
-                            method.setCyclomaticComplexity(cyclomaticComplexity);
-                        }
-                    }
-                }
-            }
-            catch (Exception e) {
-                logger.error("Error during src file parsing",e);
-            }
+            parseJavaFile(srcFile,
+                    specialSubdirectories,
+                    module);
         }
 
-        logger.info(" === Packages, Classes & Methods");
+        dumpModuleToLog(module);
 
-        for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
-            logger.info("# {}", pck.getName());
-
-            for (Clazz clazz : pck.getClasses().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
-                logger.info("  * {}", clazz.getQualifiedName());
-
-                for (Method method : clazz.Methods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
-                    logger.info("    - {} {}", (method.getDescriptor() != null) ? method.getDescriptor() : method.getName(), method.getCyclomaticComplexity());
-                }
-            }
-        }
-
-        String reportId = "Java_"+moduleName.replace(" ","_");
+        String reportId = moduleNameToReportName(moduleName);
 
         logger.info("Id of generated report: {}",reportId);
 
@@ -346,6 +463,45 @@ public class JavaTool {
         mapper.writeValue(reportPath.toFile(), module);
         logger.info("Done.");
 
+        moduleMapCache.put(moduleName,module);
+
         return reportId;
+    }
+
+    @Tool(name = "GetCyclomaticComplexityModuleReport",
+            value =
+                    """
+                    Returns a report regarding the cyclomatic complexity of the module.
+                    """)
+    public List<Distribution> getCyclomaticComplexityModuleReport(@P("The name of the module")
+                                                        String moduleName) throws IOException {
+        logger.info("## GetCyclomaticComplexityModuleReport('{}')", moduleName);
+
+        String reportId = moduleNameToReportName(moduleName);
+
+        Map<Integer, Integer> productionDistribution = new HashMap<>();
+        Module module = moduleMapCache.get(moduleName);
+
+        for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
+            for (Clazz clazz : pck.getClasses().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                if (clazz.isProduction()) {
+                    for (Method method : clazz.Methods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
+                        if (method.getCyclomaticComplexity() != null) {
+                            Integer currentCount = productionDistribution.getOrDefault(method.getCyclomaticComplexity(), 0);
+                            productionDistribution.put(method.getCyclomaticComplexity(),currentCount+1);
+
+                        }
+                    }
+                }
+            }
+        }
+
+        Distribution prodCC = new Distribution("Distribution CyclomaticComplexity Production code");
+
+        for (Integer cc : productionDistribution.keySet().stream().sorted().toList()) {
+            prodCC.addEntry(cc.toString(), productionDistribution.get(cc));
+        }
+
+        return List.of(prodCC);
     }
 }
