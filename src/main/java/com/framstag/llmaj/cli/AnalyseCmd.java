@@ -192,6 +192,7 @@ public class AnalyseCmd implements Callable<Integer> {
         TaskManager taskManager = TaskManager.initializeTasks(Path.of(analysisDirectory),
                 Path.of(workingDirectory),
                 executeOnly);
+
         StateManager stateManager = StateManager.initializeState(Path.of(workingDirectory));
 
         TemplateLoader templateLoader = new FileTemplateLoader(Path.of(analysisDirectory)

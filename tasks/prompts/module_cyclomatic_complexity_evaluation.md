@@ -1,7 +1,7 @@
 ## Current Goal
 
 * The project may have one or more build modules.
-* We want to collect raw analysis data for further analysis of the module architecture.
+* Evaluate the cyclomatic complexity of each module separately.
 * We analyze each module separately by repeatedly calling this prompt for each module.
 
 ## Facts
@@ -10,7 +10,7 @@ The following build modules have been identified:
 
 {{#modules.modules~}}
 * Module "{{name}}" in directory "{{path}}"
-  {{/modules.modules}}
+{{/modules.modules}}
 
 Regarding the now to be analyzed module:
 
@@ -24,19 +24,13 @@ The following programming languages have been identified for this module:
 {{#programmingLanguages.programmingLanguages~}}
 * Programming language "{{name}}"
 {{/programmingLanguages.programmingLanguages}}
-
-The following special subdirectories have been identified for this module:
-
-| Path | CategoryId | Description |
-|------|------------|-------------|
-{{#subdirectories.directories~}}
-|{{path}}|{{categoryId}}|{{desc}}|
-{{/subdirectories.directories}}
 {{/with}}
 
 ## Solution strategy
 
 * If one of the programming languages is 'Java', call
-  the 'JavaGenerateModuleAnalysisReport' tool.
-
-## Hints
+  the 'GetCyclomaticComplexityModuleReport' tool.
+* Evaluate the result in relation to common architecture guidelines.
+* This should include:
+  * The value range regarding the cyclomatic complexity.
+  * The distribution of the cyclomatic complexity values.

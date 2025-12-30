@@ -178,3 +178,14 @@ dependsOn:
 tags:
   - module_analysis_reports
 loopOn: /modules/modules
+---
+id: ModuleCyclomaticComplexityEvaluation
+name: Evaluate the measured cyclomatic complexity values of the module
+prompt: tasks/prompts/module_cyclomatic_complexity_evaluation.md
+responseFormat: tasks/results/ArchitectureEvaluation.json
+responseProperty: cyclomaticComplexityEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_cyclomatic_complexity_evaluation
+loopOn: /modules/modules
