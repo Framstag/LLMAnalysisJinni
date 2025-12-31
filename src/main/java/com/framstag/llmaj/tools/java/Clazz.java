@@ -1,33 +1,31 @@
 package com.framstag.llmaj.tools.java;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 
 public class Clazz {
     private static final Logger logger = LoggerFactory.getLogger(Clazz.class);
 
     private final String qualifiedName;
-    private boolean isGenerated;
-    private boolean isProduction;
+    private final boolean production;
+    private final boolean generated;
+    private final List<Method> methods;
 
-    @JsonIgnore
-    private final Set<String> uniqueMethodNames = new HashSet<>();
-    @JsonIgnore
-    private final Map<String,Integer> countByName = new HashMap<>();
-
-    @JsonIgnore
-    private final Map<String,Method> methodByName = new HashMap<>();
-    @JsonIgnore
-    private final Map<String,Method> methodByDescriptor = new HashMap<>();
-
-    public Clazz(String qualifiedName) {
+    @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+    public Clazz(@JsonProperty("qualifiedName") String qualifiedName,
+                 @JsonProperty("production") boolean production,
+                 @JsonProperty("generated") boolean generated) {
         this.qualifiedName = qualifiedName;
-        this.isGenerated = false;
-        this.isProduction = true;
+        this.production = production;
+        this.generated = generated;
+        methods = new LinkedList<>();
     }
 
     public String getQualifiedName() {
@@ -35,62 +33,19 @@ public class Clazz {
     }
 
     public boolean isGenerated() {
-        return isGenerated;
-    }
-
-    public void setGenerated(boolean generated) {
-        isGenerated = generated;
+        return generated;
     }
 
     public boolean isProduction() {
-        return isProduction;
+        return production;
     }
 
-    public void setProduction(boolean production) {
-        isProduction = production;
-    }
-
-    public Method getOrAddMethodForce(String name, String descriptor) {
-        Method method = new Method(name,descriptor);
-        Integer count = countByName.getOrDefault(name, 0);
-        count = count + 1;
-
-        countByName.put(name, count);
-
-        methodByDescriptor.put(descriptor, method);
-
-        if (count > 1) {
-            methodByName.remove(name);
-        }
-        else /* count == 1 */ {
-            methodByName.put(name, method);
-        }
-
-        return method;
-    }
-
-    public Method getOrAddMethodHeuristic(String name, String descriptor) {
-        Integer count = countByName.getOrDefault(name, 0);
-
-        if (descriptor != null) {
-            return getOrAddMethodForce(name,descriptor);
-        }
-
-        if (count == 1) {
-            return methodByName.get(name);
-        }
-
-        return null;
+    public void addMethod(Method method) {
+        methods.add(method);
     }
 
      @JsonGetter
-    public List<Method> Methods() {
-        Set<Method> methods = new HashSet<>();
-
-        methods.addAll(methodByDescriptor.values());
-        methods.addAll(methodByName.values());
-
-        return methods.stream().toList();
+    public List<Method> getMethods() {
+        return Collections.unmodifiableList(methods);
     }
-
 }

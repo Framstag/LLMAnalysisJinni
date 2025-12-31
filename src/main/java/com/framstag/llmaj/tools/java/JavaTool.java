@@ -46,7 +46,7 @@ public class JavaTool {
     private static final Logger logger = LoggerFactory.getLogger(JavaTool.class);
 
     private final AnalysisContext context;
-    private final Map<String,Module> moduleMapCache = new HashMap<>();
+    private final Map<String, Module> moduleMapCache = new HashMap<>();
 
     public JavaTool(AnalysisContext context) {
         this.context = context;
@@ -70,24 +70,24 @@ public class JavaTool {
         return defaultValue;
     }
 
-    private static void modifyClassAttributesByCategory(Clazz clazz, SubdirectoryCategory category) {
+    private static void modifyClassAttributesByCategory(ClassManager classManager, SubdirectoryCategory category) {
         switch (category) {
             case SRC, OBJ -> {
-                clazz.setProduction(true);
-                clazz.setGenerated(false);
+                classManager.setProduction(true);
+                classManager.setGenerated(false);
             }
 
             case GEN_SRC -> {
-                clazz.setProduction(true);
-                clazz.setGenerated(true);
+                classManager.setProduction(true);
+                classManager.setGenerated(true);
             }
             case TEST_SRC, TEST_OBJ -> {
-                clazz.setProduction(false);
-                clazz.setGenerated(false);
+                classManager.setProduction(false);
+                classManager.setGenerated(false);
             }
             case TEST_GEN_SRC -> {
-                clazz.setProduction(false);
-                clazz.setGenerated(true);
+                classManager.setProduction(false);
+                classManager.setGenerated(true);
             }
         }
     }
@@ -98,10 +98,10 @@ public class JavaTool {
 
 
         if (modulesArray.isArray()) {
-            for (JsonNode module : modulesArray) {
-                String currentModuleName = module.get("name").asText();
+            for (JsonNode moduleManager : modulesArray) {
+                String currentModuleName = moduleManager.get("name").asText();
                 if (currentModuleName.equals(moduleName)) {
-                    return module;
+                    return moduleManager;
                 }
             }
         }
@@ -110,9 +110,9 @@ public class JavaTool {
     }
 
     private Path getModulePath(ObjectNode analysisState, String moduleName) {
-        JsonNode module = getModuleWithByName(analysisState, moduleName);
+        JsonNode moduleManager = getModuleWithByName(analysisState, moduleName);
 
-        return Path.of(module.get("path").asText());
+        return Path.of(moduleManager.get("path").asText());
     }
 
     private List<SpecialSubdirectory> getSpecialSubdirectoriesFromState(String moduleName, Path modulePath) {
@@ -120,8 +120,8 @@ public class JavaTool {
 
         ObjectNode analysisState = context.getAnalysisState();
 
-        JsonNode module = getModuleWithByName(analysisState, moduleName);
-        JsonNode subdirectories = module.get("subdirectories");
+        JsonNode moduleManager = getModuleWithByName(analysisState, moduleName);
+        JsonNode subdirectories = moduleManager.get("subdirectories");
         JsonNode directories = subdirectories.get("directories");
 
         for (JsonNode directory : directories) {
@@ -167,7 +167,7 @@ public class JavaTool {
 
     private static void parseJavaFile(Path srcFile,
                                       List<SpecialSubdirectory> specialSubdirectories,
-                                      Module module) {
+                                      ModuleManager moduleManager) {
         try {
             logger.info("Parsing java file '{}'...", srcFile);
 
@@ -181,10 +181,10 @@ public class JavaTool {
                     String qualifiedName = getClassFileName(type);
                     logger.info("Type: {} - {}",packageName, qualifiedName);
 
-                    Package pck = module.getOrAddPackageByName(packageName);
-                    Clazz clazz = pck.getOrAddClassByName(qualifiedName);
+                    PackageManager pck = moduleManager.getOrAddPackageByName(packageName);
+                    ClassManager classManager = pck.getOrAddClassByName(qualifiedName);
 
-                    modifyClassAttributesByCategory(clazz,category);
+                    modifyClassAttributesByCategory(classManager,category);
 
                     List<MethodDeclaration> methods = type.getMethods();
 
@@ -217,7 +217,7 @@ public class JavaTool {
                                 methodName,
                                 methodDescriptor);
 
-                        Method method = clazz.getOrAddMethodHeuristic(methodName,methodDescriptor);
+                        Method method = classManager.getOrAddMethodHeuristic(methodName,methodDescriptor);
 
                         if (method == null) {
                             logger.warn("Method '{}' for class '{}' is overloaded, but we do not have a descriptor for differentiation, skipping...",
@@ -273,7 +273,7 @@ public class JavaTool {
             for (Clazz clazz : pck.getClasses().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
                 logger.info("  * {} {} {}", clazz.getQualifiedName(),clazz.isProduction(), clazz.isGenerated());
 
-                for (Method method : clazz.Methods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
+                for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
                     logger.info("    - {} {}", (method.getDescriptor() != null) ? method.getDescriptor() : method.getName(), method.getCyclomaticComplexity());
                 }
             }
@@ -307,7 +307,7 @@ public class JavaTool {
 
     private static void parseClassFile(Path classFile,
                                        List<SpecialSubdirectory> specialSubdirectories,
-                                       Module module) {
+                                       ModuleManager moduleManager) {
         try {
             logger.info("Parsing class file '{}'...", classFile);
             ClassModel classModel = ClassFile.of().parse(classFile);
@@ -319,10 +319,10 @@ public class JavaTool {
 
             SubdirectoryCategory category = getCategoryOfFile(specialSubdirectories,classFile,SubdirectoryCategory.SRC);
 
-            Package pck = module.getOrAddPackageByName(packageName);
-            Clazz clazz = pck.getOrAddClassByName(qualifiedName);
+            PackageManager pck = moduleManager.getOrAddPackageByName(packageName);
+            ClassManager classManager = pck.getOrAddClassByName(qualifiedName);
 
-            modifyClassAttributesByCategory(clazz,category);
+            modifyClassAttributesByCategory(classManager,category);
 
             if (classModel.superclass().isPresent()) {
                 String parentQualifiedName = classModel.superclass().get().asSymbol().packageName()+"."+
@@ -362,12 +362,56 @@ public class JavaTool {
 
                 logger.debug("Method: {} {}", methodDescriptor, methodModel.flags());
 
-                Method method = clazz.getOrAddMethodForce(methodName,methodDescriptor);
+                Method method = classManager.getOrAddMethodForce(methodName,methodDescriptor);
             }
         }
         catch (Exception e) {
             logger.error("Error during class file parsing",e);
         }
+    }
+
+    private String storeModuleReport(String moduleName, Module module) throws IOException {
+        String reportId = moduleNameToReportName(moduleName);
+
+        logger.info("Id of generated report: {}",reportId);
+
+
+        Path reportPath = context.getWorkingDirectory().resolve(reportId+".json");
+
+        logger.info("Writing report file '{}'...",reportPath);
+
+        ObjectMapper mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
+        mapper.writeValue(reportPath.toFile(), module);
+
+        logger.info("Done.");
+
+        moduleMapCache.put(moduleName, module);
+
+        return reportId;
+    }
+
+    private Module getModuleReport(String moduleName) throws IOException {
+        Module module = moduleMapCache.get(moduleName);
+
+        if (module != null) {
+            logger.info("Fetching module report for module '{}' from cache", moduleName);
+            return module;
+        }
+
+        String reportId = moduleNameToReportName(moduleName);
+
+        Path reportPath = context.getWorkingDirectory().resolve(reportId+".json");
+
+        logger.info("Reading report file '{}'...",reportPath);
+
+        ObjectMapper mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
+        module = mapper.readValue(reportPath.toFile(), Module.class);
+
+        logger.info("Done.");
+
+        moduleMapCache.put(moduleName, module);
+
+        return module;
     }
 
     @Tool(name = "JavaGenerateModuleAnalysisReport",
@@ -377,7 +421,7 @@ public class JavaTool {
                     
                     Returns the id of the report for further usage.
                     """)
-    public String generateModuleAnalysisReport(@P("The name of the module")
+    public String generateModuleAnalysisReport(@P("The name of the moduleManager")
                                                String moduleName) throws IOException {
         logger.info("## JavaGenerateModuleAnalysisReport('{}')",moduleName);
 
@@ -407,7 +451,7 @@ public class JavaTool {
             }
         }
 
-        Module module = new Module(moduleName);
+        ModuleManager moduleManager = new ModuleManager(moduleName);
 
         List<Path> classFiles = getAllMatchingFilesInDirectoryRecursively(List.of("*.class"),
                 startPath);
@@ -415,7 +459,7 @@ public class JavaTool {
         logger.info("{} *.class file(s) found", classFiles.size());
 
         for (Path classFile : classFiles) {
-            parseClassFile(classFile, specialSubdirectories, module);
+            parseClassFile(classFile, specialSubdirectories, moduleManager);
         }
 
         List<Path> srcFiles = getAllMatchingFilesInDirectoryRecursively(List.of("*.java"), startPath);
@@ -446,24 +490,14 @@ public class JavaTool {
         for (Path srcFile : srcFiles) {
             parseJavaFile(srcFile,
                     specialSubdirectories,
-                    module);
+                    moduleManager);
         }
+
+        Module module  = moduleManager.getModule();
 
         dumpModuleToLog(module);
 
-        String reportId = moduleNameToReportName(moduleName);
-
-        logger.info("Id of generated report: {}",reportId);
-
-        ObjectMapper mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
-
-        Path reportPath = context.getWorkingDirectory().resolve(reportId+".json");
-
-        logger.info("Writing report file '{}'...",reportPath);
-        mapper.writeValue(reportPath.toFile(), module);
-        logger.info("Done.");
-
-        moduleMapCache.put(moduleName,module);
+        String reportId = storeModuleReport(moduleName, module);
 
         return reportId;
     }
@@ -471,21 +505,20 @@ public class JavaTool {
     @Tool(name = "GetCyclomaticComplexityModuleReport",
             value =
                     """
-                    Returns a report regarding the cyclomatic complexity of the module.
+                    Returns a report regarding the cyclomatic complexity of the moduleManager.
                     """)
-    public List<Distribution> getCyclomaticComplexityModuleReport(@P("The name of the module")
+    public List<Distribution> getCyclomaticComplexityModuleReport(@P("The name of the moduleManager")
                                                         String moduleName) throws IOException {
         logger.info("## GetCyclomaticComplexityModuleReport('{}')", moduleName);
 
-        String reportId = moduleNameToReportName(moduleName);
+        Module module = getModuleReport(moduleName);
 
         Map<Integer, Integer> productionDistribution = new HashMap<>();
-        Module module = moduleMapCache.get(moduleName);
 
         for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
             for (Clazz clazz : pck.getClasses().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
                 if (clazz.isProduction()) {
-                    for (Method method : clazz.Methods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
+                    for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
                         if (method.getCyclomaticComplexity() != null) {
                             Integer currentCount = productionDistribution.getOrDefault(method.getCyclomaticComplexity(), 0);
                             productionDistribution.put(method.getCyclomaticComplexity(),currentCount+1);

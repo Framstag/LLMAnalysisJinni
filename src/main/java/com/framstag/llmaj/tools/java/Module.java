@@ -1,31 +1,31 @@
 package com.framstag.llmaj.tools.java;
 
-import com.fasterxml.jackson.annotation.JsonGetter;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 public class Module {
     private final String name;
-    @JsonIgnore
-    Map<String,Package> packagesByName = new HashMap<>();
+    private final List<Package> packages;
 
-    public Module(String name) {
+    @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+    public Module(@JsonProperty("name")String name) {
         this.name = name;
+        this.packages = new LinkedList<>();
     }
 
     public String getName() {
         return name;
     }
 
-    public Package getOrAddPackageByName(String qualifiedName) {
-        return packagesByName.computeIfAbsent(qualifiedName, Package::new);
+    public void addPackage(Package pck) {
+        this.packages.add(pck);
     }
 
-    @JsonGetter("packages")
     public List<Package> getPackages() {
-        return packagesByName.values().stream().toList();
+        return Collections.unmodifiableList(packages);
     }
 }
