@@ -513,15 +513,15 @@ public class JavaTool {
 
         Module module = getModuleReport(moduleName);
 
-        Map<Integer, Integer> productionDistribution = new HashMap<>();
+        Map<Integer, Integer> prodDistribution = new HashMap<>();
 
         for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
             for (Clazz clazz : pck.getClasses().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
-                if (clazz.isProduction()) {
+                if (clazz.isProduction() && !clazz.isGenerated()) {
                     for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
                         if (method.getCyclomaticComplexity() != null) {
-                            Integer currentCount = productionDistribution.getOrDefault(method.getCyclomaticComplexity(), 0);
-                            productionDistribution.put(method.getCyclomaticComplexity(),currentCount+1);
+                            Integer currentCount = prodDistribution.getOrDefault(method.getCyclomaticComplexity(), 0);
+                            prodDistribution.put(method.getCyclomaticComplexity(),currentCount+1);
 
                         }
                     }
@@ -529,12 +529,57 @@ public class JavaTool {
             }
         }
 
-        Distribution prodCC = new Distribution("Distribution CyclomaticComplexity Production code");
+        Distribution prodCC = new Distribution("Distribution CyclomaticComplexity production code");
 
-        for (Integer cc : productionDistribution.keySet().stream().sorted().toList()) {
-            prodCC.addEntry(cc.toString(), productionDistribution.get(cc));
+        for (Integer cc : prodDistribution.keySet().stream().sorted().toList()) {
+            prodCC.addEntry(cc.toString(), prodDistribution.get(cc));
         }
 
-        return List.of(prodCC);
+        Map<Integer, Integer> testDistribution = new HashMap<>();
+
+        for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
+            for (Clazz clazz : pck.getClasses().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                if (!clazz.isProduction() && !clazz.isGenerated()) {
+                    for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
+                        if (method.getCyclomaticComplexity() != null) {
+                            Integer currentCount = testDistribution.getOrDefault(method.getCyclomaticComplexity(), 0);
+                            testDistribution.put(method.getCyclomaticComplexity(),currentCount+1);
+
+                        }
+                    }
+                }
+            }
+        }
+
+        Distribution testCC = new Distribution("Distribution CyclomaticComplexity test code");
+
+        for (Integer cc : testDistribution.keySet().stream().sorted().toList()) {
+            testCC.addEntry(cc.toString(), testDistribution.get(cc));
+        }
+
+
+        Map<Integer, Integer> genDistribution = new HashMap<>();
+
+        for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
+            for (Clazz clazz : pck.getClasses().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                if (clazz.isGenerated()) {
+                    for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
+                        if (method.getCyclomaticComplexity() != null) {
+                            Integer currentCount = genDistribution.getOrDefault(method.getCyclomaticComplexity(), 0);
+                            genDistribution.put(method.getCyclomaticComplexity(),currentCount+1);
+
+                        }
+                    }
+                }
+            }
+        }
+
+        Distribution genCC = new Distribution("Distribution CyclomaticComplexity generated code");
+
+        for (Integer cc : genDistribution.keySet().stream().sorted().toList()) {
+            genCC.addEntry(cc.toString(), genDistribution.get(cc));
+        }
+
+        return List.of(prodCC,testCC,genCC);
     }
 }
