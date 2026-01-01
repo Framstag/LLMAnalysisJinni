@@ -7,6 +7,7 @@ import picocli.CommandLine.Command;
         subcommands = {
                 AnalyseCmd.class,
                 DocumentCmd.class,
+                JavaAnalysisCmd.class,
                 StateCmd.class,
                 CommandLine.HelpCommand.class
         },

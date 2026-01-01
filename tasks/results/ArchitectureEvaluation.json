@@ -35,6 +35,16 @@
                     "recommendation": {
                         "type": "string",
                         "description": "Recommendation of action to improve the situation"
+                    },
+                    "urgency": {
+                        "type": "string",
+                        "enum": ["LOW", "MEDIUM", "HIGH"],
+                        "description": "Urgency of recommendation"
+                    },
+                    "criticality": {
+                        "type": "string",
+                        "enum": ["LOW", "MEDIUM", "HIGH"],
+                        "description": "Criticality of recommendation"
                     }
                 }
             }

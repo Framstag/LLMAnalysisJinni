@@ -152,3 +152,40 @@ dependsOn:
   - file_statistics
 tags:
   - code_size_evaluation
+---
+id: ModuleSubdirectories
+name: Identify the root directories for various artifacts
+prompt: tasks/prompts/module_subdirectories.md
+responseFormat: tasks/results/ModuleSubdirectories.json
+responseProperty: subdirectories
+dependsOn:
+  - modules
+  - programming_language
+tags:
+  - module_subdirectories
+loopOn: /modules/modules
+
+---
+id: ModuleAnalysisReports
+name: Collect analysis data per identified module
+prompt: tasks/prompts/module_analysis_reports.md
+responseFormat: tasks/results/ModuleAnalysisReports.json
+responseProperty: analysisReports
+dependsOn:
+  - modules
+  - programming_language
+  - module_subdirectories
+tags:
+  - module_analysis_reports
+loopOn: /modules/modules
+---
+id: ModuleCyclomaticComplexityEvaluation
+name: Evaluate the measured cyclomatic complexity values of the module
+prompt: tasks/prompts/module_cyclomatic_complexity_evaluation.md
+responseFormat: tasks/results/ArchitectureEvaluation.json
+responseProperty: cyclomaticComplexityEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_cyclomatic_complexity_evaluation
+loopOn: /modules/modules

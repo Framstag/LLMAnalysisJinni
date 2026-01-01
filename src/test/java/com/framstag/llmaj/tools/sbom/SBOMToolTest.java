@@ -36,10 +36,9 @@ public class SBOMToolTest {
     @BeforeEach
     void initializeContext() {
         AnalysisContext context = new AnalysisContext(
-                "ArchitectureAnalysis",
-                "1.0.0",
                 Paths.get("").toAbsolutePath(),
-                Paths.get("").toAbsolutePath());
+                Paths.get("").toAbsolutePath(),
+                null);
 
         sbomTool = new SBOMTool(context);
     }

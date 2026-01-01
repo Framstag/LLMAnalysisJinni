@@ -9,6 +9,7 @@ import com.framstag.llmaj.ChatExecutionContext;
 import com.framstag.llmaj.ChatListener;
 import com.framstag.llmaj.handlebars.HandlebarsFactory;
 import com.framstag.llmaj.json.JsonHelper;
+import com.framstag.llmaj.json.ObjectMapperFactory;
 import com.framstag.llmaj.lc4j.ChatExecutor;
 import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
@@ -155,11 +156,6 @@ public class AnalyseCmd implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        AnalysisContext context = new AnalysisContext("ArchitectureAnalysis",
-                "1.0.0",
-                Path.of(projectRoot),
-                Path.of(workingDirectory));
-
         ChatModel model = OllamaChatModel.builder()
                 .modelName(modelName)
                 .baseUrl(modelUrl.toString())
@@ -186,19 +182,17 @@ public class AnalyseCmd implements Callable<Integer> {
         logger.info("Workspace:      '{}'", workingDirectory);
         logger.info("<< Parameter");
 
-        List<Object> toolList = ToolFactory.getToolInstanceList(context);
-
         ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(chatWindowSize);
 
         ServiceOutputParser outputParser = new ServiceOutputParser();
 
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.findAndRegisterModules();
+        ObjectMapper mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
         JsonFactory factory = mapper.getFactory();
 
         TaskManager taskManager = TaskManager.initializeTasks(Path.of(analysisDirectory),
                 Path.of(workingDirectory),
                 executeOnly);
+
         StateManager stateManager = StateManager.initializeState(Path.of(workingDirectory));
 
         TemplateLoader templateLoader = new FileTemplateLoader(Path.of(analysisDirectory)
@@ -207,6 +201,13 @@ public class AnalyseCmd implements Callable<Integer> {
 
         var templateEngine = HandlebarsFactory.create()
                 .with(templateLoader);
+
+        AnalysisContext context = new AnalysisContext(
+                Path.of(projectRoot),
+                Path.of(workingDirectory),
+                stateManager.getAnalysisState());
+
+        List<Object> toolList = ToolFactory.getToolInstanceList(context);
 
         taskManager.dump();
 

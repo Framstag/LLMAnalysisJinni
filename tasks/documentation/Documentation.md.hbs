@@ -213,7 +213,31 @@ We list all identified purposes:
 {{/modules.modules}}
 {{/if}}
 
-#### Architecture per module
+### Directory structure per module
+
+Each module may have a different purpose.
+We list all identified purposes:
+
+{{#if modules.modules}}
+{{#modules.modules}}
+#### Module "{{name}}"
+
+##### Structure
+
+|Directory|CategoryId|Description|
+|---------|----------|-----------|
+{{#subdirectories.directories~}}
+|{{path}}|{{categoryId}}|{{desc}}|
+{{/subdirectories.directories}}
+
+##### Reasoning
+
+{{subdirectories.reasoning}}
+
+{{/modules.modules}}
+{{/if}}
+
+### Architecture per module
 
 Different modules may use different architecture patterns.
 We list the identified architecture per module.
@@ -252,8 +276,27 @@ We gather some file statistics per module and programming language:
 
 We got the following findings:
 
-|Expectation|Finding|Reasoning|Recommendation|
-|-----------|-------|---------|--------------|
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|------|-------|-----------|-----------|---------|-------|--------------|
 {{#code_size_distribution.evaluations~}}
-|{{expectation}}|{{finding}}|{{reasoning}}|{{recommendation}}|
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
 {{/code_size_distribution.evaluations}}
+
+### Analysis of Cyclomatic Complexity per Module
+
+{{#if modules.modules}}
+
+The analysis resulted in the following findings per module:
+
+{{#modules.modules}}
+#### Module "{{name}}"
+
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|------|-------|-----------|-----------|---------|-------|--------------|
+{{#cyclomaticComplexityEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/cyclomaticComplexityEvaluation.evaluations~}}
+
+{{/modules.modules}}
+
+{{/if}}
