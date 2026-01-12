@@ -6,7 +6,7 @@
 
 ### Metadata
 
-The project has the following metadata
+The project has the following metadata:
 
 |Attribute|Data|
 |---------|----|
@@ -256,7 +256,29 @@ We list the identified architecture per module.
 {{/modules.modules}}
 {{/if}}
 
-## Architecture Analysis
+## Software, Design and Architecture Analysis
+
+### Analysis of build files per module
+
+{{#if modules.modules}}
+The analysis resulted in the following findings per module:
+
+{{#modules.modules}}
+#### Module "{{name}}"
+
+##### General reasoning
+
+{{build_analysis.reasoning}}
+
+##### Findings
+
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|------|-------|-----------|-----------|---------|-------|--------------|
+{{#build_analysis.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/build_analysis.evaluations~}}
+{{/modules.modules}}
+{{/if}}
 
 ### File statistics per module
 
@@ -285,7 +307,6 @@ We got the following findings:
 ### Analysis of Cyclomatic Complexity per Module
 
 {{#if modules.modules}}
-
 The analysis resulted in the following findings per module:
 
 {{#modules.modules}}
@@ -298,5 +319,4 @@ The analysis resulted in the following findings per module:
 {{/cyclomaticComplexityEvaluation.evaluations~}}
 
 {{/modules.modules}}
-
 {{/if}}

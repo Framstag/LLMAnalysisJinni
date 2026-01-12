@@ -53,6 +53,19 @@ tags:
   - programming_language
 loopOn: /modules/modules
 ---
+id: ModuleBuildfileAnalysis
+name: Locate and analyse build files for module
+prompt: tasks/prompts/module_analysis_buildfiles.md
+responseFormat: tasks/results/ArchitectureEvaluation.json
+responseProperty: build_analysis
+dependsOn:
+  - buildsystems
+  - modules
+  - programming_language
+tags:
+  - module_buildfile_analysis
+loopOn: /modules/modules
+---
 id: ModulePurpose
 name: Get a purpose for each module
 prompt: tasks/prompts/module_purpose.md

@@ -6,37 +6,26 @@
 
 ## Facts
 
-The following build modules have been identified:
-
-{{#modules.modules~}}
-* Module "{{name}}" in directory "{{path}}"
-  {{/modules.modules}}
-
-Regarding the now to be analyzed module:
+{{> macros/list_of_modules.md}}
 
 {{#with (lookup modules.modules loopIndex)}}
-The current module to analyze is named: "{{name}}"
-The path of this build module is: "{{path}}"
-The current module is a root module: {{root}}
+{{> macros/current_loop_module.md}}
 
-The following programming languages have been identified for this module:
+{{> macros/programming_languages_for_module.md}}
 
-{{#programmingLanguages.programmingLanguages~}}
-* Programming language "{{name}}"
-{{/programmingLanguages.programmingLanguages}}
+{{> macros/subdirectories_for_module.md}}
 
-The following special subdirectories have been identified for this module:
-
-| Path | CategoryId | Description |
-|------|------------|-------------|
-{{#subdirectories.directories~}}
-|{{path}}|{{categoryId}}|{{desc}}|
-{{/subdirectories.directories}}
-{{/with}}
-
+{{#if programmingLanguages.programmingLanguages.length}}
 ## Solution strategy
 
-* If one of the programming languages is 'Java', call
-  the 'JavaGenerateModuleAnalysisReport' tool.
+* If one of the programming languages is 'Java', call the 'JavaGenerateModuleAnalysisReport' tool.
+* If there is no matching analysis tool for a detected programming language, just skip this language and continue with the next in the list.
+* If no programming language was found to analyse, just return an empty array of reports.
 
 ## Hints
+{{~else~}}
+## Solution strategy
+
+* Since no programming languages have been found, no analysis is possible. Thus, return an empty array of reports.
+{{/if}}
+{{/with}}

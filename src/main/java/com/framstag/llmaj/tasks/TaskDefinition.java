@@ -13,14 +13,14 @@ import java.util.Set;
 
 public class TaskDefinition {
     private String id;
-    private boolean active = true;
+    private final boolean active = true;
     private String name;
     private Path systemPrompt;
     private Path prompt;
     private Path responseFormat;
     private String responseProperty;
-    private Set<String> tags = new HashSet<>();
-    private Set<String> dependsOn = new HashSet<>();
+    private final Set<String> tags = new HashSet<>();
+    private final Set<String> dependsOn = new HashSet<>();
     private String loopOn;
 
     public String getId() {

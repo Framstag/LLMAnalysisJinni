@@ -239,6 +239,49 @@ public class TaskManager {
         return calculateNextTask();
     }
 
+    public void markTaskAskLoopProcessing(TaskDefinition task,
+                                          int successfulLoopIndex) {
+        String taskId = task.getId();
+
+        if (!pendingTaskIds.contains(taskId)) {
+            logger.error("Trying to mark task with id {} as pending, though it is not pending!",
+                    taskId);
+            return;
+        }
+
+        taskStateMap.put(taskId,
+                new TaskState(taskId,
+                        ZonedDateTime.now(),
+                        successfulLoopIndex,
+                        TaskStatus.PROCESSING));
+
+        saveState();
+    }
+
+    public int getTaskSuccessFullLoopIndex(TaskDefinition task) {
+        String taskId = task.getId();
+
+        if (!pendingTaskIds.contains(taskId)) {
+            logger.error("Trying to mark task with id {} as finished, though it is not pending!",
+                    taskId);
+            return -1;
+        }
+
+        TaskState taskState = taskStateMap.get(taskId);
+
+        if (taskState == null) {
+            return -1;
+        }
+
+        Integer lastSuccessfulIndex = taskState.getLastSuccessfulIndex();
+
+        if (lastSuccessfulIndex == null) {
+            return -1;
+        }
+
+        return lastSuccessfulIndex;
+    }
+
     public void markTaskAsSuccessful(TaskDefinition task) {
         String taskId = task.getId();
 
@@ -255,7 +298,8 @@ public class TaskManager {
         taskStateMap.put(taskId,
                 new TaskState(taskId,
                         ZonedDateTime.now(),
-                        true));
+                        null,
+                        TaskStatus.SUCCESSFUL));
 
         saveState();
     }
@@ -273,7 +317,8 @@ public class TaskManager {
         taskStateMap.put(taskId,
                 new TaskState(taskId,
                         ZonedDateTime.now(),
-                        false));
+                        null,
+                        TaskStatus.FAILED));
 
         saveState();
     }
@@ -329,7 +374,7 @@ public class TaskManager {
         Set<String> successfullyProcessedTaskIds = new HashSet<>();
 
         taskStateMap.forEach((taskId, state) -> {
-            if (state.success()) {
+            if (state.isSuccessful()) {
                 pendingTaskIds.remove(taskId);
                 successfullyProcessedTaskIds.add(taskId);
             }
@@ -338,7 +383,7 @@ public class TaskManager {
         Set<String> scheduledTags = new HashSet<>();
 
         taskStateMap.forEach((taskId, state) -> {
-            if (state.success()) {
+            if (state.isSuccessful()) {
                 scheduledTags.addAll(taskByIdMap.get(taskId).getTags());
             }
         });

@@ -66,7 +66,7 @@ public class FileToolTest {
 
     @Test
     void findMatchingFileInRootDir() throws IOException {
-        List<FilesInDirectory> result = fileTool.getMatchingFilesInDirRecursively("",List.of("pom.xml"));
+        List<FilesInDirectory> result = fileTool.getMatchingFilesInDirRecursively("",List.of("pom.xml"),true);
 
         assertEquals(1, result.size());
         assertEquals("", result.getFirst().directory());
@@ -75,7 +75,7 @@ public class FileToolTest {
 
     @Test
     void findMatchingFileInSubDir() throws IOException {
-        List<FilesInDirectory> result = fileTool.getMatchingFilesInDirRecursively("",List.of("Main.java"));
+        List<FilesInDirectory> result = fileTool.getMatchingFilesInDirRecursively("",List.of("Main.java"),true);
 
         assertEquals(1, result.size());
         assertEquals("src/main/java/com/framstag/llmaj", result.getFirst().directory());
@@ -84,7 +84,7 @@ public class FileToolTest {
 
     @Test
     void findExactlyMatchingFileInSubDir() throws IOException {
-        List<FilesInDirectory> result = fileTool.getMatchingFilesInDirRecursively("src",List.of("logback.xml"));
+        List<FilesInDirectory> result = fileTool.getMatchingFilesInDirRecursively("src",List.of("logback.xml"),true);
 
         assertEquals(1, result.size());
         assertEquals("src/main/resources", result.getFirst().directory());

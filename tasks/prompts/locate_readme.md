@@ -1,11 +1,11 @@
 ## Current Goal
 
 * Most applications have some kind of README containing project information in the root directory
-of the project. I want you to locate this README and returns is file name to me.
+of the project. I want you to locate this README and return it file name to me.
 
 ## Solution strategy
 
-* Look for such files the root directory of the project.
+* Look for such files in the root directory of the project.
 * Return the most likely filename.
 
 ## Hints

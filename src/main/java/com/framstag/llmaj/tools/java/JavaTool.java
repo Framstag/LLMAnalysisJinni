@@ -28,6 +28,7 @@ import dev.langchain4j.agent.tool.Tool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
@@ -94,14 +95,16 @@ public class JavaTool {
 
     private JsonNode getModuleWithByName(ObjectNode analysisState, String moduleName) {
         JsonNode modulesSection = analysisState.get("modules");
-        JsonNode modulesArray = modulesSection.get("modules");
+        assert(modulesSection != null && !modulesSection.isNull());
 
+        JsonNode modulesArray = modulesSection.get("modules");
+        assert(modulesArray != null && !modulesArray.isNull());
 
         if (modulesArray.isArray()) {
-            for (JsonNode moduleManager : modulesArray) {
-                String currentModuleName = moduleManager.get("name").asText();
+            for (JsonNode module : modulesArray) {
+                String currentModuleName = module.get("name").asText();
                 if (currentModuleName.equals(moduleName)) {
-                    return moduleManager;
+                    return module;
                 }
             }
         }
@@ -110,9 +113,11 @@ public class JavaTool {
     }
 
     private Path getModulePath(ObjectNode analysisState, String moduleName) {
-        JsonNode moduleManager = getModuleWithByName(analysisState, moduleName);
+        JsonNode module = getModuleWithByName(analysisState, moduleName);
 
-        return Path.of(moduleManager.get("path").asText());
+        assert(module != null && !module.isNull());
+
+        return Path.of(module.get("path").asText());
     }
 
     private List<SpecialSubdirectory> getSpecialSubdirectoriesFromState(String moduleName, Path modulePath) {
@@ -120,14 +125,27 @@ public class JavaTool {
 
         ObjectNode analysisState = context.getAnalysisState();
 
-        JsonNode moduleManager = getModuleWithByName(analysisState, moduleName);
-        JsonNode subdirectories = moduleManager.get("subdirectories");
+        JsonNode module = getModuleWithByName(analysisState, moduleName);
+        assert(module != null && !module.isNull());
+
+        JsonNode subdirectories = module.get("subdirectories");
+        assert(subdirectories != null && !subdirectories.isNull());
+
         JsonNode directories = subdirectories.get("directories");
+        assert(directories != null && !directories.isNull());
 
         for (JsonNode directory : directories) {
             String path = directory.get("path").asText();
+            assert(path != null && !path.isEmpty());
+
             String categoryId = directory.get("categoryId").asText("");
-            String description = directory.get("desc").asText("");
+            assert(categoryId != null && !categoryId.isEmpty());
+
+            String description = "";
+            JsonNode descriptionNode = directory.get("desc");
+            if (descriptionNode != null && descriptionNode.isTextual()) {
+                description = descriptionNode.asText();
+            }
 
             result.add(new SpecialSubdirectory(modulePath.resolve(path),
                     SubdirectoryCategory.fromString(categoryId),
@@ -375,7 +393,6 @@ public class JavaTool {
 
         logger.info("Id of generated report: {}",reportId);
 
-
         Path reportPath = context.getWorkingDirectory().resolve(reportId+".json");
 
         logger.info("Writing report file '{}'...",reportPath);
@@ -421,7 +438,7 @@ public class JavaTool {
                     
                     Returns the id of the report for further usage.
                     """)
-    public String generateModuleAnalysisReport(@P("The name of the moduleManager")
+    public String generateModuleAnalysisReport(@P("The name of the module")
                                                String moduleName) throws IOException {
         logger.info("## JavaGenerateModuleAnalysisReport('{}')",moduleName);
 
@@ -438,7 +455,11 @@ public class JavaTool {
             return "";
         }
 
+        logger.info("Getting subdirectories from state...");
+
         List<SpecialSubdirectory> specialSubdirectories = getSpecialSubdirectoriesFromState(moduleName, modulePath);
+
+        logger.info("Getting subdirectories from state... done.");
 
         for (SpecialSubdirectory directory : specialSubdirectories) {
             Path specialPath = directory.getPath();
@@ -447,7 +468,7 @@ public class JavaTool {
 
             if (!FileHelper.accessAllowed(rootPath, specialPath)) {
                 logger.error("Not allowed to access '{}' ('{}' '{}')", specialPath,rootPath,directory.getPath());
-                return "";
+                return "ERROR";
             }
         }
 
@@ -473,9 +494,15 @@ public class JavaTool {
         for (SpecialSubdirectory directory : specialSubdirectories) {
             if (directory.getCategoryId().isSrc()) {
                 Path specialPath = rootPath.resolve(directory.getPath());
+                File pathFile = specialPath.toFile();
 
-                logger.info("Adding '{}' as search path to java parser...", specialPath);
-                typeSolver.add(new JavaParserTypeSolver(specialPath.toFile()));
+                if (pathFile.exists() && pathFile.isDirectory()) {
+                    logger.info("Adding '{}' as search path to java parser...", specialPath);
+                    typeSolver.add(new JavaParserTypeSolver(specialPath.toFile()));
+                }
+                else {
+                    logger.warn("Skip adding '{}' as search path, since it does no exist or is not a directory", specialPath);
+                }
             }
         }
 
@@ -505,9 +532,9 @@ public class JavaTool {
     @Tool(name = "GetCyclomaticComplexityModuleReport",
             value =
                     """
-                    Returns a report regarding the cyclomatic complexity of the moduleManager.
+                    Returns a report regarding the cyclomatic complexity of the module.
                     """)
-    public List<Distribution> getCyclomaticComplexityModuleReport(@P("The name of the moduleManager")
+    public List<Distribution> getCyclomaticComplexityModuleReport(@P("The name of the module")
                                                         String moduleName) throws IOException {
         logger.info("## GetCyclomaticComplexityModuleReport('{}')", moduleName);
 

@@ -6,11 +6,7 @@ Locate all directories representing build modules
 
 The project name is: "{{project.name}}"
 
-The following build systems are used:
-
-{{#build.buildsystems~}}
-* Build System: '{{name}}', variant: '{{variant}}'
-{{/build.buildsystems}}
+{{> macros/list_of_build_systems.md}}
 
 {{> facts/build_system_wildcards.md}}
 
@@ -25,12 +21,12 @@ source code modules by searching for the relevant build system files.
 
 ## Hints
 
-* Return the directory, where the build files are located, as module path.
+* Return the directory, where the build files are located, as a module path.
 * The name of the module can get extracted from the directory name of the module.
-  In case of the root directory holding build files, you should use the project name as module name.
+  In the case of the root directory holding build files, you should use the project name as a module name.
 * The code may use multiple build systems. In this case return each module directory only once.
 * Possible module structures:
-* * A single-module project with a build files only in the project root directory
+* * A single-module project with build files only in the project root directory
 * * A plain list of submodules in the root directory 
 * * A hierarchical directory and module structure.  
 * Mark the root module in the response. 

@@ -177,6 +177,7 @@ public class AnalyseCmd implements Callable<Integer> {
         logger.info("Log responses:  {}", logResponse);
         logger.info("Model name:     '{}'", modelName);
         logger.info("Maximum tokens: {}", maxToken);
+        logger.info("Native JSON:    {}", jsonResponse);
         logger.info("==");
         logger.info("Project:        '{}'", projectRoot);
         logger.info("Workspace:      '{}'", workingDirectory);
@@ -239,6 +240,12 @@ public class AnalyseCmd implements Callable<Integer> {
                     continue;
                 }
 
+                int lastSuccessfullyExecutedLoopIndex = taskManager.getTaskSuccessFullLoopIndex(task);
+
+                if (lastSuccessfullyExecutedLoopIndex>=0) {
+                    logger.info("Last successfully executed loop index: {}", lastSuccessfullyExecutedLoopIndex);
+                }
+
                 while (stateManager.canLoop()) {
                     stateManager.loopNext();
 
@@ -246,6 +253,11 @@ public class AnalyseCmd implements Callable<Integer> {
                             stateManager.getLoopIndex(),
                             task.getId(),
                             task.getName());
+
+                    if (stateManager.getLoopIndex()<=lastSuccessfullyExecutedLoopIndex) {
+                        logger.info("Loop index was already successfully executed, skipping...");
+                        continue;
+                    }
 
                     LinkedList<ChatMessage> messages = new LinkedList<>();
                     String systemPrompt;
@@ -272,6 +284,7 @@ public class AnalyseCmd implements Callable<Integer> {
                             jsonResponseSchema);
 
                     if (taskResultString != null && !taskResultString.isEmpty()) {
+                        taskResultString = JsonHelper.extractJSON(taskResultString);
                         try (JsonParser parser = factory.createParser(taskResultString)) {
                             JsonNode taskResultJson = mapper.readTree(parser);
                             logger.info("===>[{}] {}: {}",
@@ -281,6 +294,7 @@ public class AnalyseCmd implements Callable<Integer> {
 
                             stateManager.updateLoopState(task.getResponseProperty(), taskResultJson);
                             stateManager.saveState();
+                            taskManager.markTaskAskLoopProcessing(task, stateManager.getLoopIndex());
                         }
                     } else {
                         logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
@@ -319,6 +333,7 @@ public class AnalyseCmd implements Callable<Integer> {
                         jsonResponseSchema);
 
                 if (taskResultString != null && !taskResultString.isEmpty()) {
+                    taskResultString = JsonHelper.extractJSON(taskResultString);
                     try (JsonParser parser = factory.createParser(taskResultString)) {
                         JsonNode taskResultJson = mapper.readTree(parser);
                         logger.info("===> {}: {}", JsonHelper.getSchemaName(jsonResponseSchema), taskResultJson.toPrettyString());

@@ -9,37 +9,20 @@
 
 The following build systems have been identified:
 
-{{#build.buildsystems~}}
-* Build System: '{{name}}', variant: '{{variant}}'
-{{/build.buildsystems}}
-
+{{> macros/list_of_build_systems.md}}
 {{> facts/build_system_directories.md}}
-
-The following modules have been identified:
-
-{{# modules.modules~}}
-* Module "{{name}}" in directory "{{path}}"
-{{/modules.modules}}
-
-Regarding the now to be analyzed module:
+{{> macros/list_of_modules.md}}
 
 {{#with (lookup modules.modules loopIndex)}}
-The current module to analyse is named: "{{name}}"
-The path of this build module is: "{{path}}"
-The current module is a root module: {{root}}
-
-The following programming languages have been identified for this module:
-
-{{#programmingLanguages.programmingLanguages~}}
-* Programming language "{{name}}"
-{{/programmingLanguages.programmingLanguages}}
+{{> macros/current_loop_module.md}}
+{{> macros/programming_languages_for_module.md}}
 {{/with}}
 
 {{> facts/programming_language_wildcards.md}}
 
 ## Solution strategy
 
-* Use the 'GetStatisticsForMatchingFilesInDirRecursively' tool, to gather some basic statistics for each build module.
+* Use the 'GetStatisticsForMatchingFilesInDirRecursively' tool to gather some basic statistics for each build module.
 
 ## Hints
 

@@ -1,6 +1,6 @@
 ## Current Goal
 
-Based on the given distribution of file count and line count per module and file and file type you should 
+Based on the given distribution of file count and line count per module and file and file type, you should 
 give an architectural judgment regarding the quality of code based on this distribution.  
 
 ## Facts

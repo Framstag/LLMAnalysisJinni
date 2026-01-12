@@ -9,9 +9,9 @@
 
 ## Solution strategy
 
-* To identify a build system used in the project you should iteratively search
+* To identify a build system used in the project, you should iteratively search
   for files that are representative for a given build system.
 
 ## Hints
 
-* To look fort certain files use the 'FileCountPerFileType' tool. Pass to it the root directory and a list of wildcard expression matching files of the various build systems.
+* To look for certain files, use the 'FileCountPerFileType' tool. Pass to it the root directory and a list of wildcard expressions matching files of the various build systems.

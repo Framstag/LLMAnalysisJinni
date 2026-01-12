@@ -13,6 +13,9 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static java.nio.file.FileVisitResult.CONTINUE;
+import static java.nio.file.FileVisitResult.SKIP_SUBTREE;
+
 public class FileTool {
     private static final Logger logger = LoggerFactory.getLogger(FileTool.class);
 
@@ -26,9 +29,9 @@ public class FileTool {
     @Tool(name = "GetAllFilesInDir",
             value =
                     """
-                            Returns a list of files in the given sub directory.
-                            Directories will NOT get recursively visited,
-                            """)
+                        Returns a list of files in the given sub directory.
+                        Directories will NOT get recursively visited,
+                    """)
     public List<String> getAllFilesInDir(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only") String path) throws IOException {
         logger.info("## GetAllFilesInDir('{}')", path);
 
@@ -48,10 +51,10 @@ public class FileTool {
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
                 if (dir == startPath) {
-                    return FileVisitResult.CONTINUE;
+                    return CONTINUE;
                 }
 
-                return FileVisitResult.SKIP_SUBTREE;
+                return SKIP_SUBTREE;
             }
 
             @Override
@@ -62,7 +65,7 @@ public class FileTool {
 
                 result.add(name.toString());
 
-                return FileVisitResult.CONTINUE;
+                return CONTINUE;
             }
         };
 
@@ -75,11 +78,12 @@ public class FileTool {
         return result;
     }
 
+    /*
     @Tool(name = "GetAllFilesInDirRecursively",
             value =
                     """
                             Returns a list of files in the given sub directory and recursively all of its sub directories.
-                            """)
+                            """)*/
     public List<FilesInDirectory> getAllFilesInDirRecursively(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only") String path) throws IOException {
         logger.info("## GetAllFilesInDirRecursively('{}')", path);
 
@@ -108,7 +112,7 @@ public class FileTool {
 
                 result.get(directory.toString()).add(filename.toString());
 
-                return FileVisitResult.CONTINUE;
+                return CONTINUE;
             }
         };
 
@@ -126,12 +130,16 @@ public class FileTool {
     @Tool(name = "GetMatchingFilesInDirRecursively",
             value =
                     """
-                            Returns a list of files in the given sub directory and recursively all of its sub directories
-                            that match one of the list of the given filename wildcards.
-                            """)
-    public List<FilesInDirectory> getMatchingFilesInDirRecursively(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only") String path,
-                                                                   @P("A list of filename wildcards for matching files to scan for. Make sure that the wildcards do not contain any path elements!") List<String> wildcards) throws IOException {
-        logger.info("## GetMatchingFilesInDirRecursively('{}', {})", path, wildcards);
+                        Returns a list of files in the given sub directory and recursively all of its sub directories
+                        that match one of the list of the given filename wildcards.
+                    """)
+    public List<FilesInDirectory> getMatchingFilesInDirRecursively(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only")
+                                                                   String path,
+                                                                   @P("An array of filename wildcards for matching files to scan for. Make sure that the wildcards do not contain any path elements! Hand over an array, even if you call the method with only one wildcard!")
+                                                                   List<String> wildcards,
+                                                                   @P("Skip directories starting with '.'. Default ist 'true'")
+                                                                   boolean skipDotDirs) throws IOException {
+        logger.info("## GetMatchingFilesInDirRecursively('{}', {}, {})", path, wildcards, skipDotDirs);
 
         Map<String,Set<String>> result = new HashMap<>();
 
@@ -146,6 +154,13 @@ public class FileTool {
         }
 
         FileVisitor<Path> matcherVisitor = new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                if (skipDotDirs && dir.getFileName().toString().startsWith(".")) {
+                    return SKIP_SUBTREE;
+                }
+                return CONTINUE;            }
+
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attribs) {
 
@@ -165,7 +180,7 @@ public class FileTool {
                     }
                 }
 
-                return FileVisitResult.CONTINUE;
+                return CONTINUE;
             }
         };
 
@@ -183,9 +198,9 @@ public class FileTool {
     @Tool(name = "GetFilesCount",
             value =
                     """
-                            Returns the number of files below the given sub directory
-                            matching the given glob expression.
-                            """)
+                        Returns the number of files below the given sub directory
+                        matching the given glob expression.
+                    """)
     public int getFilesCount(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only") String path,
                              @P("The wildcard expression for the filename to match, use '*' to match all files") String wildcard) throws IOException {
         logger.info("## GetFilesCount('{}','{}')", path, wildcard);
@@ -222,7 +237,7 @@ public class FileTool {
                     matchingFilesCount.getAndIncrement();
                 }
 
-                return FileVisitResult.CONTINUE;
+                return CONTINUE;
             }
         };
 
@@ -236,10 +251,10 @@ public class FileTool {
     @Tool(name = "DoesFileExist",
             value =
                     """
-                            Returns 'true' if the given filename exists. Else returns 'false'.
-                            
-                            In case of errors, 'ERROR' is returned.
-                            """)
+                        Returns 'true' if the given filename exists. Else returns 'false'.
+
+                        In case of errors, 'ERROR' is returned.
+                    """)
     public String fileExists(@P("The file name to check. The path should be relative to the project root directory") String file) {
         logger.info("## DoesFileExist('{}')", file);
 
@@ -264,8 +279,8 @@ public class FileTool {
     @Tool(name = "FileCountPerFileType",
             value =
                     """
-                               Returns the number of files per wildcard given
-                            """)
+                       Returns the number of files per wildcard given
+                    """)
     public List<CountPerWildcard> fileCountPerFileType(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only\"") String path,
                                                        @P("A list of wildcards to scan for") List<String> wildcards) throws IOException {
         logger.info("## FileCountPerFileType('{}', '{}')", path, wildcards);
@@ -298,7 +313,7 @@ public class FileTool {
                     }
                 }
 
-                return FileVisitResult.CONTINUE;
+                return CONTINUE;
             }
         };
 
@@ -315,8 +330,8 @@ public class FileTool {
     @Tool(name = "FileCountPerFileTypeAndDirectory",
             value =
                     """
-                               Returns the number of files per wildcard and scanned directory
-                            """)
+                       Returns the number of files per wildcard and scanned directory
+                    """)
     public List<CountPerWildcardAndDirectory> fileCountPerFileTypeAndDirectory(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only\"") String path,
                                                                                @P("A list of wildcards to scan for") List<String> wildcards) throws IOException {
         logger.info("## FileCountPerFileTypeAndDirectory('{}', '{}')", path, wildcards);
@@ -347,7 +362,7 @@ public class FileTool {
                     }
                 }
 
-                return FileVisitResult.CONTINUE;
+                return CONTINUE;
             }
         };
 
@@ -366,8 +381,8 @@ public class FileTool {
     @Tool(name = "ReadFile",
             value =
                     """
-                            Returns the content of the given file.
-                            """)
+                        Returns the content of the given file.
+                    """)
     public String readFile(@P("The file fo which its contents should be returned. The path should be relative to the project root directory") String file) throws IOException {
         logger.info("## ReadFile('{}')", file);
 
@@ -378,10 +393,21 @@ public class FileTool {
             return "ERROR";
         }
 
-        String fileContent = Files.readString(root.resolve(filePath));
+        String fileContent;
 
-        logger.info("## ReadFile() => '{}'", "<file content>");
+        try {
+            fileContent = Files.readString(root.resolve(filePath));
 
-        return fileContent;
+            logger.info("## ReadFile() => '{}'", "<file content>");
+
+            return fileContent;
+        }
+        catch (IOException e) {
+            logger.error("Error while reading file",e);
+
+            String errorText="ERROR: "+e.getClass().getName();
+            logger.info("## ReadFile() => '{}'", errorText);
+            return errorText;
+        }
     }
 }

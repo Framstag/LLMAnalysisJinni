@@ -6,26 +6,13 @@
 
 ## Facts
 
-The following build modules have been identified:
-
-{{#modules.modules~}}
-* Module "{{name}}" in directory "{{path}}"
-{{/modules.modules}}
-
-Regarding the now to be analyzed module:
+{{> macros/list_of_modules.md}}
 
 {{#with (lookup modules.modules loopIndex)}}
-The current module to analyze is named: "{{name}}"
-The path of this build module is: "{{path}}"
-The current module is a root module: {{root}}
+{{> macros/current_loop_module.md}}
+{{> macros/programming_languages_for_module.md}}
 
-The following programming languages have been identified for this module:
-
-{{#programmingLanguages.programmingLanguages~}}
-* Programming language "{{name}}"
-{{/programmingLanguages.programmingLanguages}}
-{{/with}}
-
+{{#if programmingLanguages.programmingLanguages.length}}
 ## Solution strategy
 
 * If one of the programming languages is 'Java', call
@@ -34,3 +21,10 @@ The following programming languages have been identified for this module:
 * This should include:
   * The value range regarding the cyclomatic complexity.
   * The distribution of the cyclomatic complexity values.
+{{~else~}}
+## Solution Strategy
+
+* Since no programming languages were found, just return an empty array of findings.
+{{/if}}
+{{/with}}
+

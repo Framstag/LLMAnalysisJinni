@@ -9,10 +9,10 @@ The path of the SBOM file is '{{sbom.path}}'.
 
 ## Solution strategy
 
-* Check, if the SBOM ist already loaded.
+* Check if the SBOM is already loaded.
 * If not, load it from the given file.
 * Get the list of dependencies from the loaded SBOM
-* Based on the list of dependencies identify the used the technology stack.
+* Based on the list of dependencies, identify the used the technology stack.
 
 ## Hints
 

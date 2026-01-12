@@ -5,11 +5,7 @@ We want to identify this file below the project directory.
 
 ## Facts
 
-A SBOM file could have one of the following names:
-
-* 'bom.json' 
-* 'sbom.json'
-* 'application.cdx.json'
+{{> facts/sbom_file_names.md}}
 
 ## Solution strategy
 
