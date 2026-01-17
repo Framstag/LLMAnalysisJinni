@@ -85,6 +85,9 @@ public class AnalyseCmd implements Callable<Integer> {
     @Option(names={"--maxToken"}, arity = "1", defaultValue="65536", description = "Maximum number of tokens to allow")
     int maxToken;
 
+    @Option(names={"--single-step"}, arity = "1", defaultValue = "false", description = "Stop execution after one task")
+    boolean singleStep = false;
+
     @Parameters(index = "0",description = "Path to the root directory of the project to analyse")
     String projectRoot;
 
@@ -347,6 +350,10 @@ public class AnalyseCmd implements Callable<Integer> {
             }
 
             taskManager.markTaskAsSuccessful(task);
+
+            if (singleStep) {
+                break;
+            }
         }
 
         return 0;
