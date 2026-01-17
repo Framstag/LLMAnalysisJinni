@@ -265,7 +265,7 @@ public class FileTool {
 
         if (!FileHelper.accessAllowed(root, filePath)) {
             result = "ERROR";
-        } else if (filePath.toFile().exists()) {
+        } else if (Files.exists(filePath)) {
             result = "true";
         } else {
             result = "false";
