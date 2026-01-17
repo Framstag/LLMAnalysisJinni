@@ -7,8 +7,6 @@
 
 ## Facts
 
-The following build systems have been identified:
-
 {{> macros/list_of_build_systems.md}}
 {{> facts/build_system_directories.md}}
 {{> macros/list_of_modules.md}}
