@@ -25,5 +25,5 @@ The path of the SBOM file is '{{sbom.path}}'.
 * The second paragraph should be a list of derivations, where each bullet point states one
   derivation.
 * DO NOT try to identify dependencies by scanning directory contents or individual files at this point!
-* DO NOT call the 'GetAllFilesInDirRecursively' or 'GetAllFilesInDir' tool or a similar tool!
+* DO NOT call the 'GetAllFilesInDir' tool or a similar tool!
 * Accept that the list of dependencies may be empty and continue with an empty list and an appropriate reason.
