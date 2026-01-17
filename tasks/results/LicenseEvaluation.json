@@ -18,7 +18,7 @@
         },
         "licenses": {
             "type": "array",
-            "description": "List of license",
+            "description": "List of all identified license",
             "items": {
                 "type": "object",
                 "title": "License",
