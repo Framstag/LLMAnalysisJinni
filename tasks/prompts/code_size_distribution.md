@@ -5,13 +5,13 @@ give an architectural judgment regarding the quality of code based on this distr
 
 ## Facts
 
-|Module|Programming Language|File count|lines of code|
-|------|--------------------|----------|-------------|
+|Module| Wildcard |File count|lines of code|
+|------|----------|----------|-------------|
 {{#modules.modules~}}
 {{#fileStatisticsPerProgrammingLanguage.fileStatistics~}}
-|{{../name}}|{{programmingLanguage}}|{{fileCount}}|{{lineCount}}|
+|{{../name}}|{{wildcard}}|{{fileCount}}|{{lineCount}}|
 {{/fileStatisticsPerProgrammingLanguage.fileStatistics~}}
-{{/modules.modules}}
+{{~/modules.modules~}}
 {{noop}}
 
 ## Solution strategy
