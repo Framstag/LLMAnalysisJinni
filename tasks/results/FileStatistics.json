@@ -32,8 +32,18 @@
             "type": "integer",
             "description": "The number of lines over all files of this programming language"
           }
-        }
+        },
+        "required": [
+          "reasoning",
+          "programmingLanguage",
+          "wildcard",
+          "fileCount",
+          "lineCount"
+        ]
       }
     }
-  }
+  },
+  "required": [
+    "fileStatistics"
+  ]
 }

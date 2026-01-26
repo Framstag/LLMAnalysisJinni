@@ -4,6 +4,10 @@
   "description": "List of build systems used in the project",
   "type": "object",
   "properties": {
+    "reasoning": {
+      "type": "string",
+      "description": "Short description of reasoning behind the given result"
+    },
     "buildsystems": {
       "type": "array",
       "description": "List of build systems",
@@ -22,10 +26,18 @@
           },
           "variant": {
             "type": "string",
-            "description": "Some build systems have multiple variants"
+            "description": "Some build systems have multiple variants, empty string otherwise"
           }
-        }
+        },
+        "required": [
+          "reasoning",
+          "name",
+          "variant"
+        ]
       }
     }
-  }
+  },
+  "required": [
+    "buildsystems"
+  ]
 }

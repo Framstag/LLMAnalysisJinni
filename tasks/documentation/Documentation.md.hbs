@@ -50,7 +50,7 @@ No information regarding a project demo were found.
 ### Build
 
 {{#if project.preconditionBuild}}
-The following information have been state for successful build:
+The following information have been stated for successful build:
 
     {{project.preconditionBuild}}
 {{else}}
@@ -84,7 +84,7 @@ The following information have been state for successful run:
 {{#if sbom.found}}
 An SBOM has been found under the following location: `{{sbom.path}}`
 {{else}}
-No SBOM has been found
+No SBOM has been found, some analysis will be skipped.
 {{/if}}
 
 ### Direct dependencies
@@ -95,7 +95,7 @@ We try to detect direct project dependencies based on the contents of the SBOM.
 The application has the following direct dependencies:
 
 |GroupId|Name|Version|
-|------------|-------|---------|
+|--------|---|-------|
 {{#dependencies.dependencies~}}
 |{{groupId}}|{{name}}|{{version}}|
 {{/dependencies.dependencies}}
@@ -115,19 +115,35 @@ We analyze used licenses based on the contents of the SBOM
 
 The following licenses were directly or indirectly (via transitive dependencies) used:
 
-|License|
-|-------|
+|License|Description|Open Source|Commercial|Restrictions|
+|-------|-----------|-----------|----------|------------|
 {{#licenseEvaluation.licenses~}}
-|{{name}}|
+|{{name}}|{{desc}}|{{openSource}}|{{commercial}}|{{complianceRestriction}}|
 {{/licenseEvaluation.licenses~}}
 
 #### Summary of license usage
 
-{{licenseEvaluation.summary}}
+Evaluation:
+
+{{licenseEvaluation.evaluation}}
+
+Complicance of licenses:
+
+{{licenseEvaluation.compliance}}
+
+This is based on the following reasoning:
+
+{{licenseEvaluation.reasoning}}
 
 #### Evaluation of license usage
 
-{{licenseEvaluation.problems}}
+This leads to the following action items as a result of the analysis:
+
+|Aspect|Urgency|Criticality|Finding|
+|------|-------|-----------|-------|
+{{#licenseEvaluation.actionItems~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{finding}}|
+{{/licenseEvaluation.actionItems~}}
 
 {{else}}
 No information regarding licenses based on the contents of a SBOM could be gathered.
@@ -149,16 +165,34 @@ The stack was identified based on the following reasoning:
 
 The following stack has been identified:
 
-{{technologyStack.description}}
+{{technologyStack.summary}}
+
+The following architecture has been assumed:
+
+{{technologyStack.architecture}}
+
+#### Technologies
+
+The following technology usages were identified:
+
+|Aspect|Technology|Description|
+|------|----------|-----------|
+{{#technologyStack.technologies~}}
+|{{aspect}}|{{technology}}|{{desc}}|
+{{/technologyStack.technologies~}}
 
 #### Derivations
 
 This results in the following derivations of the stack standard:
 
-{{technologyStack.derivation}}
-
+|Aspect|Derivation|
+|------|----------|
+{{#technologyStack.derivations~}}
+|{{aspect}}|{{derivation}}|
+{{/technologyStack.derivations~}}
 
 {{else}}
+No technology stack could we identified.
 {{/if}}
 
 ## Modules
@@ -166,9 +200,10 @@ This results in the following derivations of the stack standard:
 ### Overview
 
 Software may consist of multiple (build) modules.
-In the case of this application the following modules have been identified:
 
 {{#if modules.modules}}
+
+In the case of this application the following modules have been identified:
 
 |Name|Path|Is root|
 |------------|-------|---------|
@@ -176,6 +211,8 @@ In the case of this application the following modules have been identified:
 |{{name}}|`{{path}}`|{{root}}|
 {{/modules.modules}}
 
+{{else}}
+No build modules were found.
 {{/if}}
 
 ### Programming languages per module
@@ -285,11 +322,11 @@ The analysis resulted in the following findings per module:
 We gather some file statistics per module and programming language:
 
 {{#if modules.modules}}
-|Module|Programming Language|FileCount|Lines of code|
-|------|--------------------|---------|-------------|
+|Module|Wildcard|FileCount|Lines of code|
+|------|--------|---------|-------------|
 {{#modules.modules~}}
 {{#fileStatisticsPerProgrammingLanguage.fileStatistics~}}
-|{{name}}|{{programmingLanguage}}|{{fileCount}}|{{lineCount}}|
+|{{name}}|{{wildcard}}|{{fileCount}}|{{lineCount}}|
 {{/fileStatisticsPerProgrammingLanguage.fileStatistics~}}
 {{/modules.modules~}}
 {{/if}}

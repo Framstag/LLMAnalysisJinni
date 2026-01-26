@@ -5,8 +5,8 @@
     "type": "object",
     "properties": {
         "reasoning": {
-          "type": "string",
-          "description": "Reasoning that lead to the given result"
+            "type": "string",
+            "description": "Short description of reasoning behind the given result"
         },
         "modules": {
             "type": "array",
@@ -28,8 +28,17 @@
                       "type": "boolean",
                       "description": "true, if the module is a root module, else false"
                     }
-                }
+                },
+                "required": [
+                    "path",
+                    "name",
+                    "root"
+                ]
             }
         }
-    }
+    },
+    "required": [
+        "reasoning",
+        "modules"
+    ]
 }

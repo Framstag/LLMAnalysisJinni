@@ -1,19 +1,19 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "SubDirectoryList",
-    "description": "List of categorized sub directories",
+    "description": "List of categorized directories",
     "type": "object",
     "properties": {
         "reasoning": {
             "type": "string",
-            "description": "Reasoning that lead to the given result"
+            "description": "Short description of reasoning behind the given result"
         },
         "directories": {
             "type": "array",
             "description": "List of all directories",
             "items": {
                 "type": "object",
-                "title": "Director",
+                "title": "Directory",
                 "description": "A specific directory",
                 "properties": {
                     "path": {
@@ -27,10 +27,19 @@
                     },
                     "desc": {
                         "type": "string",
-                        "description": "Free form description of directory contents"
+                        "description": "Description of directory contents"
                     }
-                }
+                },
+                "required": [
+                    "path",
+                    "categoryId",
+                    "desc"
+                ]
             }
         }
-    }
+    },
+    "required": [
+        "reasoning",
+        "directories"
+    ]
 }

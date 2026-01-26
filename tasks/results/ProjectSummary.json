@@ -4,6 +4,10 @@
   "description": "A number of descriptive information regarding the project",
   "type": "object",
   "properties": {
+    "reasoning": {
+      "type": "string",
+      "description": "Short description of reasoning behind the given result"
+    },
     "name": {
       "type": "string",
       "description": "The name of the project"
@@ -11,6 +15,10 @@
     "version": {
       "type": "string",
       "description": "The current version of the project"
+    },
+    "projectType": {
+      "type": "string",
+      "description": "Type of project (e.g. 'library', 'module', 'application', 'documentation')"
     },
     "goal": {
       "type": "string",
@@ -50,18 +58,42 @@
         "properties": {
           "category": {
             "type": "string",
-            "description": "The thing the link is linking to"
+            "description": "The category of information the link is linking to"
           },
           "url": {
             "type": "string",
-            "description": "The URL itself"
+            "description": "The URL of the link itself"
           },
           "desc": {
             "type": "string",
-            "description": "A free form description of the link"
+            "description": "A short description of the information behind the link"
+          },
+          "reasoning": {
+            "type": "string",
+            "description": "Reasoning that lead to the finding"
           }
-        }
+        },
+        "required": [
+          "category",
+          "url",
+          "desc",
+          "reasoning"
+        ]
       }
     }
-  }
+  },
+  "required": [
+    "reasoning",
+    "name",
+    "version",
+    "projectType",
+    "goal",
+    "license",
+    "repository",
+    "issueTracker",
+    "demo",
+    "preconditionBuild",
+    "preconditionRun",
+    "links"
+  ]
 }

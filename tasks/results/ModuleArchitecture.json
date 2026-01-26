@@ -1,16 +1,69 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "ModuleArchitecture",
-    "description": "Description of the architecture of a module",
-    "type": "object",
-    "properties": {
-          "architecture": {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModuleArchitecture",
+  "description": "Description of the architecture of a module",
+  "type": "object",
+  "properties": {
+    "reasoning": {
+      "type": "string",
+      "description": "Short description of reasoning behind the given result"
+    },
+    "architectureElements": {
+      "type": "array",
+      "description": "List of elements of the architecture",
+      "items": {
+        "type": "object",
+        "title": "Architecture element",
+        "description": "An individual architecture element",
+        "properties": {
+          "aspect": {
             "type": "string",
-            "description": "The description of the architecture of the module"
+            "description": "Short description of the evaluated aspect"
           },
-          "reasoning" : {
+          "reasoning": {
             "type": "string",
-            "description": "Description of the reasoning that lead to the given finding"
+            "description": "Reasoning that lead to the finding"
+          },
+          "finding": {
+            "type": "string",
+            "description": "The actual finding"
+          },
+          "recommendation": {
+            "type": "string",
+            "description": "Recommendation of action to improve the situation"
+          },
+          "urgency": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH"
+            ],
+            "description": "Urgency of recommendation"
+          },
+          "criticality": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH"
+            ],
+            "description": "Criticality of recommendation"
           }
+        },
+        "required": [
+          "aspect",
+          "reasoning",
+          "finding",
+          "recommendation",
+          "urgency",
+          "criticality"
+        ]
+      }
     }
+  },
+  "required": [
+    "reasoning",
+    "architectureElements"
+  ]
 }

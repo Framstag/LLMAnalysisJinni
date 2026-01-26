@@ -4,21 +4,9 @@
     "description": "Evaluation of the used licenses in the application",
     "type": "object",
     "properties": {
-        "reasoning": {
-            "type": "string",
-            "description": "Reasoning that lead to the given result"
-        },
-        "summary": {
-            "type": "string",
-            "description": "Summary of used licenses"
-        },
-        "problems": {
-            "type": "string",
-            "description": "Description of any problems with the given licenses"
-        },
         "licenses": {
             "type": "array",
-            "description": "List of all identified license",
+            "description": "List of all identified licenses",
             "items": {
                 "type": "object",
                 "title": "License",
@@ -27,9 +15,90 @@
                     "name": {
                         "type": "string",
                         "description": "Name of the license"
+                    },
+                    "desc": {
+                        "type": "string",
+                        "description": "Description of the license"
+                    },
+                    "openSource": {
+                        "type": "boolean",
+                        "description": "Can be used in open source projects?"
+                    },
+                    "commercial": {
+                        "type": "boolean",
+                        "description": "Can be used in commercial projects?"
+                    },
+                    "complianceRestriction": {
+                        "type": "string",
+                        "description": "Restrictions to be implemented to fulfill the license"
+                    },
+                    "compatibility": {
+                        "type": "string",
+                        "description": "Licenses this license is compatible with"
                     }
-                }
+                },
+                "required": [
+                    "name",
+                    "desc",
+                    "openSource",
+                    "commercial",
+                    "complianceRestriction"
+                ]
+            }
+        },
+        "reasoning": {
+            "type": "string",
+            "description": "Short description of reasoning behind the given result"
+        },
+        "evaluation": {
+            "type": "string",
+            "description": "Short summary of the result of the license evaluation"
+        },
+        "compliance": {
+            "type": "string",
+            "description": "Are the used licenses compatible with the given requirements?"
+        },
+        "actionItems": {
+            "type": "array",
+            "description": "List of action items regarding the given licenses",
+            "items": {
+                "type": "object",
+                "title": "Finding",
+                "description": "A single identified finding",
+                "properties": {
+                    "aspect": {
+                        "type": "string",
+                        "description": "Short description of the evaluated aspect"
+                    },
+                    "finding": {
+                        "type": "string",
+                        "description": "Longer description of the finding"
+                    },
+                    "urgency": {
+                        "type": "string",
+                        "enum": ["NONE","LOW", "MEDIUM", "HIGH"],
+                        "description": "Urgency of finding"
+                    },
+                    "criticality": {
+                        "type": "string",
+                        "enum": ["NONE","LOW", "MEDIUM", "HIGH"],
+                        "description": "Criticality of finding"
+                    }
+                },
+                "required": [
+                    "aspect",
+                    "finding",
+                    "urgency",
+                    "criticality"
+                ]
             }
         }
-    }
+    },
+    "required": [
+        "licenses",
+        "reasoning",
+        "evaluation",
+        "compliance",
+        "actionItems"
+    ]
 }

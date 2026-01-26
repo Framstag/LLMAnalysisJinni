@@ -24,8 +24,15 @@
             "type": "string",
             "description": "The version of the programming language"
           }
-        }
+        },
+        "required": [
+          "reasoning",
+          "name"
+        ]
       }
     }
-  }
+  },
+  "required": [
+    "programmingLanguages"
+  ]
 }

@@ -8,5 +8,8 @@
             "type": "string",
             "description": "Holds the word 'SUCCESS' in case of success, else 'ERROR'"
         }
-    }
+    },
+    "required": [
+        "result"
+    ]
 }

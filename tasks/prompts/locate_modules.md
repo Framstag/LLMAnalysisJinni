@@ -31,5 +31,11 @@ source code modules by searching for the relevant build system files.
 * * A hierarchical directory and module structure.  
 * Mark the root module in the response. 
 * You must not read individual build files in this stage!
+* * A hierarchical directory and module structure. 
+* * A plain list of submodules in the root directory
+* * A single code module together with other supporting modules for e.g., documentation.
+* Mark the root module in the response. Explicitly state this with a 'true' or 'false'. If you are unsure, return a 'false'.
+* You must not read individual build files at this stage!
+* Ignore modules that appear to have been downloaded, have been created during the build or similar or are places in directories that clearly hold build products or are not actively developed as part of the project.
 
 

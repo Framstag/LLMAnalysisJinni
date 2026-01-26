@@ -6,15 +6,69 @@
     "properties": {
         "reasoning": {
             "type": "string",
-            "description": "Reasoning that lead to the given result"
+            "description": "Short description of reasoning behind the given result"
         },
-        "description": {
+        "summary": {
             "type": "string",
-            "description": "General description of the used stack as free-form text"
+            "description": "Short description of the used stack (one paragraph)"
         },
-        "derivation": {
-            "type": "string",
-            "description": "Identified derivations from this stack in a free-form mark down text list"
+        "technologies": {
+            "type": "array",
+            "description": "List of technologies in the standard architecture",
+            "items": {
+                "type": "object",
+                "title": "Technology",
+                "description": "A single technology",
+                "properties": {
+                    "aspect": {
+                        "type": "string",
+                        "description": "Short description of the evaluated aspect"
+                    },
+                    "technology": {
+                        "type": "string",
+                        "description": "Name of the technology"
+                    },
+                    "desc": {
+                        "type": "string",
+                        "description": "Description of the technology"
+                    }
+                },
+                "required": [
+                    "aspect",
+                    "technology",
+                    "desc"
+                ]
+            }
+        },
+        "derivations": {
+            "type": "array",
+            "description": "List of derivations from the standard architecture",
+            "items": {
+                "type": "object",
+                "title": "Derivation",
+                "description": "A single derivation",
+                "properties": {
+                    "aspect": {
+                        "type": "string",
+                        "description": "Short description of the evaluated aspect"
+                    },
+                    "derivation": {
+                        "type": "string",
+                        "description": "Description of the derivation"
+                    }
+                },
+                "required": [
+                    "aspect",
+                    "derivation"
+                ]
+            }
         }
-    }
+    },
+    "required": [
+        "reasoning",
+        "summary",
+        "architecture",
+        "technologies",
+        "derivations"
+    ]
 }

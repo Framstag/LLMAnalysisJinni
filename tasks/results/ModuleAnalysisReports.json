@@ -6,7 +6,7 @@
     "properties": {
         "reasoning": {
             "type": "string",
-            "description": "Reasoning that lead to the given result"
+            "description": "Short description of reasoning behind the given result"
         },
         "reports": {
             "type": "array",
@@ -28,8 +28,17 @@
                         "type": "string",
                         "description": "Reasoning that lead to the given result"
                     }
-                }
+                },
+                "required": [
+                    "programmingLanguage",
+                    "reportName",
+                    "reasoning"
+                ]
             }
         }
-    }
+    },
+    "required": [
+        "reasoning",
+        "reports"
+    ]
 }

@@ -6,7 +6,7 @@
     "properties": {
         "reasoning": {
             "type": "string",
-            "description": "Reasoning that lead to the given result"
+            "description": "Short description of reasoning behind the given result"
         },
         "dependencies": {
             "type": "array",
@@ -28,8 +28,16 @@
                         "type": "string",
                         "description": "Version as string of the dependency"
                     }
-                }
+                },
+                "required": [
+                    "name",
+                    "version"
+                ]
             }
         }
-    }
+    },
+    "required": [
+        "reasoning",
+        "dependencies"
+    ]
 }

@@ -8,5 +8,8 @@
             "type": "string",
             "description": "Version number of the tool as string"
         }
-    }
+    },
+    "required": [
+        "version"
+    ]
 }

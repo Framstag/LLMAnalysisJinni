@@ -6,7 +6,7 @@
     "properties": {
         "reasoning": {
             "type": "string",
-            "description": "Reasoning that lead to the given result"
+            "description": "Short description of reasoning behind the given result"
         },
         "evaluations": {
             "type": "array",
@@ -38,16 +38,28 @@
                     },
                     "urgency": {
                         "type": "string",
-                        "enum": ["LOW", "MEDIUM", "HIGH"],
+                        "enum": ["NONE","LOW", "MEDIUM", "HIGH"],
                         "description": "Urgency of recommendation"
                     },
                     "criticality": {
                         "type": "string",
-                        "enum": ["LOW", "MEDIUM", "HIGH"],
+                        "enum": ["NONE","LOW", "MEDIUM", "HIGH"],
                         "description": "Criticality of recommendation"
                     }
-                }
+                },
+                "required": [
+                    "aspect",
+                    "expectation",
+                    "finding",
+                    "recommendation",
+                    "urgency",
+                    "criticality"
+                ]
             }
         }
-    }
+    },
+    "required": [
+        "reasoning",
+        "evaluations"
+    ]
 }
