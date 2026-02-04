@@ -5,11 +5,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * We are using our own repository root for tests
@@ -40,7 +40,7 @@ public class FileToolTest {
     void GetAllFilesInDirWithSubdir() throws IOException {
         List<FilesInDirectory> result = fileTool.getAllFilesInDirRecursively("src/test/java/com/framstag/llmaj");
 
-        assertEquals(2, result.size());
+        assertEquals(3, result.size());
     }
 
     @Test
@@ -100,9 +100,8 @@ public class FileToolTest {
 
     @Test
     void readNonExistingFile() {
-        assertThrows(NoSuchFileException.class, () -> {
-            String fileContent = fileTool.readFile("pommes.xml");
-        });
+        String fileContent = fileTool.readFile("pommes.xml");
+        assertEquals("ERROR: java.nio.file.NoSuchFileException",fileContent);
     }
 
     @Test
