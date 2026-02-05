@@ -18,10 +18,16 @@ import com.framstag.llmaj.tools.ToolFactory;
 import com.github.jknack.handlebars.Template;
 import com.github.jknack.handlebars.io.FileTemplateLoader;
 import com.github.jknack.handlebars.io.TemplateLoader;
+import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.invocation.InvocationContext;
+import dev.langchain4j.mcp.McpToolExecutor;
+import dev.langchain4j.mcp.client.DefaultMcpClient;
+import dev.langchain4j.mcp.client.McpClient;
+import dev.langchain4j.mcp.client.transport.McpTransport;
+import dev.langchain4j.mcp.client.transport.http.StreamableHttpMcpTransport;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
@@ -34,6 +40,7 @@ import dev.langchain4j.model.chat.request.json.JsonSchema;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.service.output.ServiceOutputParser;
+import dev.langchain4j.service.tool.ToolExecutor;
 import dev.langchain4j.service.tool.ToolService;
 import dev.langchain4j.service.tool.ToolServiceResult;
 import org.slf4j.Logger;
@@ -46,10 +53,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 
 @Command(name = "analyse", description = "Analyse the project")
@@ -87,6 +91,9 @@ public class AnalyseCmd implements Callable<Integer> {
 
     @Option(names={"--single-step"}, arity = "1", defaultValue = "false", description = "Stop execution after one task")
     boolean singleStep = false;
+
+    @Option(names={"--mcp-server"}, arity = "1..*", defaultValue = "false", description = "URL of external MCP Server")
+    List<String> mcpServers = new LinkedList<>();
 
     @Parameters(index = "0",description = "Path to the root directory of the project to analyse")
     String projectRoot;
@@ -211,6 +218,36 @@ public class AnalyseCmd implements Callable<Integer> {
                 Path.of(workingDirectory),
                 stateManager.getAnalysisState());
 
+        HashMap<ToolSpecification, ToolExecutor> mcpServersDefinitions = new HashMap<>();
+
+        int mcpServerIndex = 0;
+        for (String mcpServer : mcpServers)  {
+            logger.info("Initializing MCP Server: '{}'", mcpServer);
+
+            McpTransport transport = StreamableHttpMcpTransport.builder()
+                    .url(mcpServer)
+                    .logRequests(logRequest)
+                    .logResponses(logResponse)
+                    .build();
+
+            McpClient mcpClient = DefaultMcpClient.builder()
+                    .key("MCPServer_"+mcpServerIndex)
+                    .transport(transport)
+                    .build();
+
+            ToolExecutor mcpToolExecutor = new McpToolExecutor(mcpClient);
+
+            List<ToolSpecification> toolSpecifications = mcpClient.listTools();
+
+            for (ToolSpecification toolSpecification : toolSpecifications) {
+                logger.info("- Tool: '{}'", toolSpecification.name());
+
+                mcpServersDefinitions.put(toolSpecification,mcpToolExecutor);
+            }
+
+            mcpServerIndex++;
+        }
+
         List<Object> toolList = ToolFactory.getToolInstanceList(context);
 
         taskManager.dump();
@@ -220,6 +257,7 @@ public class AnalyseCmd implements Callable<Integer> {
 
             ToolService toolService = new ToolService();
             toolService.tools(toolList);
+            toolService.tools(mcpServersDefinitions);
 
             ChatExecutionContext execContext =
                     new ChatExecutionContext(model, chatMemory, toolService, outputParser);

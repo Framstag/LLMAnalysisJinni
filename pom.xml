@@ -75,14 +75,21 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j</artifactId>
-            <version>1.9.1</version>
+            <version>1.11.0</version>
         </dependency>
 
         <!-- Access to Ollama LLMs -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-ollama</artifactId>
-            <version>1.9.1</version>
+            <version>1.11.0</version>
+        </dependency>
+
+        <!-- Access to external MCP Servers -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-mcp</artifactId>
+            <version>1.11.0-beta19</version>
         </dependency>
 
         <!-- Parsing of CycloneDX BOM -->
