@@ -1,15 +1,11 @@
 package com.framstag.llmaj.tools.java;
 
-import com.fasterxml.jackson.annotation.JsonGetter;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class ModuleManager {
     private final String name;
-    @JsonIgnore
     Map<String, PackageManager> packagesByName = new HashMap<>();
 
     public ModuleManager(String name) {
@@ -24,7 +20,6 @@ public class ModuleManager {
         return packagesByName.computeIfAbsent(qualifiedName, PackageManager::new);
     }
 
-    @JsonGetter("packages")
     public List<PackageManager> getPackages() {
         return packagesByName.values().stream().toList();
     }
@@ -43,7 +38,9 @@ public class ModuleManager {
 
                 Clazz clazz = new Clazz(srcClass.getQualifiedName(),
                         srcClass.isProduction(),
-                        srcClass.isGenerated());
+                        srcClass.isGenerated(),
+                        srcClass.getDocumentation(),
+                        srcClass.getImports());
 
                 for (Method method : srcClassMethods) {
                     clazz.addMethod(method);

@@ -16,15 +16,21 @@ public class Clazz {
     private final String qualifiedName;
     private final boolean production;
     private final boolean generated;
+    private final String documentation;
+    private final List<String> imports;
     private final List<Method> methods;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public Clazz(@JsonProperty("qualifiedName") String qualifiedName,
                  @JsonProperty("production") boolean production,
-                 @JsonProperty("generated") boolean generated) {
+                 @JsonProperty("generated") boolean generated,
+                 @JsonProperty("documentation") String documentation,
+                 @JsonProperty("imports") List<String> imports) {
         this.qualifiedName = qualifiedName;
         this.production = production;
         this.generated = generated;
+        this.documentation = documentation;
+        this.imports = imports;
         methods = new LinkedList<>();
     }
 
@@ -40,6 +46,13 @@ public class Clazz {
         return production;
     }
 
+    public List<String> getImports() {
+        return imports;
+    }
+
+    public String getDocumentation() {
+        return documentation;
+    }
     public void addMethod(Method method) {
         methods.add(method);
     }

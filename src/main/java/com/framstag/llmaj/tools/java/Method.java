@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class Method {
     private final String name;
     private final String descriptor;
+    private String documentation;
     private Integer cyclomaticComplexity;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
@@ -22,6 +23,14 @@ public class Method {
 
     public String getDescriptor() {
         return descriptor;
+    }
+
+    public String getDocumentation() {
+        return documentation;
+    }
+
+    public void setDocumentation(String documentation) {
+        this.documentation = documentation;
     }
 
     public Integer getCyclomaticComplexity() {

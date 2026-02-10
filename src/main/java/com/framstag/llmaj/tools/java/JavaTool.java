@@ -16,9 +16,13 @@ import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.expr.ConditionalExpr;
+import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.stmt.*;
+import com.github.javaparser.resolution.TypeSolver;
 import com.github.javaparser.resolution.UnsolvedSymbolException;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
+import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
+import com.github.javaparser.resolution.declarations.ResolvedValueDeclaration;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
@@ -35,13 +39,19 @@ import java.lang.classfile.ClassModel;
 import java.lang.classfile.MethodModel;
 import java.lang.classfile.MethodSignature;
 import java.lang.classfile.constantpool.ClassEntry;
+import java.lang.classfile.constantpool.ConstantPool;
+import java.lang.classfile.constantpool.PoolEntry;
+import java.lang.classfile.instruction.FieldInstruction;
+import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.reflect.AccessFlag;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.stream.Stream;
 
 import static com.github.javaparser.ast.expr.BinaryExpr.Operator.AND;
 import static com.github.javaparser.ast.expr.BinaryExpr.Operator.OR;
+import static java.util.stream.Collectors.toSet;
 
 public class JavaTool {
     private static final Logger logger = LoggerFactory.getLogger(JavaTool.class);
@@ -183,9 +193,37 @@ public class JavaTool {
                 .orElse("");
     }
 
-    private static void parseJavaFile(Path srcFile,
+    private static List<String> getCompilationUnitImports(CompilationUnit cu,
+                                                                   TypeSolver typeSolver) {
+        Set<String> imports = new HashSet<>();
+
+        cu.getImports().forEach(importDecl -> {
+            if (!importDecl.isAsterisk()) {
+                try {
+                    ResolvedReferenceTypeDeclaration solved = typeSolver.solveType(importDecl.getName().asString());
+                    //ResolvedType type = JavaParserFacade.get(typeSolver).solve(importDecl.getMetaModel().getName());
+                    imports.add(solved.getQualifiedName());
+                } catch (UnsolvedSymbolException e) {
+                }
+            }
+        });
+
+        cu.findAll(NameExpr.class).forEach(nameExpr -> {
+            try {
+                ResolvedValueDeclaration resolved = nameExpr.resolve();
+                if (resolved.getType().isReferenceType()) {
+                    imports.add(resolved.getType().asReferenceType().getQualifiedName());
+                }
+            } catch (UnsolvedSymbolException ignored) {}
+        });
+
+        return new ArrayList<>(imports);
+    }
+
+        private static void parseJavaFile(Path srcFile,
                                       List<SpecialSubdirectory> specialSubdirectories,
-                                      ModuleManager moduleManager) {
+                                      ModuleManager moduleManager,
+                                      TypeSolver typeSolver) {
         try {
             logger.info("Parsing java file '{}'...", srcFile);
 
@@ -202,7 +240,11 @@ public class JavaTool {
                     PackageManager pck = moduleManager.getOrAddPackageByName(packageName);
                     ClassManager classManager = pck.getOrAddClassByName(qualifiedName);
 
+                    type.getComment().ifPresent(comment -> classManager.setDocumentation(comment.getContent()));
+
                     modifyClassAttributesByCategory(classManager,category);
+
+                    classManager.addImports(getCompilationUnitImports(cu, typeSolver));
 
                     List<MethodDeclaration> methods = type.getMethods();
 
@@ -244,6 +286,8 @@ public class JavaTool {
 
                             continue;
                         }
+
+                        methodDeclaration.getComment().ifPresent(comment -> method.setDocumentation(comment.getContent()));
 
                         // All elements that create multiple executions paths
                         List<CatchClause> catchClause = methodDeclaration.findAll(CatchClause.class);
@@ -323,6 +367,37 @@ public class JavaTool {
         return files;
     }
 
+    private static List<String> getClassModelImports(ClassModel classModel) {
+        Set<String> imports = new HashSet<>();
+
+        ConstantPool cp = classModel.constantPool();
+        for (int i = 1; i < cp.size(); i++) {
+            PoolEntry entry = cp.entryByIndex(i);
+            if (entry instanceof ClassEntry classEntry) {
+                imports.add(classEntry.asSymbol().packageName()+"."+classEntry.asSymbol().displayName());
+            }
+        }
+
+        Set<String> qualifiedRefs = classModel.methods().stream()
+                .flatMap(me -> switch (me) {
+                    case MethodModel mm when mm.code().isPresent() -> mm.code().get().elementStream();
+                    default -> Stream.empty();
+                })
+                .filter(e -> e instanceof InvokeInstruction || e instanceof FieldInstruction)
+                .map(e -> switch (e) {
+                    case InvokeInstruction ii -> ii.owner().asInternalName();  // e.g., "java/util/List"
+                    case FieldInstruction fi -> fi.owner().asInternalName();
+                    default -> null;
+                })
+                .filter(Objects::nonNull)
+                .map(s -> s.replace('/', '.'))
+                .collect(toSet());
+
+        imports.addAll(qualifiedRefs);
+
+        return new ArrayList<String>(imports);
+    }
+
     private static void parseClassFile(Path classFile,
                                        List<SpecialSubdirectory> specialSubdirectories,
                                        ModuleManager moduleManager) {
@@ -352,6 +427,8 @@ public class JavaTool {
             for (ClassEntry interf : classModel.interfaces()) {
                 logger.debug("Implements {}", interf.asInternalName());
             }
+
+            classManager.addImports(getClassModelImports(classModel));
 
             for (MethodModel methodModel : classModel.methods()) {
 
@@ -517,7 +594,8 @@ public class JavaTool {
         for (Path srcFile : srcFiles) {
             parseJavaFile(srcFile,
                     specialSubdirectories,
-                    moduleManager);
+                    moduleManager,
+                    typeSolver);
         }
 
         Module module  = moduleManager.getModule();

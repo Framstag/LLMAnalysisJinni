@@ -1,7 +1,5 @@
 package com.framstag.llmaj.tools.java;
 
-import com.fasterxml.jackson.annotation.JsonGetter;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,21 +11,20 @@ public class ClassManager {
     private final String qualifiedName;
     private boolean isGenerated;
     private boolean isProduction;
+    private String documentation;
 
-    @JsonIgnore
-    private final Set<String> uniqueMethodNames = new HashSet<>();
-    @JsonIgnore
+    private Set<String> imports;
+
     private final Map<String,Integer> countByName = new HashMap<>();
 
-    @JsonIgnore
     private final Map<String,Method> methodByName = new HashMap<>();
-    @JsonIgnore
     private final Map<String,Method> methodByDescriptor = new HashMap<>();
 
     public ClassManager(String qualifiedName) {
         this.qualifiedName = qualifiedName;
         this.isGenerated = false;
         this.isProduction = true;
+        this.imports = new HashSet<>();
     }
 
     public String getQualifiedName() {
@@ -48,6 +45,22 @@ public class ClassManager {
 
     public void setProduction(boolean production) {
         isProduction = production;
+    }
+
+    public String getDocumentation() {
+        return documentation;
+    }
+
+    public void setDocumentation(String documentation) {
+        this.documentation = documentation;
+    }
+
+    public List<String> getImports() {
+        return new ArrayList<>(imports);
+    }
+
+    public void addImports(Collection<String> imports) {
+        this.imports.addAll(imports);
     }
 
     public Method getOrAddMethodForce(String name, String descriptor) {
@@ -83,7 +96,6 @@ public class ClassManager {
         return null;
     }
 
-     @JsonGetter
     public List<Method> getMethods() {
         Set<Method> methods = new HashSet<>();
 
