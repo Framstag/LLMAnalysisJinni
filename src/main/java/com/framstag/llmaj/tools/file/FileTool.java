@@ -383,7 +383,7 @@ public class FileTool {
                     """
                         Returns the content of the given file.
                     """)
-    public String readFile(@P("The file fo which its contents should be returned. The path should be relative to the project root directory") String file) throws IOException {
+    public String readFile(@P("The file fo which its contents should be returned. The path should be relative to the project root directory") String file) {
         logger.info("## ReadFile('{}')", file);
 
         Path root = context.getProjectRoot();
