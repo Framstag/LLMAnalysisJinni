@@ -223,11 +223,12 @@ public class TaskManager {
 
     public void dump() {
         for (TaskDefinition task : this.allTasks) {
-            logger.info("Task: [{}] {}",
+            logger.info("Task: [{}] {} - {}",
                     getTaskStatus(task,
                             pendingTaskIds.contains(task.getId()),
                             successfullyProcessedTaskIds.contains(task.getId())),
-                    task);
+                    task.getId(),
+                    task.getName());
         }
     }
 
