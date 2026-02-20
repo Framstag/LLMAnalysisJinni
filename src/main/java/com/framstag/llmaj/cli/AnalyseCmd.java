@@ -92,7 +92,7 @@ public class AnalyseCmd implements Callable<Integer> {
     @Option(names={"--single-step"}, arity = "1", defaultValue = "false", description = "Stop execution after one task")
     boolean singleStep = false;
 
-    @Option(names={"--mcp-server"}, arity = "1..*", defaultValue = "false", description = "URL of external MCP Server")
+    @Option(names={"--mcp-server"}, arity = "0..*", description = "URL of external MCP Server")
     List<String> mcpServers = new LinkedList<>();
 
     @Parameters(index = "0",description = "Path to the root directory of the project to analyse")
@@ -160,6 +160,10 @@ public class AnalyseCmd implements Callable<Integer> {
                         executionContext.getToolService().toolExecutors());
 
         ChatResponse finalResponse = toolResult.finalResponse();
+
+        logger.info("Token usage: IN {} OUT {}",
+                finalResponse.metadata().tokenUsage().inputTokenCount(),
+                finalResponse.metadata().tokenUsage().outputTokenCount());
 
         return finalResponse.aiMessage().text();
     }
