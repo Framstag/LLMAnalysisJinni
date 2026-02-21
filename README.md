@@ -3,11 +3,11 @@
 ## About
 
 This is a small experiment to find out how we can use LLMs for
-big code analysis tasks, where just dropping all code into the LLM and calling a (huge) number of manual prompts is not feasible because of context size limits and context quality issues with much data.
+big code analysis tasks, where just dropping all code into the LLM and calling a (huge) number of manual prompts is not possible because of context size limits and context quality issues with much data.
 
-General assumption is, that switching from a big prompt an all data in to an iterative approach with small consecutive prompts should be more successfully.
+The general assumption is that switching from a big prompt an all data in to an iterative approach with small consecutive prompts should be more successful.
 
-The application implements the following strategies to handle above issues:
+The application implements the following strategies to handle the above issues:
 
 * Automate prompt calling using a scriptable execution engine
 * Enforce JSON response in all cases, using custom managed result object JSON schemas as input to the LLM.
@@ -36,7 +36,7 @@ We use [Mise](https://mise.jdx.dev/) for a definition of used developer tools ve
 
 For simpler test setup we use the repository itself for testing.
 
-This requires though, that for the tests to work you need a successful build, because it creates some artefacts (the SBOM under "target") necessary for testing:
+This requires though, that for the tests to work, you need a successful build, because it creates some artifacts (the SBOM under "target") necessary for testing:
 
 So first build the software without tests:
 
@@ -58,10 +58,10 @@ A typical call to analyze a given project would be:
 analyse --modelUrl http://<ollama-url> --model "gpt-oss:20b" <project to analyze> <task directory> <workspace directory>
 ```
 
-For the spring-petclinic (places on the same director level as this tool) this could be:
+For the spring-petclinic (placed on the same directory level as this tool) this could be:
 
 ```
-analyse --modelUrl http://<ollama-url>> --model "gpt-oss:20b" -j=false --log-request=false --log-response=false -- ../spring-petclinic tasks workspaces/spring-petclinic
+analyse --modelUrl http://<ollama-url> --model "gpt-oss:20b" -j=false --log-request=false --log-response=false -- ../spring-petclinic analysis/software-architecture workspaces/spring-petclinic
 ```
 
 In this case all active tasks in the configuration file are
@@ -70,10 +70,10 @@ workspace directory.
 
 The given LLM is used by calling the given ollama instance.
 
-For generating a documentation of the analysis a possible command line could be:
+For generating a documentation of the analysis results, a possible command line could be:
 
 ```
-document tasks workspaces/spring-petclinic
+document analysis/software-architecture workspaces/spring-petclinic
 ```
 
 ## Implementation
@@ -83,6 +83,6 @@ The implementation makes use of the following frameworks and libraries:
 * Langchain4j for accessing models in chat mode
 * Handlebars for templating of prompts and result document
 * Jackson for (de)serializing JSON and YAML
-* Picoli for CLI parsing
+* Picocli for CLI parsing
 * JavParser for parsing Java Files
 * FastCSV for writing CSV files
