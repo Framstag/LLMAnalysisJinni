@@ -161,9 +161,10 @@ public class AnalyseCmd implements Callable<Integer> {
 
         ChatResponse finalResponse = toolResult.finalResponse();
 
-        logger.info("Token usage: IN {} OUT {}",
-                finalResponse.metadata().tokenUsage().inputTokenCount(),
-                finalResponse.metadata().tokenUsage().outputTokenCount());
+        logger.info("Task execution token usage: IN {} OUT {} TOTAL {}",
+                toolResult.aggregateTokenUsage().inputTokenCount(),
+                toolResult.aggregateTokenUsage().outputTokenCount(),
+                toolResult.aggregateTokenUsage().totalTokenCount());
 
         return finalResponse.aiMessage().text();
     }

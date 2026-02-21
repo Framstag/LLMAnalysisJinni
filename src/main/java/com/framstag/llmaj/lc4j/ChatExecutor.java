@@ -26,7 +26,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
 public class ChatExecutor {
-
     private static final ToolArgumentsErrorHandler DEFAULT_TOOL_ARGUMENTS_ERROR_HANDLER = (error, context) -> {
         if (error instanceof RuntimeException re) {
             throw re;
@@ -46,7 +45,6 @@ public class ChatExecutor {
     private final Function<ToolExecutionRequest, ToolExecutionResultMessage> toolHallucinationStrategy;
 
     public ChatExecutor() {
-
         executor =  DefaultExecutorProvider.getDefaultExecutorService();
         toolHallucinationStrategy = HallucinatedToolNameStrategy.THROW_EXCEPTION;
         argumentsErrorHandler = DEFAULT_TOOL_ARGUMENTS_ERROR_HANDLER;
@@ -127,16 +125,23 @@ public class ChatExecutor {
                                      ChatMemory chatMemory,
                                      InvocationContext invocationContext,
                                      Map<String, ToolExecutor> toolExecutors) {
+
         TokenUsage aggregateTokenUsage = chatResponse.metadata().tokenUsage();
         List<ToolExecution> toolExecutions = new ArrayList<>();
         List<ChatResponse> intermediateResponses = new ArrayList<>();
 
-        for(int executionsLeft = this.maxSequentialToolsInvocations; executionsLeft-- != 0; aggregateTokenUsage = TokenUsage.sum(aggregateTokenUsage, chatResponse.metadata().tokenUsage())) {
+        for(int executionsLeft = this.maxSequentialToolsInvocations; executionsLeft-- != 0; ) {
+
             AiMessage aiMessage = chatResponse.aiMessage();
             chatMemory.add(aiMessage);
 
             if (!aiMessage.hasToolExecutionRequests()) {
-                return ToolServiceResult.builder().intermediateResponses(intermediateResponses).finalResponse(chatResponse).toolExecutions(toolExecutions).aggregateTokenUsage(aggregateTokenUsage).build();
+                return ToolServiceResult.builder()
+                        .intermediateResponses(intermediateResponses)
+                        .finalResponse(chatResponse)
+                        .toolExecutions(toolExecutions)
+                        .aggregateTokenUsage(aggregateTokenUsage)
+                        .build();
             }
 
             intermediateResponses.add(chatResponse);
@@ -156,6 +161,8 @@ public class ChatExecutor {
                     .parameters(parameters)
                     .build();
             chatResponse = chatModel.chat(chatRequest);
+
+            aggregateTokenUsage = TokenUsage.sum(aggregateTokenUsage, chatResponse.metadata().tokenUsage());
         }
 
         throw Exceptions.runtime("Something is wrong, exceeded %s sequential tool executions",

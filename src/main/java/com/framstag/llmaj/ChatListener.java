@@ -67,7 +67,7 @@ public class ChatListener implements ChatModelListener {
 
     @Override
     public void onResponse(ChatModelResponseContext responseContext) {
-        logger.info("RESPONSE {} - token in {} - token out {} - reason {}",
+        logger.info("RESPONSE {} - I/O {}/{} - reason {}",
                 responseContext.chatResponse().modelName(),
                 responseContext.chatResponse().tokenUsage().inputTokenCount(),
                 responseContext.chatResponse().tokenUsage().outputTokenCount(),
