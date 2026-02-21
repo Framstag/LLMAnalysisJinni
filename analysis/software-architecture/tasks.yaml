@@ -1,38 +1,38 @@
 id: Welcome
 name: Welcome
-systemPrompt: tasks/prompts/systemprompt.md
-prompt: tasks/prompts/welcome.md
-responseFormat: tasks/results/ToolVersion.json
+systemPrompt: prompts/systemprompt.md
+prompt: prompts/welcome.md
+responseFormat: results/ToolVersion.json
 responseProperty: tool
 ---
 id: LocateREADME
 name: Locate project README
-prompt: tasks/prompts/locate_readme.md
-responseFormat: tasks/results/Location.json
+prompt: prompts/locate_readme.md
+responseFormat: results/Location.json
 responseProperty: readme
 tags:
   - readme_location
 ---
 id: ProjectSummary
 name: Project summary
-prompt: tasks/prompts/project_summary.md
-responseFormat: tasks/results/ProjectSummary.json
+prompt: prompts/project_summary.md
+responseFormat: results/ProjectSummary.json
 responseProperty: project
 tags:
   - project_summary
 ---
 id: BuildSystems
 name: Detect used Build Systems
-prompt: tasks/prompts/build_systems.md
-responseFormat: tasks/results/BuildSystems.json
+prompt: prompts/build_systems.md
+responseFormat: results/BuildSystems.json
 responseProperty: build
 tags:
   - buildsystems
 ---
 id: LocateModules
 name: Locate code modules
-prompt: tasks/prompts/locate_modules.md
-responseFormat: tasks/results/Modules.json
+prompt: prompts/locate_modules.md
+responseFormat: results/Modules.json
 responseProperty: modules
 active: true
 dependsOn:
@@ -43,8 +43,8 @@ tags:
 ---
 id: ProgrammingLanguages
 name: Programming languages
-prompt: tasks/prompts/programming_languages.md
-responseFormat: tasks/results/ProgrammingLanguages.json
+prompt: prompts/programming_languages.md
+responseFormat: results/ProgrammingLanguages.json
 responseProperty: programmingLanguages
 dependsOn:
   - buildsystems
@@ -55,8 +55,8 @@ loopOn: /modules/modules
 ---
 id: ModuleBuildfileAnalysis
 name: Locate and analyse build files for module
-prompt: tasks/prompts/module_analysis_buildfiles.md
-responseFormat: tasks/results/ArchitectureEvaluation.json
+prompt: prompts/module_analysis_buildfiles.md
+responseFormat: results/ArchitectureEvaluation.json
 responseProperty: build_analysis
 dependsOn:
   - buildsystems
@@ -68,8 +68,8 @@ loopOn: /modules/modules
 ---
 id: ModulePurpose
 name: Get a purpose for each module
-prompt: tasks/prompts/module_purpose.md
-responseFormat: tasks/results/ModulePurpose.json
+prompt: prompts/module_purpose.md
+responseFormat: results/ModulePurpose.json
 responseProperty: purpose
 active: true
 dependsOn:
@@ -82,8 +82,8 @@ loopOn: /modules/modules
 ---
 id: ModuleArchitecture
 name: Get a description of the principle architecture for each module
-prompt: tasks/prompts/module_architecture.md
-responseFormat: tasks/results/ModuleArchitecture.json
+prompt: prompts/module_architecture.md
+responseFormat: results/ModuleArchitecture.json
 responseProperty: architecture
 active: true
 dependsOn:
@@ -97,16 +97,16 @@ loopOn: /modules/modules
 ---
 id: SBOMLocation
 name: Location of SBOM
-prompt: tasks/prompts/location_of_sbom.md
-responseFormat: tasks/results/Location.json
+prompt: prompts/location_of_sbom.md
+responseFormat: results/Location.json
 responseProperty: sbom
 tags:
   - sbom_location
 ---
 id: LoadSBOM
 name: Load SBOM
-prompt: tasks/prompts/load_sbom.md
-responseFormat: tasks/results/Result.json
+prompt: prompts/load_sbom.md
+responseFormat: results/Result.json
 responseProperty: sbom_loaded
 dependsOn:
   - sbom_location
@@ -115,8 +115,8 @@ tags:
 ---
 id: DependencyList
 name: Get list of Dependencies
-prompt: tasks/prompts/list_of_dependencies.md
-responseFormat: tasks/results/DependencyList.json
+prompt: prompts/list_of_dependencies.md
+responseFormat: results/DependencyList.json
 responseProperty: dependencies
 dependsOn:
   - sbom
@@ -125,8 +125,8 @@ tags:
 ---
 id: TechnologyStack
 name: Description of the technology stack
-prompt: tasks/prompts/description_of_stack.md
-responseFormat: tasks/results/TechnologyStack.json
+prompt: prompts/description_of_stack.md
+responseFormat: results/TechnologyStack.json
 responseProperty: technologyStack
 dependsOn:
   - sbom
@@ -135,8 +135,8 @@ tags:
 ---
 id: LicenseEvaluation
 name: Evaluation of used licenses
-prompt: tasks/prompts/analysis_of_licenses.md
-responseFormat: tasks/results/LicenseEvaluation.json
+prompt: prompts/analysis_of_licenses.md
+responseFormat: results/LicenseEvaluation.json
 responseProperty: licenseEvaluation
 dependsOn:
   - sbom
@@ -145,8 +145,8 @@ tags:
 ---
 id: FileStatistics
 name: Collect some statics of some file types
-prompt: tasks/prompts/file_statistics.md
-responseFormat: tasks/results/FileStatistics.json
+prompt: prompts/file_statistics.md
+responseFormat: results/FileStatistics.json
 responseProperty: fileStatisticsPerProgrammingLanguage
 dependsOn:
   - buildsystems
@@ -158,8 +158,8 @@ loopOn: /modules/modules
 ---
 id: CodeSizeDistribution
 name: Evaluate file count and line count statistics
-prompt: tasks/prompts/code_size_distribution.md
-responseFormat: tasks/results/ArchitectureEvaluation.json
+prompt: prompts/code_size_distribution.md
+responseFormat: results/ArchitectureEvaluation.json
 responseProperty: code_size_distribution
 dependsOn:
   - file_statistics
@@ -168,8 +168,8 @@ tags:
 ---
 id: ModuleSubdirectories
 name: Identify the root directories for various artifacts
-prompt: tasks/prompts/module_subdirectories.md
-responseFormat: tasks/results/ModuleSubdirectories.json
+prompt: prompts/module_subdirectories.md
+responseFormat: results/ModuleSubdirectories.json
 responseProperty: subdirectories
 dependsOn:
   - modules
@@ -181,8 +181,8 @@ loopOn: /modules/modules
 ---
 id: ModuleAnalysisReports
 name: Collect analysis data per identified module
-prompt: tasks/prompts/module_analysis_reports.md
-responseFormat: tasks/results/ModuleAnalysisReports.json
+prompt: prompts/module_analysis_reports.md
+responseFormat: results/ModuleAnalysisReports.json
 responseProperty: analysisReports
 dependsOn:
   - modules
@@ -194,8 +194,8 @@ loopOn: /modules/modules
 ---
 id: ModuleCyclomaticComplexityEvaluation
 name: Evaluate the measured cyclomatic complexity values of the module
-prompt: tasks/prompts/module_cyclomatic_complexity_evaluation.md
-responseFormat: tasks/results/ArchitectureEvaluation.json
+prompt: prompts/module_cyclomatic_complexity_evaluation.md
+responseFormat: results/ArchitectureEvaluation.json
 responseProperty: cyclomaticComplexityEvaluation
 dependsOn:
   - module_analysis_reports

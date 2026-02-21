@@ -99,7 +99,7 @@ public class AnalyseCmd implements Callable<Integer> {
     String projectRoot;
 
     @Parameters(index = "1",description = "Path to the directory with the concrete analysis definition")
-    String analysisDirectory;
+    Path analysisDirectory;
 
     @Parameters(index = "2",description = "Path to the working directory where result of analysis is stored")
     String workingDirectory;
@@ -204,13 +204,13 @@ public class AnalyseCmd implements Callable<Integer> {
         ObjectMapper mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
         JsonFactory factory = mapper.getFactory();
 
-        TaskManager taskManager = TaskManager.initializeTasks(Path.of(analysisDirectory),
+        TaskManager taskManager = TaskManager.initializeTasks(analysisDirectory,
                 Path.of(workingDirectory),
                 executeOnly);
 
         StateManager stateManager = StateManager.initializeState(Path.of(workingDirectory));
 
-        TemplateLoader templateLoader = new FileTemplateLoader(Path.of(analysisDirectory)
+        TemplateLoader templateLoader = new FileTemplateLoader(analysisDirectory
                 .toString(),
                 "");
 
@@ -270,14 +270,14 @@ public class AnalyseCmd implements Callable<Integer> {
             String origUserPrompt = null;
 
             if (task.getSystemPrompt() != null) {
-                origSystemPrompt = Files.readString(task.getSystemPrompt());
+                origSystemPrompt = Files.readString(analysisDirectory.resolve(task.getSystemPrompt()));
             }
 
             if (task.getPrompt() != null) {
-                origUserPrompt = Files.readString(task.getPrompt());
+                origUserPrompt = Files.readString(analysisDirectory.resolve(task.getPrompt()));
             }
 
-            String jsonResponseRawSchema = Files.readString(task.getResponseFormat());
+            String jsonResponseRawSchema = Files.readString(analysisDirectory.resolve(task.getResponseFormat()));
             JsonNode jsonResponseSchema = mapper.readTree(jsonResponseRawSchema);
 
             if (task.hasLoopOn()) {
