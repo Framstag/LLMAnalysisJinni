@@ -240,8 +240,8 @@ public class TaskManager {
         return calculateNextTask();
     }
 
-    public void markTaskAskLoopProcessing(TaskDefinition task,
-                                          int successfulLoopIndex) {
+    public void markTaskAsLoopProcessing(TaskDefinition task,
+                                         int successfulLoopIndex) {
         String taskId = task.getId();
 
         if (!pendingTaskIds.contains(taskId)) {

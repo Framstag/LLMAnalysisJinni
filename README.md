@@ -52,29 +52,72 @@ mvn verify
 
 ## Usage
 
+### Initialize a workspace
+
+Create an empty workspace directory:
+
+```
+mkdir workspaces/test
+```
+
+class the tool the initialize the workspace and parse required parameter.
+
+```
+workspace init --modelUrl http://<ollama-url> --model "gpt-oss:20b" -j=true -- <project diretory> analysis/software-architecture <workspace directory>
+```
+This creates a `config.json` in the workspace directory
+
+
+### Start analysis
+
 A typical call to analyze a given project would be:
 
 ```
-analyse --modelUrl http://<ollama-url> --model "gpt-oss:20b" <project to analyze> <task directory> <workspace directory>
+analyse <workspace directory>
 ```
 
-For the spring-petclinic (placed on the same directory level as this tool) this could be:
-
-```
-analyse --modelUrl http://<ollama-url> --model "gpt-oss:20b" -j=false --log-request=false --log-response=false -- ../spring-petclinic analysis/software-architecture workspaces/spring-petclinic
-```
+Note, that you only need to pass the workspace directors, because all other required configuration is aleady stored there. 
 
 In this case all active tasks in the configuration file are
-call one after another and an `analysis.json` (containing the analysis result) and a `state.json` (containing tasks execution information) is created in the 
-workspace directory.
+call one after another and an `analysis.json` (containing the analysis result) and a `state.json` (containing tasks execution information) is created in the workspace directory.
 
 The given LLM is used by calling the given ollama instance.
 
 For generating a documentation of the analysis results, a possible command line could be:
 
 ```
-document analysis/software-architecture workspaces/spring-petclinic
+document workspaces/spring-petclinic
 ```
+
+Again, all other informtion is loaded from the configuration file in
+the workspace directory.
+
+## Config file documentation
+
+The config.json file has the following attributes:
+
+| Attribute         | Desription                                              | Default |
+|-------------------|---------------------------------------------------------|---------|
+| modelProvider     | Name of the model provider, currently always 'OLLAMA'   | OLLAMA  |
+| modelURL          | The full connection URL to the ollama instance          |         |
+| modelName         | The name of the model, e.g. "gpt-oss:20b"               |         |
+| chatWindowSize    | Number of messages in context during one task execution | 50      |
+| requestTimeout    | Request timeout in minutes                              | 120     |
+| maximumTokens     | The maximum number of tokens                            | 65536   |
+| nativeJSON        | Use the native JSON support                             | false   |
+| logRequests       | Log HTTP request                                        | false   |
+| logResponses      | Log TTP responses                                       | false   |
+| mcpServers        | An array of MCP Servers                                 |         |
+| projectDirectory  | Path to the project directory                           |         |
+| analysisDirectory | Path to the analysis files                              |         |
+
+For the MCP Server:
+
+| Attribute | Desription                                  | Default |
+|-----------|---------------------------------------------|---------|
+| name      | Free form name of the MCP Server            |         |
+| type      | Type of connection, currently always 'http' |         |
+| url       | Connection URL                              |         |
 
 ## Implementation
 

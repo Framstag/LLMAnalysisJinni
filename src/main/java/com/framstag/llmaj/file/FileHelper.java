@@ -1,11 +1,15 @@
 package com.framstag.llmaj.file;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Path;
 
 public class FileHelper {
+    private static final Logger logger = LoggerFactory.getLogger(FileHelper.class);
 
     /**
      * Is th given directory "below" the root irectory and is it thus allowed to access it?
@@ -38,5 +42,59 @@ public class FileHelper {
         }
 
         return lines;
+    }
+
+    public static boolean isDirectoryAndCanBeWrittenTo(Path path,
+                                                       String lowerName,
+                                                       String upperName) {
+        if (!path.toFile().exists()) {
+            logger.error("{} directory '{}', does not exist, please create it!",
+                    upperName,
+                    path);
+            return false;
+        }
+
+        if (!path.toFile().isDirectory()) {
+            logger.error("{} directory '{}' is not a directory!",
+                    upperName,
+                    path);
+            return false;
+        }
+
+        if (!path.toFile().canWrite()) {
+            logger.error("Cannot write to {} directory '{}', fix access rights!",
+                    lowerName,
+                    path);
+            return false;
+        }
+
+        return true;
+    }
+
+    public static boolean isDirectoryAndCanBeReadFrom(Path path,
+                                                      String lowerName,
+                                                      String upperName) {
+        if (!path.toFile().exists()) {
+            logger.error("{} directory '{}', does not exist, please create it!",
+                    upperName,
+                    path);
+            return false;
+        }
+
+        if (!path.toFile().isDirectory()) {
+            logger.error("{} directory '{}' is not a directory!",
+                    upperName,
+                    path);
+            return false;
+        }
+
+        if (!path.toFile().canRead()) {
+            logger.error("Cannot read from {} directory '{}', fix access rights!",
+                    lowerName,
+                    path);
+            return false;
+        }
+
+        return true;
     }
 }

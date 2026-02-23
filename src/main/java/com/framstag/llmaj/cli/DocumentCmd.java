@@ -1,5 +1,7 @@
 package com.framstag.llmaj.cli;
 
+import com.framstag.llmaj.config.Config;
+import com.framstag.llmaj.config.ConfigLoader;
 import com.framstag.llmaj.handlebars.HandlebarsFactory;
 import com.framstag.llmaj.state.StateManager;
 import com.github.jknack.handlebars.io.FileTemplateLoader;
@@ -9,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
@@ -18,19 +21,27 @@ import java.util.concurrent.Callable;
 public class DocumentCmd implements Callable<Integer> {
     private static final Logger logger = LoggerFactory.getLogger(DocumentCmd.class);
 
-    @CommandLine.Parameters(index = "0",description = "Path to the directory with the analysis definition")
-    String analysisDirectory;
-
-    @CommandLine.Parameters(index = "1",description = "Path to the working directory where result of analysis is stored")
-    String workingDirectory;
+    @CommandLine.Parameters(index = "0",description = "Path to the working directory where result of analysis is stored")
+    Path workingDirectory;
 
     @Override
     public Integer call() throws Exception {
         logger.info("Generating documentation for analysis result in directory '{}'...", workingDirectory);
 
-        StateManager stateManager = StateManager.initializeState(Path.of(workingDirectory));
+        Config config;
 
-        TemplateLoader loader = new FileTemplateLoader(Path.of(analysisDirectory)
+        try {
+            logger.info("Loading config from workspace '{}'...", workingDirectory);
+            config = ConfigLoader.load(workingDirectory);
+            config.dumpToLog();
+        } catch (IOException e) {
+            logger.error("Cannot load config file", e);
+            return 1;
+        }
+
+        StateManager stateManager = StateManager.initializeState(workingDirectory);
+
+        TemplateLoader loader = new FileTemplateLoader(config.getAnalysisDirectory()
                 .resolve("documentation")
                 .toString(),
                 ".hbs");
@@ -42,7 +53,7 @@ public class DocumentCmd implements Callable<Integer> {
 
         String templateResult = template.apply(stateManager.getStateObject());
 
-        Path outputFile = Path.of(workingDirectory).resolve("Documentation.md");
+        Path outputFile = workingDirectory.resolve("Documentation.md");
 
         logger.info("Storing result in '{}'...", outputFile);
 

@@ -7,6 +7,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.framstag.llmaj.AnalysisContext;
 import com.framstag.llmaj.ChatExecutionContext;
 import com.framstag.llmaj.ChatListener;
+import com.framstag.llmaj.config.Config;
+import com.framstag.llmaj.config.ConfigLoader;
+import com.framstag.llmaj.config.MCPServer;
 import com.framstag.llmaj.handlebars.HandlebarsFactory;
 import com.framstag.llmaj.json.JsonHelper;
 import com.framstag.llmaj.json.ObjectMapperFactory;
@@ -49,7 +52,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
-import java.net.URL;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -62,15 +65,6 @@ public class AnalyseCmd implements Callable<Integer> {
 
     private static final String ANSWER_ONLY_WITH_THE_FOLLOWING_JSON = "\nYou must answer strictly in the following JSON format: ";
 
-    @Option(names={"-u","--modelUrl"}, arity = "1", description = "The URL of the ollama server")
-    URL modelUrl;
-
-    @Option(names={"-m","--model"}, arity = "1", description = "The name of the model to use")
-    String modelName;
-
-    @Option(names={"-j","--json-response"}, arity = "1", defaultValue = "false", description = "Enforce json response")
-    boolean jsonResponse = false;
-
     @Option(names={"--log-request"}, arity = "1", defaultValue = "false", description = "Activate langchain4j low-level log of chat requests")
     boolean logRequest = false;
 
@@ -80,29 +74,11 @@ public class AnalyseCmd implements Callable<Integer> {
     @Option(names={"-o","--executeOnly"}, arity = "1..*", description = "A list of task ids, that should only be executed")
     Set<String> executeOnly = new HashSet<>();
 
-    @Option(names={"--chatWindowsSize"}, arity = "1", defaultValue="50", description = "The number of messages to memorize between prompts")
-    int chatWindowSize;
-
-    @Option(names={"--requestTimeout"}, arity = "1", defaultValue="120", description = "Request timeout in minutes")
-    int requestTimeout;
-
-    @Option(names={"--maxToken"}, arity = "1", defaultValue="65536", description = "Maximum number of tokens to allow")
-    int maxToken;
-
     @Option(names={"--single-step"}, arity = "1", defaultValue = "false", description = "Stop execution after one task")
     boolean singleStep = false;
 
-    @Option(names={"--mcp-server"}, arity = "0..*", description = "URL of external MCP Server")
-    List<String> mcpServers = new LinkedList<>();
-
-    @Parameters(index = "0",description = "Path to the root directory of the project to analyse")
-    String projectRoot;
-
-    @Parameters(index = "1",description = "Path to the directory with the concrete analysis definition")
-    Path analysisDirectory;
-
-    @Parameters(index = "2",description = "Path to the working directory where result of analysis is stored")
-    String workingDirectory;
+    @Parameters(index = "0",description = "Path to the working directory where result of analysis is stored")
+    Path workingDirectory;
 
     private UserMessage patchUserMessageWithSchema(UserMessage um, JsonNode responseSchema)
     {
@@ -112,14 +88,15 @@ public class AnalyseCmd implements Callable<Integer> {
                         + JsonHelper.createTypeDescription(responseSchema));
     }
 
-    private String executeMessages(ChatExecutionContext executionContext,
+    private String executeMessages(Config config,
+                                   ChatExecutionContext executionContext,
                                    List<ChatMessage> messages,
                                    String rawResponseSchema,
                                    JsonNode responseSchema) {
 
         ResponseFormat responseFormat;
 
-        if (jsonResponse) {
+        if (config.isNativeJSON()) {
             responseFormat = ResponseFormat.builder()
                     .type(ResponseFormatType.JSON)
                     .jsonSchema(JsonSchema.builder()
@@ -132,7 +109,7 @@ public class AnalyseCmd implements Callable<Integer> {
             responseFormat = ResponseFormat.TEXT;
         }
 
-        if (!jsonResponse && !messages.isEmpty() && messages.getLast() instanceof UserMessage) {
+        if (!config.isNativeJSON() && !messages.isEmpty() && messages.getLast() instanceof UserMessage) {
             UserMessage um = (UserMessage) messages.removeLast();
             messages.addLast(patchUserMessageWithSchema(um, responseSchema));
         }
@@ -171,66 +148,63 @@ public class AnalyseCmd implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
+        Config config;
+
+        try {
+            logger.info("Loading config from workspace '{}'...", workingDirectory);
+            config = ConfigLoader.load(workingDirectory);
+            config.dumpToLog();
+        } catch (IOException e) {
+            logger.error("Cannot load config file", e);
+            return 1;
+        }
+
         ChatModel model = OllamaChatModel.builder()
-                .modelName(modelName)
-                .baseUrl(modelUrl.toString())
-                .timeout(Duration.ofMinutes(requestTimeout))
+                .modelName(config.getModelName())
+                .baseUrl(config.getModelURL().toString())
+                .timeout(Duration.ofMinutes(config.getRequestTimeout()))
                 .temperature(0.0)
                 .think(false)
                 .returnThinking(false)
                 .listeners(List.of(new ChatListener()))
-                .logRequests(logRequest)
-                .logResponses(logResponse)
-                .numCtx(maxToken)
+                .logRequests(config.isLogRequests())
+                .logResponses(config.isLogResponses())
+                .numCtx(config.getMaximumTokens())
                 .build();
 
-        logger.info(">> Parameter");
-        logger.info("Model provider: '{}'", model.provider().name());
-        logger.info("URL:            '{}'",modelUrl.toString());
-        logger.info("Timeout:        {} minute(s)", requestTimeout);
-        logger.info("Log requests:   {}", logRequest);
-        logger.info("Log responses:  {}", logResponse);
-        logger.info("Model name:     '{}'", modelName);
-        logger.info("Maximum tokens: {}", maxToken);
-        logger.info("Native JSON:    {}", jsonResponse);
-        logger.info("==");
-        logger.info("Project:        '{}'", projectRoot);
-        logger.info("Workspace:      '{}'", workingDirectory);
-        logger.info("<< Parameter");
-
-        ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(chatWindowSize);
+        ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(config.getChatWindowSize());
 
         ServiceOutputParser outputParser = new ServiceOutputParser();
 
         ObjectMapper mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
+
         JsonFactory factory = mapper.getFactory();
 
-        TaskManager taskManager = TaskManager.initializeTasks(analysisDirectory,
-                Path.of(workingDirectory),
+        TaskManager taskManager = TaskManager.initializeTasks(config.getAnalysisDirectory(),
+                workingDirectory,
                 executeOnly);
 
-        StateManager stateManager = StateManager.initializeState(Path.of(workingDirectory));
+        StateManager stateManager = StateManager.initializeState(workingDirectory);
 
-        TemplateLoader templateLoader = new FileTemplateLoader(analysisDirectory
-                .toString(),
+        TemplateLoader templateLoader = new FileTemplateLoader(config.getAnalysisDirectoryAsString(),
                 "");
 
         var templateEngine = HandlebarsFactory.create()
                 .with(templateLoader);
 
         AnalysisContext context = new AnalysisContext(
-                Path.of(projectRoot),
-                Path.of(workingDirectory),
+                config.getProjectDirectory(),
+                workingDirectory,
                 stateManager.getAnalysisState());
 
         HashMap<ToolSpecification, ToolExecutor> mcpServersDefinitions = new HashMap<>();
 
         int mcpServerIndex = 0;
-        for (String mcpServer : mcpServers)  {
-            logger.info("Initializing MCP Server: '{}'", mcpServer);
+        for (MCPServer server : config.getMcpServers())  {
+            logger.info("Initializing MCP Server: '{}'", server.getName());
 
             McpTransport transport = StreamableHttpMcpTransport.builder()
-                    .url(mcpServer)
+                    .url(server.getUrl().toString())
                     .logRequests(logRequest)
                     .logResponses(logResponse)
                     .build();
@@ -271,14 +245,14 @@ public class AnalyseCmd implements Callable<Integer> {
             String origUserPrompt = null;
 
             if (task.getSystemPrompt() != null) {
-                origSystemPrompt = Files.readString(analysisDirectory.resolve(task.getSystemPrompt()));
+                origSystemPrompt = Files.readString(config.getAnalysisDirectory().resolve(task.getSystemPrompt()));
             }
 
             if (task.getPrompt() != null) {
-                origUserPrompt = Files.readString(analysisDirectory.resolve(task.getPrompt()));
+                origUserPrompt = Files.readString(config.getAnalysisDirectory().resolve(task.getPrompt()));
             }
 
-            String jsonResponseRawSchema = Files.readString(analysisDirectory.resolve(task.getResponseFormat()));
+            String jsonResponseRawSchema = Files.readString(config.getAnalysisDirectory().resolve(task.getResponseFormat()));
             JsonNode jsonResponseSchema = mapper.readTree(jsonResponseRawSchema);
 
             if (task.hasLoopOn()) {
@@ -324,7 +298,8 @@ public class AnalyseCmd implements Callable<Integer> {
                         messages.add(UserMessage.from(userPrompt));
                     }
 
-                    String taskResultString = executeMessages(execContext,
+                    String taskResultString = executeMessages(config,
+                            execContext,
                             messages,
                             jsonResponseRawSchema,
                             jsonResponseSchema);
@@ -340,7 +315,7 @@ public class AnalyseCmd implements Callable<Integer> {
 
                             stateManager.updateLoopState(task.getResponseProperty(), taskResultJson);
                             stateManager.saveState();
-                            taskManager.markTaskAskLoopProcessing(task, stateManager.getLoopIndex());
+                            taskManager.markTaskAsLoopProcessing(task, stateManager.getLoopIndex());
                         }
                     } else {
                         logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
@@ -373,7 +348,8 @@ public class AnalyseCmd implements Callable<Integer> {
                     messages.add(UserMessage.from(userPrompt));
                 }
 
-                String taskResultString = executeMessages(execContext,
+                String taskResultString = executeMessages(config,
+                        execContext,
                         messages,
                         jsonResponseRawSchema,
                         jsonResponseSchema);
