@@ -15,6 +15,8 @@ import dev.langchain4j.model.chat.request.ChatRequestParameters;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.output.TokenUsage;
 import dev.langchain4j.service.tool.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -26,6 +28,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
 public class ChatExecutor {
+    private static final Logger logger = LoggerFactory.getLogger(ChatExecutor.class);
+
     private static final ToolArgumentsErrorHandler DEFAULT_TOOL_ARGUMENTS_ERROR_HANDLER = (error, context) -> {
         if (error instanceof RuntimeException re) {
             throw re;
@@ -56,11 +60,28 @@ public class ChatExecutor {
         return ToolExecutionResult.builder().resultText(toolResultMessage.text()).build();
     }
 
+    private String cleanupToolName(String toolName) {
+        int i = toolName.indexOf("<");
+
+        if (i >=0) {
+            String correctedToolName = toolName.substring(0,i);
+
+            logger.warn("Corrected tool name from '{}' to '{}'",toolName,correctedToolName);
+
+            return correctedToolName;
+        }
+
+        return toolName;
+    }
+
     private static ToolExecutionResult executeWithErrorHandling(ToolExecutionRequest toolRequest, ToolExecutor toolExecutor, InvocationContext invocationContext, ToolArgumentsErrorHandler argumentsErrorHandler, ToolExecutionErrorHandler executionErrorHandler) {
         try {
             return toolExecutor.executeWithContext(toolRequest, invocationContext);
         } catch (Exception e) {
-            ToolErrorContext errorContext = ToolErrorContext.builder().toolExecutionRequest(toolRequest).invocationContext(invocationContext).build();
+            ToolErrorContext errorContext = ToolErrorContext.builder()
+                    .toolExecutionRequest(toolRequest)
+                    .invocationContext(invocationContext)
+                    .build();
             ToolErrorHandlerResult errorHandlerResult;
             if (e instanceof ToolArgumentsException) {
                 errorHandlerResult = argumentsErrorHandler.handle(e.getCause(), errorContext);
@@ -68,7 +89,10 @@ public class ChatExecutor {
                 errorHandlerResult = executionErrorHandler.handle(e.getCause(), errorContext);
             }
 
-            return ToolExecutionResult.builder().isError(true).resultText(errorHandlerResult.text()).build();
+            return ToolExecutionResult.builder()
+                    .isError(true)
+                    .resultText(errorHandlerResult.text())
+                    .build();
         }
     }
 
@@ -77,7 +101,7 @@ public class ChatExecutor {
 
         for(ToolExecutionRequest toolRequest : toolRequests) {
             CompletableFuture<ToolExecutionResult> future = CompletableFuture.supplyAsync(() -> {
-                ToolExecutor toolExecutor = toolExecutors.get(toolRequest.name());
+                ToolExecutor toolExecutor = toolExecutors.get(cleanupToolName(toolRequest.name()));
                 if (toolExecutor == null) {
                     return this.applyToolHallucinationStrategy(toolRequest);
                 }
@@ -145,13 +169,18 @@ public class ChatExecutor {
             }
 
             intermediateResponses.add(chatResponse);
-            Map<ToolExecutionRequest, ToolExecutionResult> toolResults = executeConcurrently(aiMessage.toolExecutionRequests(), toolExecutors, invocationContext);
+            Map<ToolExecutionRequest, ToolExecutionResult> toolResults = executeConcurrently(aiMessage.toolExecutionRequests(),
+                    toolExecutors,
+                    invocationContext);
 
             for(Map.Entry<ToolExecutionRequest, ToolExecutionResult> entry : toolResults.entrySet()) {
                 ToolExecutionRequest request = entry.getKey();
                 ToolExecutionResult result = entry.getValue();
                 ToolExecutionResultMessage resultMessage = ToolExecutionResultMessage.from(request, result.resultText());
-                ToolExecution toolExecution = ToolExecution.builder().request(request).result(result).build();
+                ToolExecution toolExecution = ToolExecution.builder()
+                        .request(request)
+                        .result(result)
+                        .build();
                 toolExecutions.add(toolExecution);
                 chatMemory.add(resultMessage);
             }

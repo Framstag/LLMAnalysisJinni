@@ -60,10 +60,10 @@ Create an empty workspace directory:
 mkdir workspaces/test
 ```
 
-class the tool the initialize the workspace and parse required parameter.
+Call the tool to initialize the workspace and store the required parameter in the configuration file:
 
 ```
-workspace init --modelUrl http://<ollama-url> --model "gpt-oss:20b" -j=true -- <project diretory> analysis/software-architecture <workspace directory>
+workspace init --modelProvider=OLLAMA--modelUrl http://<ollama-url> --model "gpt-oss:20b" -j=true -- <project diretory> analysis/software-architecture <workspace directory>
 ```
 This creates a `config.json` in the workspace directory
 
@@ -89,27 +89,27 @@ For generating a documentation of the analysis results, a possible command line 
 document workspaces/spring-petclinic
 ```
 
-Again, all other informtion is loaded from the configuration file in
+Again, all other information is loaded from the configuration file in
 the workspace directory.
 
 ## Config file documentation
 
 The config.json file has the following attributes:
 
-| Attribute         | Desription                                              | Default |
-|-------------------|---------------------------------------------------------|---------|
-| modelProvider     | Name of the model provider, currently always 'OLLAMA'   | OLLAMA  |
-| modelURL          | The full connection URL to the ollama instance          |         |
-| modelName         | The name of the model, e.g. "gpt-oss:20b"               |         |
-| chatWindowSize    | Number of messages in context during one task execution | 50      |
-| requestTimeout    | Request timeout in minutes                              | 120     |
-| maximumTokens     | The maximum number of tokens                            | 65536   |
-| nativeJSON        | Use the native JSON support                             | false   |
-| logRequests       | Log HTTP request                                        | false   |
-| logResponses      | Log TTP responses                                       | false   |
-| mcpServers        | An array of MCP Servers                                 |         |
-| projectDirectory  | Path to the project directory                           |         |
-| analysisDirectory | Path to the analysis files                              |         |
+| Attribute         | Desription                                                   | Default |
+|-------------------|--------------------------------------------------------------|---------|
+| modelProvider     | Name of the model provider, currently  'OLLAMA'  or 'OPENAI' |         |
+| modelURL          | The full connection URL to the ollama instance               |         |
+| modelName         | The name of the model, e.g. "gpt-oss:20b"                    |         |
+| chatWindowSize    | Number of messages in context during one task execution      | 50      |
+| requestTimeout    | Request timeout in minutes                                   | 120     |
+| maximumTokens     | The maximum number of tokens                                 | 65536   |
+| nativeJSON        | Use the native JSON support                                  | false   |
+| logRequests       | Log HTTP request                                             | false   |
+| logResponses      | Log TTP responses                                            | false   |
+| mcpServers        | An array of MCP Servers                                      |         |
+| projectDirectory  | Path to the project directory                                |         |
+| analysisDirectory | Path to the analysis files                                   |         |
 
 For the MCP Server:
 

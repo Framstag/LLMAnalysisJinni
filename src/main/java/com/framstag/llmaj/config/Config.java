@@ -19,6 +19,7 @@ public class Config {
     private ModelProvider modelProvider;
     private URL modelURL;
     private String modelName;
+    private String apiKey;
     private int chatWindowSize;
     private int requestTimeout;
     private int maximumTokens;
@@ -40,6 +41,10 @@ public class Config {
 
     public void setModelProvider(ModelProvider modelProvider) {
         this.modelProvider = modelProvider;
+    }
+
+    public void setApiKey(String apiKey) {
+        this.apiKey = apiKey;
     }
 
     @JsonSetter("projectDirectory")
@@ -86,6 +91,29 @@ public class Config {
 
     public ModelProvider getModelProvider() {
         return modelProvider;
+    }
+
+    @Override
+    public String toString() {
+        return "Config{" +
+                "projectDirectory=" + projectDirectory +
+                ", analysisDirectory=" + analysisDirectory +
+                ", modelProvider=" + modelProvider +
+                ", modelURL=" + modelURL +
+                ", modelName='" + modelName + '\'' +
+                ", apiKey='" + "XXX" + '\'' +
+                ", chatWindowSize=" + chatWindowSize +
+                ", requestTimeout=" + requestTimeout +
+                ", maximumTokens=" + maximumTokens +
+                ", nativeJSON=" + nativeJSON +
+                ", logRequests=" + logRequests +
+                ", logResponses=" + logResponses +
+                ", mcpServers=" + mcpServers +
+                '}';
+    }
+
+    public String getApiKey() {
+        return apiKey;
     }
 
     @JsonIgnore
@@ -152,28 +180,11 @@ public class Config {
         return mcpServers;
     }
 
-    @Override
-    public String toString() {
-        return "Config{" +
-                "projectDirectory=" + projectDirectory +
-                ", analysisDirectory=" + analysisDirectory +
-                ", modelProvider=" + modelProvider +
-                ", modelURL=" + modelURL +
-                ", modelName='" + modelName + '\'' +
-                ", chatWindowSize=" + chatWindowSize +
-                ", requestTimeout=" + requestTimeout +
-                ", maximumTokens=" + maximumTokens +
-                ", nativeJSON=" + nativeJSON +
-                ", logRequests=" + logRequests +
-                ", logResponses=" + logResponses +
-                ", mcpServers=" + mcpServers +
-                '}';
-    }
-
     public void dumpToLog() {
         logger.info("Model provider:     '{}'", modelProvider);
         logger.info("URL:                '{}'", modelURL.toString());
         logger.info("Model name:         '{}'", modelName);
+        logger.info("API key:            {}", apiKey != null ? "<key is set>" : "<key is not set>");
         logger.info("ChatWindow size:    {} ", chatWindowSize);
         logger.info("Timeout:            {} minute(s)", requestTimeout);
         logger.info("Log requests:       {}", logRequests);

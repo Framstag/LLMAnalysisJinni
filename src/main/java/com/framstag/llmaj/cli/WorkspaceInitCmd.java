@@ -2,6 +2,7 @@ package com.framstag.llmaj.cli;
 
 import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.config.ConfigStorer;
+import com.framstag.llmaj.config.ModelProvider;
 import com.framstag.llmaj.file.FileHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,11 +18,17 @@ import java.util.concurrent.Callable;
 public class WorkspaceInitCmd implements Callable<Integer> {
     private static final Logger logger = LoggerFactory.getLogger(WorkspaceInitCmd.class);
 
+    @CommandLine.Option(names={"-t","--modelProvider"}, required = true, arity = "1", description = "The API type to use")
+    ModelProvider modelProvider;
+
     @CommandLine.Option(names={"-u","--modelUrl"}, required = true, arity = "1", description = "The URL of the ollama server")
     URL modelUrl;
 
     @CommandLine.Option(names={"-m","--model"}, required = true, arity = "1", description = "The name of the model to use")
     String modelName;
+
+    @CommandLine.Option(names={"-k","--apiKey"}, arity = "1", description = "Optional api key")
+    String apiKey;
 
     @CommandLine.Option(names={"-j","--native-json"}, arity = "1", defaultValue = "false", description = "Enforce json response")
     boolean jsonResponse = false;
@@ -68,8 +75,10 @@ public class WorkspaceInitCmd implements Callable<Integer> {
 
         Config config = new Config();
 
+        config.setModelProvider(modelProvider);
         config.setModelURL(modelUrl);
         config.setModelName(modelName);
+        config.setApiKey(apiKey);
         config.setChatWindowSize(chatWindowSize);
         config.setNativeJSON(jsonResponse);
         config.setLogRequests(logRequest);

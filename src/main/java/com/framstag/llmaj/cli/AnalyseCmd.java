@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.framstag.llmaj.AnalysisContext;
 import com.framstag.llmaj.ChatExecutionContext;
-import com.framstag.llmaj.ChatListener;
 import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.config.ConfigLoader;
 import com.framstag.llmaj.config.MCPServer;
@@ -14,6 +13,7 @@ import com.framstag.llmaj.handlebars.HandlebarsFactory;
 import com.framstag.llmaj.json.JsonHelper;
 import com.framstag.llmaj.json.ObjectMapperFactory;
 import com.framstag.llmaj.lc4j.ChatExecutor;
+import com.framstag.llmaj.lc4j.ChatModelFactory;
 import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
 import com.framstag.llmaj.tasks.TaskManager;
@@ -41,7 +41,6 @@ import dev.langchain4j.model.chat.request.ToolChoice;
 import dev.langchain4j.model.chat.request.json.JsonRawSchema;
 import dev.langchain4j.model.chat.request.json.JsonSchema;
 import dev.langchain4j.model.chat.response.ChatResponse;
-import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.service.output.ServiceOutputParser;
 import dev.langchain4j.service.tool.ToolExecutor;
 import dev.langchain4j.service.tool.ToolService;
@@ -55,7 +54,6 @@ import picocli.CommandLine.Parameters;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Callable;
 
@@ -159,18 +157,7 @@ public class AnalyseCmd implements Callable<Integer> {
             return 1;
         }
 
-        ChatModel model = OllamaChatModel.builder()
-                .modelName(config.getModelName())
-                .baseUrl(config.getModelURL().toString())
-                .timeout(Duration.ofMinutes(config.getRequestTimeout()))
-                .temperature(0.0)
-                .think(false)
-                .returnThinking(false)
-                .listeners(List.of(new ChatListener()))
-                .logRequests(config.isLogRequests())
-                .logResponses(config.isLogResponses())
-                .numCtx(config.getMaximumTokens())
-                .build();
+        ChatModel model = ChatModelFactory.getChatModel(config);
 
         ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(config.getChatWindowSize());
 

@@ -3,7 +3,8 @@ package com.framstag.llmaj.config;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum ModelProvider {
-    OLLAMA ("ollama");
+    OLLAMA ("ollama"),
+    OPENAI("openai");
 
     private final String name;
 
