@@ -133,7 +133,7 @@ public class FileTool {
                         Returns a list of files in the given sub directory and recursively all of its sub directories
                         that match one of the list of the given filename wildcards.
                     """)
-    public List<FilesInDirectory> getMatchingFilesInDirRecursively(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only")
+    public List<FilesInDirectory> getMatchingFilesInDirRecursively(@P("The relative path in the project to scan. Use '' for the root directory. Make sure to pass *relative* paths only")
                                                                    String path,
                                                                    @P("An array of filename wildcards for matching files to scan for. Make sure that the wildcards do not contain any path elements! Hand over an array, even if you call the method with only one wildcard!")
                                                                    List<String> wildcards,
@@ -259,9 +259,11 @@ public class FileTool {
         logger.info("## DoesFileExist('{}')", file);
 
         Path root = context.getProjectRoot();
-        Path filePath = Path.of(file);
+        Path filePath = root.resolve(file);
 
         String result;
+
+        logger.info("Checking for existence of '{}'...", filePath);
 
         if (!FileHelper.accessAllowed(root, filePath)) {
             result = "ERROR";
@@ -281,7 +283,7 @@ public class FileTool {
                     """
                        Returns the number of files per wildcard given
                     """)
-    public List<CountPerWildcard> fileCountPerFileType(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only\"") String path,
+    public List<CountPerWildcard> fileCountPerFileType(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only") String path,
                                                        @P("A list of wildcards to scan for") List<String> wildcards) throws IOException {
         logger.info("## FileCountPerFileType('{}', '{}')", path, wildcards);
 
@@ -332,7 +334,7 @@ public class FileTool {
                     """
                        Returns the number of files per wildcard and scanned directory
                     """)
-    public List<CountPerWildcardAndDirectory> fileCountPerFileTypeAndDirectory(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only\"") String path,
+    public List<CountPerWildcardAndDirectory> fileCountPerFileTypeAndDirectory(@P("The relative path in the project to scan, use '' for the root directory. Make sure to pass *relative* paths only") String path,
                                                                                @P("A list of wildcards to scan for") List<String> wildcards) throws IOException {
         logger.info("## FileCountPerFileTypeAndDirectory('{}', '{}')", path, wildcards);
 
