@@ -8,6 +8,7 @@ responseProperty: tool
 id: LocateREADME
 name: Locate project README
 prompt: prompts/locate_readme.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/Location.json
 responseProperty: readme
 tags:
@@ -16,6 +17,7 @@ tags:
 id: ProjectSummary
 name: Project summary
 prompt: prompts/project_summary.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/ProjectSummary.json
 responseProperty: project
 tags:
@@ -24,6 +26,7 @@ tags:
 id: BuildSystems
 name: Detect used Build Systems
 prompt: prompts/build_systems.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/BuildSystems.json
 responseProperty: build
 tags:
@@ -32,6 +35,7 @@ tags:
 id: LocateModules
 name: Locate code modules
 prompt: prompts/locate_modules.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/Modules.json
 responseProperty: modules
 active: true
@@ -44,6 +48,7 @@ tags:
 id: ProgrammingLanguages
 name: Programming languages
 prompt: prompts/programming_languages.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/ProgrammingLanguages.json
 responseProperty: programmingLanguages
 dependsOn:
@@ -56,6 +61,7 @@ loopOn: /modules/modules
 id: ModuleBuildfileAnalysis
 name: Locate and analyse build files for module
 prompt: prompts/module_analysis_buildfiles.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/ArchitectureEvaluation.json
 responseProperty: build_analysis
 dependsOn:
@@ -69,6 +75,7 @@ loopOn: /modules/modules
 id: ModulePurpose
 name: Get a purpose for each module
 prompt: prompts/module_purpose.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/ModulePurpose.json
 responseProperty: purpose
 active: true
@@ -83,6 +90,7 @@ loopOn: /modules/modules
 id: ModuleArchitecture
 name: Get a description of the principle architecture for each module
 prompt: prompts/module_architecture.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/ModuleArchitecture.json
 responseProperty: architecture
 active: true
@@ -98,6 +106,7 @@ loopOn: /modules/modules
 id: SBOMLocation
 name: Location of SBOM
 prompt: prompts/location_of_sbom.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/Location.json
 responseProperty: sbom
 tags:
@@ -106,6 +115,7 @@ tags:
 id: LoadSBOM
 name: Load SBOM
 prompt: prompts/load_sbom.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/Result.json
 responseProperty: sbom_loaded
 dependsOn:
@@ -116,6 +126,7 @@ tags:
 id: DependencyList
 name: Get list of Dependencies
 prompt: prompts/list_of_dependencies.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/DependencyList.json
 responseProperty: dependencies
 dependsOn:
@@ -126,6 +137,7 @@ tags:
 id: TechnologyStack
 name: Description of the technology stack
 prompt: prompts/description_of_stack.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/TechnologyStack.json
 responseProperty: technologyStack
 dependsOn:
@@ -136,6 +148,7 @@ tags:
 id: LicenseEvaluation
 name: Evaluation of used licenses
 prompt: prompts/analysis_of_licenses.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/LicenseEvaluation.json
 responseProperty: licenseEvaluation
 dependsOn:
@@ -146,6 +159,7 @@ tags:
 id: FileStatistics
 name: Collect some statics of some file types
 prompt: prompts/file_statistics.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/FileStatistics.json
 responseProperty: fileStatisticsPerProgrammingLanguage
 dependsOn:
@@ -159,6 +173,7 @@ loopOn: /modules/modules
 id: CodeSizeDistribution
 name: Evaluate file count and line count statistics
 prompt: prompts/code_size_distribution.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/ArchitectureEvaluation.json
 responseProperty: code_size_distribution
 dependsOn:
@@ -169,6 +184,7 @@ tags:
 id: ModuleSubdirectories
 name: Identify the root directories for various artifacts
 prompt: prompts/module_subdirectories.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/ModuleSubdirectories.json
 responseProperty: subdirectories
 dependsOn:
@@ -182,6 +198,7 @@ loopOn: /modules/modules
 id: ModuleAnalysisReports
 name: Collect analysis data per identified module
 prompt: prompts/module_analysis_reports.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/ModuleAnalysisReports.json
 responseProperty: analysisReports
 dependsOn:
@@ -195,6 +212,7 @@ loopOn: /modules/modules
 id: ModuleCyclomaticComplexityEvaluation
 name: Evaluate the measured cyclomatic complexity values of the module
 prompt: prompts/module_cyclomatic_complexity_evaluation.md
+systemPrompt: prompts/systemprompt.md
 responseFormat: results/ArchitectureEvaluation.json
 responseProperty: cyclomaticComplexityEvaluation
 dependsOn:

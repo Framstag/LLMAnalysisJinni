@@ -1,23 +1,33 @@
 package com.framstag.llmaj.lc4j;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.framstag.llmaj.ChatExecutionContext;
+import com.framstag.llmaj.config.Config;
+import com.framstag.llmaj.json.JsonHelper;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
+import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.exception.ToolArgumentsException;
 import dev.langchain4j.internal.DefaultExecutorProvider;
 import dev.langchain4j.internal.Exceptions;
 import dev.langchain4j.internal.Utils;
 import dev.langchain4j.invocation.InvocationContext;
 import dev.langchain4j.memory.ChatMemory;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.model.chat.request.ChatRequest;
-import dev.langchain4j.model.chat.request.ChatRequestParameters;
+import dev.langchain4j.model.chat.request.*;
+import dev.langchain4j.model.chat.request.json.JsonRawSchema;
+import dev.langchain4j.model.chat.request.json.JsonSchema;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.output.TokenUsage;
 import dev.langchain4j.service.tool.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,6 +39,9 @@ import java.util.function.Function;
 
 public class ChatExecutor {
     private static final Logger logger = LoggerFactory.getLogger(ChatExecutor.class);
+
+    private static final String ANSWER_ONLY_WITH_THE_FOLLOWING_JSON = "\nYou must answer strictly in the following JSON format: ";
+
 
     private static final ToolArgumentsErrorHandler DEFAULT_TOOL_ARGUMENTS_ERROR_HANDLER = (error, context) -> {
         if (error instanceof RuntimeException re) {
@@ -139,16 +152,15 @@ public class ChatExecutor {
      * @param parameters potential parameters
      * @param chatModel the chat model to be used
      * @param chatMemory chat memory object (!=null)
-     * @param invocationContext invocation context
      * @param toolExecutors map of tool names to executors
      * @return the result
      */
-    public ToolServiceResult execute(ChatResponse chatResponse,
+    private ToolServiceResult execute(ChatResponse chatResponse,
                                      ChatRequestParameters parameters,
                                      ChatModel chatModel,
                                      ChatMemory chatMemory,
-                                     InvocationContext invocationContext,
                                      Map<String, ToolExecutor> toolExecutors) {
+        InvocationContext invocationContext = InvocationContext.builder().build();
 
         TokenUsage aggregateTokenUsage = chatResponse.metadata().tokenUsage();
         List<ToolExecution> toolExecutions = new ArrayList<>();
@@ -197,4 +209,77 @@ public class ChatExecutor {
         throw Exceptions.runtime("Something is wrong, exceeded %s sequential tool executions",
                 this.maxSequentialToolsInvocations);
     }
+
+    private UserMessage patchUserMessageWithSchema(UserMessage um, JsonNode responseSchema)
+    {
+        return UserMessage.from(
+                um.singleText()
+                        + ANSWER_ONLY_WITH_THE_FOLLOWING_JSON
+                        + JsonHelper.createTypeDescription(responseSchema));
+    }
+
+    public JsonNode executeMessages(Config config,
+                                     ChatExecutionContext executionContext,
+                                     List<ChatMessage> messages,
+                                     String rawResponseSchema,
+                                     JsonNode responseSchema) throws IOException {
+        ResponseFormat responseFormat;
+
+        if (config.isNativeJSON()) {
+            responseFormat = ResponseFormat.builder()
+                    .type(ResponseFormatType.JSON)
+                    .jsonSchema(JsonSchema.builder()
+                            .name(JsonHelper.getSchemaName(responseSchema))
+                            .rootElement(JsonRawSchema.from(rawResponseSchema))
+                            .build())
+                    .build();
+        } else {
+            responseFormat = ResponseFormat.TEXT;
+        }
+
+        if (!config.isNativeJSON() && !messages.isEmpty() && messages.getLast() instanceof UserMessage) {
+            UserMessage um = (UserMessage) messages.removeLast();
+            messages.addLast(patchUserMessageWithSchema(um, responseSchema));
+        }
+
+        ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(config.getChatWindowSize());
+
+        chatMemory.add(messages);
+
+        ChatRequest request =
+                ChatRequest.builder()
+                        .messages(messages)
+                        .toolSpecifications(executionContext.getToolService().toolSpecifications())
+                        .toolChoice(ToolChoice.AUTO)
+                        .responseFormat(responseFormat)
+                        .build();
+
+        ChatResponse initialResponse = executionContext.getChatModel().chat(request);
+
+
+        ToolServiceResult toolResult = execute(initialResponse,
+                        request.parameters(),
+                        executionContext.getChatModel(),
+                        chatMemory,
+                        executionContext.getToolService().toolExecutors());
+
+        ChatResponse finalResponse = toolResult.finalResponse();
+
+        logger.info("Token usage: IN {} OUT {} TOTAL {}",
+                toolResult.aggregateTokenUsage().inputTokenCount(),
+                toolResult.aggregateTokenUsage().outputTokenCount(),
+                toolResult.aggregateTokenUsage().totalTokenCount());
+
+        String taskResultString = finalResponse.aiMessage().text();
+
+        if (taskResultString != null && !taskResultString.isEmpty()) {
+            taskResultString = JsonHelper.extractJSON(taskResultString);
+            try (JsonParser parser = executionContext.getMapper().getFactory().createParser(taskResultString)) {
+                return executionContext.getMapper().readTree(parser);
+            }
+        } else {
+            return null;
+        }
+    }
+
 }

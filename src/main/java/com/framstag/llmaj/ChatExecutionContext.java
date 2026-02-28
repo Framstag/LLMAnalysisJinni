@@ -1,39 +1,39 @@
 package com.framstag.llmaj;
 
-import dev.langchain4j.memory.ChatMemory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.framstag.llmaj.config.Config;
 import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.service.output.ServiceOutputParser;
 import dev.langchain4j.service.tool.ToolService;
 
 public class ChatExecutionContext {
-    private ChatModel chatModel;
-    private ChatMemory memory;
-    private ToolService toolService;
-    private ServiceOutputParser outputParser;
+    private final Config config;
+    private final ChatModel chatModel;
+    private final ToolService toolService;
+    private final ObjectMapper mapper;
 
-    public ChatExecutionContext(ChatModel chatModel,
-                                ChatMemory memory,
+    public ChatExecutionContext(Config config,
+                                ChatModel chatModel,
                                 ToolService toolService,
-                                ServiceOutputParser outputParser) {
+                                ObjectMapper mapper) {
+        this.config = config;
         this.chatModel = chatModel;
-        this.memory = memory;
         this.toolService = toolService;
-        this.outputParser = outputParser;
+        this.mapper = mapper;
+    }
+
+    public Config getConfig() {
+        return config;
     }
 
     public ChatModel getChatModel() {
         return chatModel;
     }
 
-        public ChatMemory getMemory() {
-        return memory;
-    }
-
     public ToolService getToolService() {
         return toolService;
     }
 
-    public ServiceOutputParser getOutputParser() {
-        return outputParser;
+    public ObjectMapper getMapper() {
+        return mapper;
     }
 }

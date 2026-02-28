@@ -1,7 +1,5 @@
 package com.framstag.llmaj.cli;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.framstag.llmaj.AnalysisContext;
@@ -18,33 +16,21 @@ import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
 import com.framstag.llmaj.tasks.TaskManager;
 import com.framstag.llmaj.tools.ToolFactory;
+import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
 import com.github.jknack.handlebars.io.FileTemplateLoader;
-import com.github.jknack.handlebars.io.TemplateLoader;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.invocation.InvocationContext;
 import dev.langchain4j.mcp.McpToolExecutor;
 import dev.langchain4j.mcp.client.DefaultMcpClient;
 import dev.langchain4j.mcp.client.McpClient;
 import dev.langchain4j.mcp.client.transport.McpTransport;
 import dev.langchain4j.mcp.client.transport.http.StreamableHttpMcpTransport;
-import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.model.chat.request.ChatRequest;
-import dev.langchain4j.model.chat.request.ResponseFormat;
-import dev.langchain4j.model.chat.request.ResponseFormatType;
-import dev.langchain4j.model.chat.request.ToolChoice;
-import dev.langchain4j.model.chat.request.json.JsonRawSchema;
-import dev.langchain4j.model.chat.request.json.JsonSchema;
-import dev.langchain4j.model.chat.response.ChatResponse;
-import dev.langchain4j.service.output.ServiceOutputParser;
 import dev.langchain4j.service.tool.ToolExecutor;
 import dev.langchain4j.service.tool.ToolService;
-import dev.langchain4j.service.tool.ToolServiceResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine.Command;
@@ -61,8 +47,6 @@ import java.util.concurrent.Callable;
 public class AnalyseCmd implements Callable<Integer> {
     private static final Logger logger = LoggerFactory.getLogger(AnalyseCmd.class);
 
-    private static final String ANSWER_ONLY_WITH_THE_FOLLOWING_JSON = "\nYou must answer strictly in the following JSON format: ";
-
     @Option(names={"--log-request"}, arity = "1", defaultValue = "false", description = "Activate langchain4j low-level log of chat requests")
     boolean logRequest = false;
 
@@ -78,71 +62,42 @@ public class AnalyseCmd implements Callable<Integer> {
     @Parameters(index = "0",description = "Path to the working directory where result of analysis is stored")
     Path workingDirectory;
 
-    private UserMessage patchUserMessageWithSchema(UserMessage um, JsonNode responseSchema)
-    {
-        return UserMessage.from(
-                um.singleText()
-                        + ANSWER_ONLY_WITH_THE_FOLLOWING_JSON
-                        + JsonHelper.createTypeDescription(responseSchema));
+    private LinkedList<ChatMessage> resolveChatMessages(Config config,
+                                                        Handlebars templateEngine,
+                                                        TaskDefinition task,
+                                                        Object stateObject) throws IOException {
+        LinkedList<ChatMessage> messages = new LinkedList<>();
+
+        String origSystemPrompt = null;
+        String origUserPrompt = null;
+
+        if (task.getSystemPrompt() != null) {
+            origSystemPrompt = Files.readString(config.getAnalysisDirectory().resolve(task.getSystemPrompt()));
+        }
+
+        if (task.getPrompt() != null) {
+            origUserPrompt = Files.readString(config.getAnalysisDirectory().resolve(task.getPrompt()));
+        }
+
+        String systemPrompt;
+        String userPrompt;
+
+        if (origSystemPrompt != null) {
+            Template template = templateEngine.compileInline(origSystemPrompt);
+            systemPrompt = template.apply(stateObject);
+            messages.add(SystemMessage.from(systemPrompt));
+        }
+
+        if (origUserPrompt!= null) {
+            Template template = templateEngine.compileInline(origUserPrompt);
+            userPrompt = template.apply(stateObject);
+
+            messages.add(UserMessage.from(userPrompt));
+        }
+
+        return messages;
     }
 
-    private String executeMessages(Config config,
-                                   ChatExecutionContext executionContext,
-                                   List<ChatMessage> messages,
-                                   String rawResponseSchema,
-                                   JsonNode responseSchema) {
-
-        ResponseFormat responseFormat;
-
-        if (config.isNativeJSON()) {
-            responseFormat = ResponseFormat.builder()
-                    .type(ResponseFormatType.JSON)
-                    .jsonSchema(JsonSchema.builder()
-                            .name(JsonHelper.getSchemaName(responseSchema))
-                            .rootElement(JsonRawSchema.from(rawResponseSchema))
-                            .build())
-                    .build();
-        }
-        else {
-            responseFormat = ResponseFormat.TEXT;
-        }
-
-        if (!config.isNativeJSON() && !messages.isEmpty() && messages.getLast() instanceof UserMessage) {
-            UserMessage um = (UserMessage) messages.removeLast();
-            messages.addLast(patchUserMessageWithSchema(um, responseSchema));
-        }
-
-        executionContext.getMemory().add(messages);
-
-        ChatRequest request =
-                ChatRequest.builder()
-                        .messages(executionContext.getMemory().messages())
-                        .toolSpecifications(executionContext.getToolService().toolSpecifications())
-                        .toolChoice(ToolChoice.AUTO)
-                        .responseFormat(responseFormat)
-                        .build();
-
-        ChatResponse initialResponse = executionContext.getChatModel().chat(request);
-
-        InvocationContext invocationContext = InvocationContext.builder().build();
-
-        ToolServiceResult toolResult =
-                new ChatExecutor().execute(initialResponse,
-                        request.parameters(),
-                        executionContext.getChatModel(),
-                        executionContext.getMemory(),
-                        invocationContext,
-                        executionContext.getToolService().toolExecutors());
-
-        ChatResponse finalResponse = toolResult.finalResponse();
-
-        logger.info("Task execution token usage: IN {} OUT {} TOTAL {}",
-                toolResult.aggregateTokenUsage().inputTokenCount(),
-                toolResult.aggregateTokenUsage().outputTokenCount(),
-                toolResult.aggregateTokenUsage().totalTokenCount());
-
-        return finalResponse.aiMessage().text();
-    }
 
     @Override
     public Integer call() throws Exception {
@@ -159,13 +114,7 @@ public class AnalyseCmd implements Callable<Integer> {
 
         ChatModel model = ChatModelFactory.getChatModel(config);
 
-        ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(config.getChatWindowSize());
-
-        ServiceOutputParser outputParser = new ServiceOutputParser();
-
         ObjectMapper mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
-
-        JsonFactory factory = mapper.getFactory();
 
         TaskManager taskManager = TaskManager.initializeTasks(config.getAnalysisDirectory(),
                 workingDirectory,
@@ -173,13 +122,11 @@ public class AnalyseCmd implements Callable<Integer> {
 
         StateManager stateManager = StateManager.initializeState(workingDirectory);
 
-        TemplateLoader templateLoader = new FileTemplateLoader(config.getAnalysisDirectoryAsString(),
-                "");
-
         var templateEngine = HandlebarsFactory.create()
-                .with(templateLoader);
+                .with(new FileTemplateLoader(config.getAnalysisDirectoryAsString(),
+                        ""));
 
-        AnalysisContext context = new AnalysisContext(
+        AnalysisContext analysisContext = new AnalysisContext(
                 config.getProjectDirectory(),
                 workingDirectory,
                 stateManager.getAnalysisState());
@@ -214,30 +161,14 @@ public class AnalyseCmd implements Callable<Integer> {
             mcpServerIndex++;
         }
 
-        List<Object> toolList = ToolFactory.getToolInstanceList(context);
+        ToolService toolService = new ToolService();
+        toolService.tools(ToolFactory.getToolInstanceList(analysisContext));
+        toolService.tools(mcpServersDefinitions);
 
         taskManager.dump();
 
         while (taskManager.hasPendingTasks()) {
             TaskDefinition task = taskManager.getNextTask();
-
-            ToolService toolService = new ToolService();
-            toolService.tools(toolList);
-            toolService.tools(mcpServersDefinitions);
-
-            ChatExecutionContext execContext =
-                    new ChatExecutionContext(model, chatMemory, toolService, outputParser);
-
-            String origSystemPrompt = null;
-            String origUserPrompt = null;
-
-            if (task.getSystemPrompt() != null) {
-                origSystemPrompt = Files.readString(config.getAnalysisDirectory().resolve(task.getSystemPrompt()));
-            }
-
-            if (task.getPrompt() != null) {
-                origUserPrompt = Files.readString(config.getAnalysisDirectory().resolve(task.getPrompt()));
-            }
 
             String jsonResponseRawSchema = Files.readString(config.getAnalysisDirectory().resolve(task.getResponseFormat()));
             JsonNode jsonResponseSchema = mapper.readTree(jsonResponseRawSchema);
@@ -266,44 +197,32 @@ public class AnalyseCmd implements Callable<Integer> {
                         continue;
                     }
 
-                    LinkedList<ChatMessage> messages = new LinkedList<>();
-                    String systemPrompt;
-                    String userPrompt;
+                    LinkedList<ChatMessage> messages = resolveChatMessages(config,
+                            templateEngine,
+                            task,
+                            stateManager.getStateObject());
 
-                    chatMemory.clear();
+                    ChatExecutionContext execContext =
+                            new ChatExecutionContext(config,
+                                    model,
+                                    toolService,
+                                    mapper);
 
-                    if (origSystemPrompt != null) {
-                        Template template = templateEngine.compileInline(origSystemPrompt);
-                        systemPrompt = template.apply(stateManager.getStateObject());
-                        messages.add(SystemMessage.from(systemPrompt));
-                    }
-
-                    if (origUserPrompt!= null) {
-                        Template template = templateEngine.compileInline(origUserPrompt);
-                        userPrompt = template.apply(stateManager.getStateObject());
-
-                        messages.add(UserMessage.from(userPrompt));
-                    }
-
-                    String taskResultString = executeMessages(config,
+                    JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
                             execContext,
                             messages,
                             jsonResponseRawSchema,
                             jsonResponseSchema);
 
-                    if (taskResultString != null && !taskResultString.isEmpty()) {
-                        taskResultString = JsonHelper.extractJSON(taskResultString);
-                        try (JsonParser parser = factory.createParser(taskResultString)) {
-                            JsonNode taskResultJson = mapper.readTree(parser);
-                            logger.info("===>[{}] {}: {}",
-                                    stateManager.getLoopIndex(),
-                                    JsonHelper.getSchemaName(jsonResponseSchema),
-                                    taskResultJson.toPrettyString());
+                    if (taskResultJson != null) {
+                        logger.info("===>[{}] {}: {}",
+                                stateManager.getLoopIndex(),
+                                JsonHelper.getSchemaName(jsonResponseSchema),
+                                taskResultJson.toPrettyString());
 
-                            stateManager.updateLoopState(task.getResponseProperty(), taskResultJson);
-                            stateManager.saveState();
-                            taskManager.markTaskAsLoopProcessing(task, stateManager.getLoopIndex());
-                        }
+                        stateManager.updateLoopState(task.getResponseProperty(), taskResultJson);
+                        stateManager.saveState();
+                        taskManager.markTaskAsLoopProcessing(task, stateManager.getLoopIndex());
                     } else {
                         logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
                     }
@@ -312,44 +231,32 @@ public class AnalyseCmd implements Callable<Integer> {
                 stateManager.endLoop();
             }
             else {
-                LinkedList<ChatMessage> messages = new LinkedList<>();
-                String systemPrompt;
-                String userPrompt;
-
                 logger.info("===> Task: {} - {}",
                         task.getId(),
                         task.getName());
 
-                chatMemory.clear();
+                LinkedList<ChatMessage> messages = resolveChatMessages(config,
+                        templateEngine,
+                        task,
+                        stateManager.getStateObject());
 
-                if (origSystemPrompt != null) {
-                    Template template = templateEngine.compileInline(origSystemPrompt);
-                    systemPrompt = template.apply(stateManager.getStateObject());
-                    messages.add(SystemMessage.from(systemPrompt));
-                }
+                ChatExecutionContext execContext =
+                        new ChatExecutionContext(config,
+                                model,
+                                toolService,
+                                mapper);
 
-                if (origUserPrompt!= null) {
-                    Template template = templateEngine.compileInline(origUserPrompt);
-                    userPrompt = template.apply(stateManager.getStateObject());
-
-                    messages.add(UserMessage.from(userPrompt));
-                }
-
-                String taskResultString = executeMessages(config,
+                JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
                         execContext,
                         messages,
                         jsonResponseRawSchema,
                         jsonResponseSchema);
 
-                if (taskResultString != null && !taskResultString.isEmpty()) {
-                    taskResultString = JsonHelper.extractJSON(taskResultString);
-                    try (JsonParser parser = factory.createParser(taskResultString)) {
-                        JsonNode taskResultJson = mapper.readTree(parser);
-                        logger.info("===> {}: {}", JsonHelper.getSchemaName(jsonResponseSchema), taskResultJson.toPrettyString());
+                if (taskResultJson != null) {
+                    logger.info("===> {}: {}", JsonHelper.getSchemaName(jsonResponseSchema), taskResultJson.toPrettyString());
 
-                        stateManager.updateState(task.getResponseProperty(), taskResultJson);
-                        stateManager.saveState();
-                    }
+                    stateManager.updateState(task.getResponseProperty(), taskResultJson);
+                    stateManager.saveState();
                 } else {
                     logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
                 }
