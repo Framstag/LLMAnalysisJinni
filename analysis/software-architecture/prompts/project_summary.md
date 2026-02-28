@@ -14,4 +14,5 @@ your response.
 * Do not try to gather information from other sources or tool calls now. Just return information found in the file.
 * If you do not find suggested information in the file, just leave it empty.
 * You must follow the given JSON response structure in your response in any case.
+* There is no need to use any other tool.
 

@@ -10,5 +10,4 @@ of the project. I want you to locate this README and return it file name to me.
 
 ## Hints
 
-* You can call the 'GetFilesOverview' tool function to scan for READMEs.
-* Start from the root directory ('') using "*" as a wildcard to see all files and depth = 0 to only see files in the root directory itself.
+* You can call the 'GetAllFilesInDir' tool function to scan for READMEs in the root directory.
