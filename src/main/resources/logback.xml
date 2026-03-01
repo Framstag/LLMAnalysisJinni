@@ -8,9 +8,7 @@
         </encoder>
     </appender>
 
-    <logger name="com.framstag.llmaj.ChatListener" level="INFO"/>"
-    <logger name="org.thymeleaf" level="DEBUG"/>
-    <logger name="org.thymeleaf.TemplateEngine.CONFIG" level="INFO"/>
+    <logger name="com.framstag.llmaj.lc4j.ChatListener" level="INFO"/>"
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />

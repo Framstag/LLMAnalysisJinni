@@ -1,6 +1,5 @@
 package com.framstag.llmaj.lc4j;
 
-import com.framstag.llmaj.ChatListener;
 import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.config.ModelProvider;
 import dev.langchain4j.model.chat.ChatModel;

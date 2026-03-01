@@ -1,4 +1,4 @@
-package com.framstag.llmaj;
+package com.framstag.llmaj.lc4j;
 
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.*;

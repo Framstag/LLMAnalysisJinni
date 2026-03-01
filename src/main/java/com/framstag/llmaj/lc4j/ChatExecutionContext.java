@@ -1,4 +1,4 @@
-package com.framstag.llmaj;
+package com.framstag.llmaj.lc4j;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.framstag.llmaj.config.Config;

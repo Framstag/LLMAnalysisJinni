@@ -2,23 +2,22 @@ package com.framstag.llmaj.lc4j;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.framstag.llmaj.ChatExecutionContext;
 import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.json.JsonHelper;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
-import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.exception.ToolArgumentsException;
 import dev.langchain4j.internal.DefaultExecutorProvider;
-import dev.langchain4j.internal.Exceptions;
 import dev.langchain4j.internal.Utils;
 import dev.langchain4j.invocation.InvocationContext;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.model.chat.request.*;
+import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.request.ChatRequestParameters;
+import dev.langchain4j.model.chat.request.ResponseFormat;
+import dev.langchain4j.model.chat.request.ToolChoice;
 import dev.langchain4j.model.chat.request.json.JsonRawSchema;
 import dev.langchain4j.model.chat.request.json.JsonSchema;
 import dev.langchain4j.model.chat.response.ChatResponse;
@@ -119,7 +118,10 @@ public class ChatExecutor {
                     return this.applyToolHallucinationStrategy(toolRequest);
                 }
                 else {
-                    return executeWithErrorHandling(toolRequest, toolExecutor, invocationContext, this.argumentsErrorHandler, this.executionErrorHandler);
+                    return executeWithErrorHandling(toolRequest,
+                            toolExecutor, invocationContext,
+                            this.argumentsErrorHandler,
+                            this.executionErrorHandler);
                 }
             }, this.executor);
             futures.put(toolRequest, future);
@@ -146,70 +148,6 @@ public class ChatExecutor {
         return results;
     }
 
-    /**
-     *
-     * @param chatResponse THe initial chat response
-     * @param parameters potential parameters
-     * @param chatModel the chat model to be used
-     * @param chatMemory chat memory object (!=null)
-     * @param toolExecutors map of tool names to executors
-     * @return the result
-     */
-    private ToolServiceResult execute(ChatResponse chatResponse,
-                                     ChatRequestParameters parameters,
-                                     ChatModel chatModel,
-                                     ChatMemory chatMemory,
-                                     Map<String, ToolExecutor> toolExecutors) {
-        InvocationContext invocationContext = InvocationContext.builder().build();
-
-        TokenUsage aggregateTokenUsage = chatResponse.metadata().tokenUsage();
-        List<ToolExecution> toolExecutions = new ArrayList<>();
-        List<ChatResponse> intermediateResponses = new ArrayList<>();
-
-        for(int executionsLeft = this.maxSequentialToolsInvocations; executionsLeft-- != 0; ) {
-
-            AiMessage aiMessage = chatResponse.aiMessage();
-            chatMemory.add(aiMessage);
-
-            if (!aiMessage.hasToolExecutionRequests()) {
-                return ToolServiceResult.builder()
-                        .intermediateResponses(intermediateResponses)
-                        .finalResponse(chatResponse)
-                        .toolExecutions(toolExecutions)
-                        .aggregateTokenUsage(aggregateTokenUsage)
-                        .build();
-            }
-
-            intermediateResponses.add(chatResponse);
-            Map<ToolExecutionRequest, ToolExecutionResult> toolResults = executeConcurrently(aiMessage.toolExecutionRequests(),
-                    toolExecutors,
-                    invocationContext);
-
-            for(Map.Entry<ToolExecutionRequest, ToolExecutionResult> entry : toolResults.entrySet()) {
-                ToolExecutionRequest request = entry.getKey();
-                ToolExecutionResult result = entry.getValue();
-                ToolExecutionResultMessage resultMessage = ToolExecutionResultMessage.from(request, result.resultText());
-                ToolExecution toolExecution = ToolExecution.builder()
-                        .request(request)
-                        .result(result)
-                        .build();
-                toolExecutions.add(toolExecution);
-                chatMemory.add(resultMessage);
-            }
-
-            ChatRequest chatRequest = ChatRequest.builder()
-                    .messages(chatMemory.messages())
-                    .parameters(parameters)
-                    .build();
-            chatResponse = chatModel.chat(chatRequest);
-
-            aggregateTokenUsage = TokenUsage.sum(aggregateTokenUsage, chatResponse.metadata().tokenUsage());
-        }
-
-        throw Exceptions.runtime("Something is wrong, exceeded %s sequential tool executions",
-                this.maxSequentialToolsInvocations);
-    }
-
     private UserMessage patchUserMessageWithSchema(UserMessage um, JsonNode responseSchema)
     {
         return UserMessage.from(
@@ -218,59 +156,132 @@ public class ChatExecutor {
                         + JsonHelper.createTypeDescription(responseSchema));
     }
 
-    public JsonNode executeMessages(Config config,
-                                     ChatExecutionContext executionContext,
-                                     List<ChatMessage> messages,
-                                     String rawResponseSchema,
-                                     JsonNode responseSchema) throws IOException {
-        ResponseFormat responseFormat;
-
+    private ChatRequestParameters createChatRequestParameters(Config config,
+                                                              ChatExecutionContext executionContext,
+                                                              String rawResponseSchema,
+                                                              JsonNode responseSchema) {
         if (config.isNativeJSON()) {
-            responseFormat = ResponseFormat.builder()
-                    .type(ResponseFormatType.JSON)
-                    .jsonSchema(JsonSchema.builder()
+            return ChatRequestParameters.builder()
+                    .temperature(0.0)
+                    .maxOutputTokens(config.getMaximumTokens())
+                    .toolChoice(ToolChoice.AUTO)
+                    .toolSpecifications(executionContext.getToolService().toolSpecifications())
+                    .responseFormat(JsonSchema.builder()
                             .name(JsonHelper.getSchemaName(responseSchema))
                             .rootElement(JsonRawSchema.from(rawResponseSchema))
                             .build())
                     .build();
+
         } else {
-            responseFormat = ResponseFormat.TEXT;
+            return ChatRequestParameters.builder()
+                    .temperature(0.0)
+                    .maxOutputTokens(config.getMaximumTokens())
+                    .toolChoice(ToolChoice.AUTO)
+                    .toolSpecifications(executionContext.getToolService().toolSpecifications())
+                    .responseFormat(ResponseFormat.TEXT)
+                    .build();
         }
+    }
+
+    /**
+     *
+     * Execute the given chat messages include intermediate tool execution and enforce
+     * a JSON response value based on the given JSON schema.
+     *
+     * @param config the LLMModel configuration
+     * @param executionContext further parameter required for chat execution
+     * @param messages the list of messages, normally a system prompt and a user prompt
+     * @param rawResponseSchema the JSON schema fo the response as string
+     * @param responseSchema  the JSON schema fo the response as JSON structure
+     * @return a JSON structure following the schema or null
+     * @throws IOException in case of errors
+     */
+    public JsonNode executeMessages(Config config,
+                                    ChatExecutionContext executionContext,
+                                    List<ChatMessage> messages,
+                                    String rawResponseSchema,
+                                    JsonNode responseSchema) throws IOException {
+        List<ToolExecution> toolExecutions = new ArrayList<>();
+        List<ChatResponse> intermediateResponses = new ArrayList<>();
+        ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(config.getChatWindowSize());
+
+        InvocationContext invocationContext = InvocationContext.builder()
+                .build();
+
+        ChatRequestParameters chatRequestParameters = createChatRequestParameters(config,
+                executionContext,
+                rawResponseSchema,
+                responseSchema);
 
         if (!config.isNativeJSON() && !messages.isEmpty() && messages.getLast() instanceof UserMessage) {
             UserMessage um = (UserMessage) messages.removeLast();
             messages.addLast(patchUserMessageWithSchema(um, responseSchema));
         }
 
-        ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(config.getChatWindowSize());
-
         chatMemory.add(messages);
+
+        // Execute the initial request
 
         ChatRequest request =
                 ChatRequest.builder()
                         .messages(messages)
-                        .toolSpecifications(executionContext.getToolService().toolSpecifications())
-                        .toolChoice(ToolChoice.AUTO)
-                        .responseFormat(responseFormat)
+                        .parameters(chatRequestParameters)
                         .build();
 
-        ChatResponse initialResponse = executionContext.getChatModel().chat(request);
+        ChatResponse chatResponse = executionContext.getChatModel().chat(request);
 
+        chatMemory.add(chatResponse.aiMessage());
 
-        ToolServiceResult toolResult = execute(initialResponse,
-                        request.parameters(),
-                        executionContext.getChatModel(),
-                        chatMemory,
-                        executionContext.getToolService().toolExecutors());
+        TokenUsage aggregateTokenUsage = chatResponse.metadata().tokenUsage();
 
-        ChatResponse finalResponse = toolResult.finalResponse();
+        // While the initial request requests further tool execution...loop
+        while (chatResponse.aiMessage().hasToolExecutionRequests()) {
+            // the last chat request was an intermediate requests, a further one has to follow
+            intermediateResponses.add(chatResponse);
+
+            Map<ToolExecutionRequest, ToolExecutionResult> toolResults = executeConcurrently(chatResponse.aiMessage().toolExecutionRequests(),
+                    executionContext.getToolService().toolExecutors(),
+                    invocationContext);
+
+            for (Map.Entry<ToolExecutionRequest, ToolExecutionResult> entry : toolResults.entrySet()) {
+                ToolExecutionRequest toolRequest = entry.getKey();
+                ToolExecutionResult toolResult = entry.getValue();
+                ToolExecutionResultMessage resultMessage = ToolExecutionResultMessage.from(toolRequest, toolResult.resultText());
+                ToolExecution toolExecution = ToolExecution.builder()
+                        .request(toolRequest)
+                        .result(toolResult)
+                        .build();
+
+                toolExecutions.add(toolExecution);
+                chatMemory.add(resultMessage);
+            }
+
+            // Initiate a further chat request, which either triggers further tool execution - or might possibly the final one
+            ChatRequest chatRequest = ChatRequest.builder()
+                    .messages(chatMemory.messages())
+                    .parameters(chatRequestParameters)
+                    .build();
+
+            chatResponse = executionContext.getChatModel().chat(chatRequest);
+
+            chatMemory.add(chatResponse.aiMessage());
+
+            aggregateTokenUsage = TokenUsage.sum(aggregateTokenUsage, chatResponse.metadata().tokenUsage());
+        }
+
+        ToolServiceResult toolResult = ToolServiceResult.builder()
+                .intermediateResponses(intermediateResponses)
+                .finalResponse(chatResponse)
+                .toolExecutions(toolExecutions)
+                .aggregateTokenUsage(aggregateTokenUsage)
+                .build();
 
         logger.info("Token usage: IN {} OUT {} TOTAL {}",
                 toolResult.aggregateTokenUsage().inputTokenCount(),
                 toolResult.aggregateTokenUsage().outputTokenCount(),
                 toolResult.aggregateTokenUsage().totalTokenCount());
 
-        String taskResultString = finalResponse.aiMessage().text();
+        String taskResultString = toolResult.finalResponse().aiMessage().text();
 
         if (taskResultString != null && !taskResultString.isEmpty()) {
             taskResultString = JsonHelper.extractJSON(taskResultString);
@@ -281,5 +292,4 @@ public class ChatExecutor {
             return null;
         }
     }
-
 }
