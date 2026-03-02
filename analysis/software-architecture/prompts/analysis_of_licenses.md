@@ -14,8 +14,7 @@ The path of the SBOM file is '{{sbom.path}}'.
 
 ## Solution strategy
 
-* Check if the SBOM is already loaded.
-* If not, load it from the given file.
+* If the SBOM is not already loaded, but an SBOM exists, load it via the tool call 'LoadSBOMFromFile' before further analysis.
 * Initiate generation of reports regarding licenses by calling the tool 'SBOMWriteLicenseReports'.
 * Get a list of Licenses by calling the SBOM tool
 * Identify the licenses, evaluate their usage regarding possible restrictions and their use in a free or commercial environment.

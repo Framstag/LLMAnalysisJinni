@@ -8,7 +8,7 @@ The path of the SBOM file is '{{sbom.path}}'.
 
 ## Solution strategy
 
-* If the SBOM is not already loaded, but an SBOM exists, load it before further analysis.
+* If the SBOM is not already loaded, but an SBOM exists, load it via the tool call 'LoadSBOMFromFile' before further analysis.
 * Get the list of dependencies from the SBOM by calling the 'SBOMApplicationDependencies' tool.
 Transform the dependencies to the requested output format.
 
