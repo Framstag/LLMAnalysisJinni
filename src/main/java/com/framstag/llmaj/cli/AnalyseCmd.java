@@ -47,11 +47,11 @@ import java.util.concurrent.Callable;
 public class AnalyseCmd implements Callable<Integer> {
     private static final Logger logger = LoggerFactory.getLogger(AnalyseCmd.class);
 
-    @Option(names={"--log-request"}, arity = "1", defaultValue = "false", description = "Activate langchain4j low-level log of chat requests")
-    boolean logRequest = false;
+    @Option(names={"--log-request"}, arity = "1", description = "Activate langchain4j low-level log of chat requests")
+    Boolean logRequest = false;
 
-    @Option(names={"--log-response"}, arity = "1", defaultValue = "false", description = "Activate langchain4j low-level log of chat responses")
-    boolean logResponse = false;
+    @Option(names={"--log-response"}, arity = "1", description = "Activate langchain4j low-level log of chat responses")
+    Boolean logResponse = false;
 
     @Option(names={"-o","--executeOnly"}, arity = "1..*", description = "A list of task ids, that should only be executed")
     Set<String> executeOnly = new HashSet<>();
@@ -106,6 +106,15 @@ public class AnalyseCmd implements Callable<Integer> {
         try {
             logger.info("Loading config from workspace '{}'...", workingDirectory);
             config = ConfigLoader.load(workingDirectory);
+
+            if (logRequest != null) {
+                config.setLogRequests(logRequest);
+            }
+
+            if (logResponse != null) {
+                config.setLogResponses(logResponse);
+            }
+
             config.dumpToLog();
         } catch (IOException e) {
             logger.error("Cannot load config file", e);
