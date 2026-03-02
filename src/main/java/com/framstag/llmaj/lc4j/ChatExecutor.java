@@ -3,6 +3,7 @@ package com.framstag.llmaj.lc4j;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.framstag.llmaj.config.Config;
+import com.framstag.llmaj.config.ModelProvider;
 import com.framstag.llmaj.json.JsonHelper;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.ChatMessage;
@@ -27,7 +28,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,19 +42,18 @@ public class ChatExecutor {
     private static final String ANSWER_ONLY_WITH_THE_FOLLOWING_JSON = "\nYou must answer strictly in the following JSON format: ";
 
 
-    private static final ToolArgumentsErrorHandler DEFAULT_TOOL_ARGUMENTS_ERROR_HANDLER = (error, context) -> {
+    private static final ToolArgumentsErrorHandler DEFAULT_TOOL_ARGUMENTS_ERROR_HANDLER = (error, _) -> {
         if (error instanceof RuntimeException re) {
             throw re;
         } else {
             throw new RuntimeException(error);
         }
     };
-    private static final ToolExecutionErrorHandler DEFAULT_TOOL_EXECUTION_ERROR_HANDLER = (error, context) -> {
+    private static final ToolExecutionErrorHandler DEFAULT_TOOL_EXECUTION_ERROR_HANDLER = (error, _) -> {
         String errorMessage = Utils.isNullOrBlank(error.getMessage()) ? error.getClass().getName() : error.getMessage();
         return ToolErrorHandlerResult.text(errorMessage);
     };
 
-    private final int maxSequentialToolsInvocations = 100;
     private final ExecutorService executor;
     private final ToolArgumentsErrorHandler argumentsErrorHandler;
     private final ToolExecutionErrorHandler executionErrorHandler;
@@ -156,16 +155,71 @@ public class ChatExecutor {
                         + JsonHelper.createTypeDescription(responseSchema));
     }
 
-    private ChatRequestParameters createChatRequestParameters(Config config,
-                                                              ChatExecutionContext executionContext,
-                                                              String rawResponseSchema,
-                                                              JsonNode responseSchema) {
-        if (config.isNativeJSON()) {
+    private ChatRequestParameters createInitialChatRequestParameters(Config config,
+                                                                     ChatExecutionContext executionContext,
+                                                                     String rawResponseSchema,
+                                                                     JsonNode responseSchema) {
+        if (config.getModelProvider() == ModelProvider.OLLAMA) {
+            // Ollama can do tool calls and JSON Response at the same time
+            if (config.isNativeJSON()) {
+                // With explicit JSON schema
+                return ChatRequestParameters.builder()
+                        .temperature(0.0)
+                        .topP(0.9)
+                        .maxOutputTokens(config.getMaximumTokens())
+                        .toolChoice(ToolChoice.AUTO)
+                        .toolSpecifications(executionContext.getToolService().toolSpecifications())
+                        .responseFormat(JsonSchema.builder()
+                                .name(JsonHelper.getSchemaName(responseSchema))
+                                .rootElement(JsonRawSchema.from(rawResponseSchema))
+                                .build())
+                        .build();
+
+            } else {
+                // With implicit JSON schema as part of the user message
+                return ChatRequestParameters.builder()
+                        .temperature(0.0)
+                        .topP(0.9)
+                        .maxOutputTokens(config.getMaximumTokens())
+                        .toolChoice(ToolChoice.AUTO)
+                        .toolSpecifications(executionContext.getToolService().toolSpecifications())
+                        .responseFormat(ResponseFormat.TEXT)
+                        .build();
+            }
+
+        }
+        else {
+            // OpenAI can only do tool calls in the initial step
             return ChatRequestParameters.builder()
                     .temperature(0.0)
+                    .topP(0.9)
                     .maxOutputTokens(config.getMaximumTokens())
                     .toolChoice(ToolChoice.AUTO)
                     .toolSpecifications(executionContext.getToolService().toolSpecifications())
+                    .responseFormat(ResponseFormat.TEXT)
+                    .build();
+        }
+    }
+
+    private ChatRequestParameters createIntermediateChatRequestParameters(Config config,
+                                                                          ChatExecutionContext executionContext,
+                                                                          String rawResponseSchema,
+                                                                          JsonNode responseSchema) {
+        return createInitialChatRequestParameters(config,executionContext,rawResponseSchema, responseSchema);
+    }
+
+    private ChatRequestParameters createFinalChatRequestParameters(Config config,
+                                                                     String rawResponseSchema,
+                                                                     JsonNode responseSchema) {
+        // The final call is not necessary for OLLAMA, so this is currently only for OpenAI
+        // In this case we do not want to pass tool information or want to execute tools
+        // We just want the JSON response
+
+        if (config.isNativeJSON()) {
+            return ChatRequestParameters.builder()
+                    .temperature(0.0)
+                    .topP(0.9)
+                    .maxOutputTokens(config.getMaximumTokens())
                     .responseFormat(JsonSchema.builder()
                             .name(JsonHelper.getSchemaName(responseSchema))
                             .rootElement(JsonRawSchema.from(rawResponseSchema))
@@ -175,18 +229,20 @@ public class ChatExecutor {
         } else {
             return ChatRequestParameters.builder()
                     .temperature(0.0)
+                    .topP(0.9)
                     .maxOutputTokens(config.getMaximumTokens())
-                    .toolChoice(ToolChoice.AUTO)
-                    .toolSpecifications(executionContext.getToolService().toolSpecifications())
                     .responseFormat(ResponseFormat.TEXT)
                     .build();
         }
     }
 
     /**
-     *
      * Execute the given chat messages include intermediate tool execution and enforce
      * a JSON response value based on the given JSON schema.
+     * </p>
+     * OLLAMA and OpenAI executions models have different flexibility. OLLAMA can handle mixed tool and Response Schema
+     * calls. OpenAI can either have tool or response schema requests - not both at the same time. The code tries
+     * to handle both approaches.
      *
      * @param config the LLMModel configuration
      * @param executionContext further parameter required for chat execution
@@ -201,17 +257,10 @@ public class ChatExecutor {
                                     List<ChatMessage> messages,
                                     String rawResponseSchema,
                                     JsonNode responseSchema) throws IOException {
-        List<ToolExecution> toolExecutions = new ArrayList<>();
-        List<ChatResponse> intermediateResponses = new ArrayList<>();
         ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(config.getChatWindowSize());
 
         InvocationContext invocationContext = InvocationContext.builder()
                 .build();
-
-        ChatRequestParameters chatRequestParameters = createChatRequestParameters(config,
-                executionContext,
-                rawResponseSchema,
-                responseSchema);
 
         if (!config.isNativeJSON() && !messages.isEmpty() && messages.getLast() instanceof UserMessage) {
             UserMessage um = (UserMessage) messages.removeLast();
@@ -222,22 +271,21 @@ public class ChatExecutor {
 
         // Execute the initial request
 
-        ChatRequest request =
-                ChatRequest.builder()
-                        .messages(messages)
-                        .parameters(chatRequestParameters)
-                        .build();
+        ChatRequest request = ChatRequest.builder()
+                .messages(messages)
+                .parameters(createInitialChatRequestParameters(config,
+                        executionContext,
+                        rawResponseSchema,
+                        responseSchema))
+                .build();
 
         ChatResponse chatResponse = executionContext.getChatModel().chat(request);
 
-        chatMemory.add(chatResponse.aiMessage());
-
         TokenUsage aggregateTokenUsage = chatResponse.metadata().tokenUsage();
 
-        // While the initial request requests further tool execution...loop
+        // While the initial request triggers requests for further tool execution...loop
         while (chatResponse.aiMessage().hasToolExecutionRequests()) {
-            // the last chat request was an intermediate requests, a further one has to follow
-            intermediateResponses.add(chatResponse);
+            chatMemory.add(chatResponse.aiMessage());
 
             Map<ToolExecutionRequest, ToolExecutionResult> toolResults = executeConcurrently(chatResponse.aiMessage().toolExecutionRequests(),
                     executionContext.getToolService().toolExecutors(),
@@ -247,41 +295,45 @@ public class ChatExecutor {
                 ToolExecutionRequest toolRequest = entry.getKey();
                 ToolExecutionResult toolResult = entry.getValue();
                 ToolExecutionResultMessage resultMessage = ToolExecutionResultMessage.from(toolRequest, toolResult.resultText());
-                ToolExecution toolExecution = ToolExecution.builder()
-                        .request(toolRequest)
-                        .result(toolResult)
-                        .build();
 
-                toolExecutions.add(toolExecution);
                 chatMemory.add(resultMessage);
             }
 
-            // Initiate a further chat request, which either triggers further tool execution - or might possibly the final one
+            // Initiate a further chat request, which might trigger further tool execution - or not
             ChatRequest chatRequest = ChatRequest.builder()
                     .messages(chatMemory.messages())
-                    .parameters(chatRequestParameters)
+                    .parameters(createIntermediateChatRequestParameters(config,
+                            executionContext,
+                            rawResponseSchema,
+                            responseSchema))
                     .build();
 
             chatResponse = executionContext.getChatModel().chat(chatRequest);
 
-            chatMemory.add(chatResponse.aiMessage());
+            aggregateTokenUsage = TokenUsage.sum(aggregateTokenUsage, chatResponse.metadata().tokenUsage());
+        }
+
+        if (config.getModelProvider() != ModelProvider.OLLAMA) {
+            // if not OLLAMA (currently only OPENAI), we must then pass JSON response schema explicitly in the final request
+            // we must drop tool specification though
+            request = ChatRequest.builder()
+                    .messages(chatMemory.messages())
+                    .parameters(createFinalChatRequestParameters(config,
+                            rawResponseSchema,
+                            responseSchema))
+                    .build();
+
+            chatResponse = executionContext.getChatModel().chat(request);
 
             aggregateTokenUsage = TokenUsage.sum(aggregateTokenUsage, chatResponse.metadata().tokenUsage());
         }
 
-        ToolServiceResult toolResult = ToolServiceResult.builder()
-                .intermediateResponses(intermediateResponses)
-                .finalResponse(chatResponse)
-                .toolExecutions(toolExecutions)
-                .aggregateTokenUsage(aggregateTokenUsage)
-                .build();
-
         logger.info("Token usage: IN {} OUT {} TOTAL {}",
-                toolResult.aggregateTokenUsage().inputTokenCount(),
-                toolResult.aggregateTokenUsage().outputTokenCount(),
-                toolResult.aggregateTokenUsage().totalTokenCount());
+                aggregateTokenUsage.inputTokenCount(),
+                aggregateTokenUsage.outputTokenCount(),
+                aggregateTokenUsage.totalTokenCount());
 
-        String taskResultString = toolResult.finalResponse().aiMessage().text();
+        String taskResultString = chatResponse.aiMessage().text();
 
         if (taskResultString != null && !taskResultString.isEmpty()) {
             taskResultString = JsonHelper.extractJSON(taskResultString);

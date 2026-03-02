@@ -18,6 +18,7 @@ public class ChatModelFactory {
                     .baseUrl(config.getModelURL().toString())
                     .timeout(Duration.ofMinutes(config.getRequestTimeout()))
                     .temperature(0.0)
+                    .topP(0.9)
                     .think(false)
                     .returnThinking(false)
                     .listeners(List.of(new ChatListener()))
@@ -27,7 +28,6 @@ public class ChatModelFactory {
                     .build();
         }
         else if (config.getModelProvider() == ModelProvider.OPENAI) {
-
             return OpenAiChatModel.builder()
                     .modelName(config.getModelName())
                     .baseUrl(config.getModelURL().toString())
