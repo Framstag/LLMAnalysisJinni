@@ -4,7 +4,8 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum ModelProvider {
     OLLAMA ("ollama"),
-    OPENAI("openai");
+    OPENAI("openai"),
+    LOCALAI("localai");
 
     private final String name;
 

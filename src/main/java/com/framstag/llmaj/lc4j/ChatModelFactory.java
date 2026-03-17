@@ -3,6 +3,7 @@ package com.framstag.llmaj.lc4j;
 import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.config.ModelProvider;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.localai.LocalAiChatModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
@@ -41,6 +42,21 @@ public class ChatModelFactory {
                     .logRequests(config.isLogRequests())
                     .logResponses(config.isLogResponses())
                     .maxTokens(config.getMaximumTokens())
+                    .build();
+        }
+        else if (config.getModelProvider() == ModelProvider.LOCALAI) {
+            return LocalAiChatModel.builder()
+                    .modelName(config.getModelName())
+                    .baseUrl(config.getModelURL().toString())
+                    .timeout(Duration.ofMinutes(config.getRequestTimeout()))
+                    //.temperature(0.0)
+                    //.topP(0.9)
+                    //.sendThinking(false)
+                    //.returnThinking(false)
+                    //.listeners(List.of(new ChatListener()))
+                    .logRequests(config.isLogRequests())
+                    .logResponses(config.isLogResponses())
+                    //.maxTokens(config.getMaximumTokens())
                     .build();
         }
 

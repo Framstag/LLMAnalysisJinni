@@ -188,12 +188,23 @@ public class ChatExecutor {
             }
 
         }
-        else {
+        else if (config.getModelProvider() == ModelProvider.OPENAI) {
             // OpenAI can only do tool calls in the initial step
             return ChatRequestParameters.builder()
                     .temperature(0.0)
                     .topP(0.9)
                     .maxOutputTokens(config.getMaximumTokens())
+                    .toolChoice(ToolChoice.AUTO)
+                    .toolSpecifications(executionContext.getToolService().toolSpecifications())
+                    .responseFormat(ResponseFormat.TEXT)
+                    .build();
+        }
+        else {
+            // LocalAI
+            return ChatRequestParameters.builder()
+                    //.temperature(0.0)
+                    //.topP(0.9)
+                    //.maxOutputTokens(config.getMaximumTokens())
                     .toolChoice(ToolChoice.AUTO)
                     .toolSpecifications(executionContext.getToolService().toolSpecifications())
                     .responseFormat(ResponseFormat.TEXT)
