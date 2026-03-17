@@ -3,7 +3,8 @@ package com.framstag.llmaj.config;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum MCPServerType {
-    HTTP ("http");
+    HTTP ("http"),
+    STDIO("stdio");
 
     private final String name;
 

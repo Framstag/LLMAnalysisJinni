@@ -28,6 +28,7 @@ import dev.langchain4j.mcp.client.DefaultMcpClient;
 import dev.langchain4j.mcp.client.McpClient;
 import dev.langchain4j.mcp.client.transport.McpTransport;
 import dev.langchain4j.mcp.client.transport.http.StreamableHttpMcpTransport;
+import dev.langchain4j.mcp.client.transport.stdio.StdioMcpTransport;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.tool.ToolExecutor;
 import dev.langchain4j.service.tool.ToolService;
@@ -98,7 +99,6 @@ public class AnalyseCmd implements Callable<Integer> {
         return messages;
     }
 
-
     @Override
     public Integer call() throws Exception {
         Config config;
@@ -146,11 +146,20 @@ public class AnalyseCmd implements Callable<Integer> {
         for (MCPServer server : config.getMcpServers())  {
             logger.info("Initializing MCP Server: '{}'", server.getName());
 
-            McpTransport transport = StreamableHttpMcpTransport.builder()
-                    .url(server.getUrl().toString())
-                    .logRequests(logRequest)
-                    .logResponses(logResponse)
-                    .build();
+            McpTransport transport = null;
+
+            switch (server.getType()) {
+                case HTTP -> transport = StreamableHttpMcpTransport.builder()
+                        .url(server.getUrl().toString())
+                        .logRequests(logRequest)
+                        .logResponses(logResponse)
+                        .build();
+                case STDIO -> transport = StdioMcpTransport.builder()
+                        .command(server.getCommand())
+                        .logEvents(server.isLogEvents())
+                        .environment(server.getEnvironment())
+                        .build();
+            }
 
             McpClient mcpClient = DefaultMcpClient.builder()
                     .key("MCPServer_"+mcpServerIndex)
