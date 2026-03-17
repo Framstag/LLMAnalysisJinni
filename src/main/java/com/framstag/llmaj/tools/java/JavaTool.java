@@ -176,9 +176,7 @@ public class JavaTool {
             } else if (p instanceof CompilationUnit) {
                 // Package anhängen (optional)
                 Optional<PackageDeclaration> pkg = ((CompilationUnit) p).getPackageDeclaration();
-                if (pkg.isPresent()) {
-                    name.insert(0, pkg.get().getNameAsString() + ".");
-                }
+                pkg.ifPresent(packageDeclaration -> name.insert(0, packageDeclaration.getNameAsString() + "."));
                 break;
             }
             parent = p.getParentNode();
@@ -204,6 +202,7 @@ public class JavaTool {
                     //ResolvedType type = JavaParserFacade.get(typeSolver).solve(importDecl.getMetaModel().getName());
                     imports.add(solved.getQualifiedName());
                 } catch (UnsolvedSymbolException e) {
+                    // Errors are expected and will be ignored
                 }
             }
         });

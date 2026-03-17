@@ -111,13 +111,16 @@ The config.json file has the following attributes:
 | projectDirectory  | Path to the project directory                                |         |
 | analysisDirectory | Path to the analysis files                                   |         |
 
-For the MCP Server:
+For the MCP Server configuration:
 
-| Attribute | Desription                                  | Default |
-|-----------|---------------------------------------------|---------|
-| name      | Free form name of the MCP Server            |         |
-| type      | Type of connection, currently always 'http' |         |
-| url       | Connection URL                              |         |
+| Attribute   | Desription                                               | Default |
+|-------------|----------------------------------------------------------|---------|
+| name        | Free form name of the MCP Server                         |         |
+| type        | Type of connection, currently 'http' or 'stdio'          |         |
+| url         | Connection URL for type 'http'                           |         |
+| command     | Array of command line arguments for type 'stdio'         |         |
+| environment | Map of evironment variables names and values for 'stdio' |         |
+| logEvents   | Log events for 'stdio'                                   | false   |
 
 ## Implementation
 
