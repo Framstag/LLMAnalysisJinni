@@ -18,6 +18,7 @@ public class Clazz {
     private final boolean generated;
     private final String documentation;
     private final List<String> imports;
+    private final List<Annotation> annotations;
     private final List<Method> methods;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
@@ -31,6 +32,7 @@ public class Clazz {
         this.generated = generated;
         this.documentation = documentation;
         this.imports = imports;
+        annotations = new LinkedList<>();
         methods = new LinkedList<>();
     }
 
@@ -50,9 +52,18 @@ public class Clazz {
         return imports;
     }
 
+    public List<Annotation> getAnnotations() {
+        return annotations;
+    }
+
     public String getDocumentation() {
         return documentation;
     }
+
+    public void addAnnotation(Annotation annotation) {
+        annotations.add(annotation);
+    }
+
     public void addMethod(Method method) {
         methods.add(method);
     }

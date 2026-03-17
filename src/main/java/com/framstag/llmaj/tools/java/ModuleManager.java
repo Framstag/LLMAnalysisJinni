@@ -42,6 +42,10 @@ public class ModuleManager {
                         srcClass.getDocumentation(),
                         srcClass.getImports());
 
+                for (Annotation annotation : srcClass.getAnnotations()) {
+                    clazz.addAnnotation(annotation);
+                }
+
                 for (Method method : srcClassMethods) {
                     clazz.addMethod(method);
                 }

@@ -14,6 +14,7 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.expr.ConditionalExpr;
 import com.github.javaparser.ast.expr.NameExpr;
@@ -245,6 +246,20 @@ public class JavaTool {
 
                     classManager.addImports(getCompilationUnitImports(cu, typeSolver));
 
+                    for (AnnotationExpr annotation : type.getAnnotations()) {
+                        String annotationName = annotation.getName().asString();
+                        String qualifiedAnnotationName = null;
+
+                        try {
+                            qualifiedAnnotationName = annotation.resolve().getQualifiedName();
+                        }
+                        catch (UnsolvedSymbolException e) {
+                            // Is expected and ignored
+                        }
+
+                        classManager.addAnnotation(new Annotation(annotationName, qualifiedAnnotationName));
+                    }
+
                     List<MethodDeclaration> methods = type.getMethods();
 
                     for (MethodDeclaration methodDeclaration : methods) {
@@ -288,7 +303,20 @@ public class JavaTool {
 
                         methodDeclaration.getComment().ifPresent(comment -> method.setDocumentation(comment.getContent()));
 
-                        // All elements that create multiple executions paths
+                        for (AnnotationExpr annotation : methodDeclaration.getAnnotations()) {
+                            String annotationName = annotation.getName().asString();
+                            String qualifiedAnnotationName = null;
+
+                            try {
+                                qualifiedAnnotationName = annotation.resolve().getQualifiedName();
+                            }
+                            catch (UnsolvedSymbolException e) {
+                                // Is expected and ignored
+                            }
+
+                        }
+
+                            // All elements that create multiple executions paths
                         List<CatchClause> catchClause = methodDeclaration.findAll(CatchClause.class);
                         List<ConditionalExpr> ternaryExpr = methodDeclaration.findAll(ConditionalExpr.class);
                         List<DoStmt> doStmts = methodDeclaration.findAll(DoStmt.class);

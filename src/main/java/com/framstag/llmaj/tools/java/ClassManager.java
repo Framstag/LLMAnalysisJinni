@@ -13,7 +13,9 @@ public class ClassManager {
     private boolean isProduction;
     private String documentation;
 
-    private Set<String> imports;
+    private final Set<String> imports;
+
+    private final List<Annotation> annotations;
 
     private final Map<String,Integer> countByName = new HashMap<>();
 
@@ -25,6 +27,7 @@ public class ClassManager {
         this.isGenerated = false;
         this.isProduction = true;
         this.imports = new HashSet<>();
+        this.annotations = new LinkedList<>();
     }
 
     public String getQualifiedName() {
@@ -61,6 +64,14 @@ public class ClassManager {
 
     public void addImports(Collection<String> imports) {
         this.imports.addAll(imports);
+    }
+
+    public List<Annotation> getAnnotations() {
+        return annotations;
+    }
+
+    public void addAnnotation(Annotation annotation) {
+        annotations.add(annotation);
     }
 
     public Method getOrAddMethodForce(String name, String descriptor) {

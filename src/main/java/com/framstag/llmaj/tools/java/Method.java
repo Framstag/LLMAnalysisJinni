@@ -3,10 +3,14 @@ package com.framstag.llmaj.tools.java;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.LinkedList;
+import java.util.List;
+
 public class Method {
     private final String name;
     private final String descriptor;
     private String documentation;
+    private final List<Annotation> annotations;
     private Integer cyclomaticComplexity;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
@@ -14,6 +18,7 @@ public class Method {
                   @JsonProperty("descriptor")String descriptor) {
         this.name = name;
         this.descriptor = descriptor;
+        this.annotations = new LinkedList<>();
         this.cyclomaticComplexity = null;
     }
 
@@ -31,6 +36,14 @@ public class Method {
 
     public void setDocumentation(String documentation) {
         this.documentation = documentation;
+    }
+
+    public List<Annotation> getAnnotations() {
+        return annotations;
+    }
+
+    public void addAnnotation(Annotation annotation) {
+        annotations.add(annotation);
     }
 
     public Integer getCyclomaticComplexity() {
