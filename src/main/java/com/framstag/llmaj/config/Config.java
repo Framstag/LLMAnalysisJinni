@@ -197,9 +197,12 @@ public class Config {
 
         if (!mcpServers.isEmpty()) {
             for (MCPServer server : mcpServers) {
-                logger.info("- MCPServer '{}'", server.getName());
-                logger.info("  * type: {}", server.getType());
-                logger.info("  * url:  {}", server.getUrl());
+                logger.info("- MCPServer      '{}'", server.getName());
+                logger.info("  * type:        {}", server.getType());
+                logger.info("  * url:         {}", server.getUrl());
+                logger.info("  * command:     {}", server.getCommand());
+                logger.info("  * environment: {}", server.getEnvironment());
+                logger.info("  * logEvents:   {}", server.isLogEvents());
             }
         }
     }
