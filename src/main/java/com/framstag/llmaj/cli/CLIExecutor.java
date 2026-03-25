@@ -9,6 +9,7 @@ import picocli.CommandLine.Command;
                 DocumentCmd.class,
                 JavaAnalysisCmd.class,
                 StateCmd.class,
+                ToolsCmd.class,
                 WorkspaceCmd.class,
                 CommandLine.HelpCommand.class
         },

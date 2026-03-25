@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.framstag.llmaj.AnalysisContext;
 import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.config.ConfigLoader;
-import com.framstag.llmaj.config.MCPServer;
 import com.framstag.llmaj.handlebars.HandlebarsFactory;
 import com.framstag.llmaj.json.JsonHelper;
 import com.framstag.llmaj.json.ObjectMapperFactory;
@@ -15,22 +14,14 @@ import com.framstag.llmaj.lc4j.ChatModelFactory;
 import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
 import com.framstag.llmaj.tasks.TaskManager;
-import com.framstag.llmaj.tools.ToolFactory;
+import com.framstag.llmaj.tools.ToolServiceFactory;
 import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
 import com.github.jknack.handlebars.io.FileTemplateLoader;
-import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.mcp.McpToolExecutor;
-import dev.langchain4j.mcp.client.DefaultMcpClient;
-import dev.langchain4j.mcp.client.McpClient;
-import dev.langchain4j.mcp.client.transport.McpTransport;
-import dev.langchain4j.mcp.client.transport.http.StreamableHttpMcpTransport;
-import dev.langchain4j.mcp.client.transport.stdio.StdioMcpTransport;
 import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.service.tool.ToolExecutor;
 import dev.langchain4j.service.tool.ToolService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +32,9 @@ import picocli.CommandLine.Parameters;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Set;
 import java.util.concurrent.Callable;
 
 @Command(name = "analyse", description = "Analyse the project")
@@ -140,50 +133,7 @@ public class AnalyseCmd implements Callable<Integer> {
                 workingDirectory,
                 stateManager.getAnalysisState());
 
-        HashMap<ToolSpecification, ToolExecutor> mcpServersDefinitions = new HashMap<>();
-
-        int mcpServerIndex = 0;
-        for (MCPServer server : config.getMcpServers())  {
-            logger.info("Initializing MCP Server: '{}' of type {}",
-                    server.getName(),
-                    server.getType());
-
-            McpTransport transport = null;
-
-            switch (server.getType()) {
-                case HTTP -> transport = StreamableHttpMcpTransport.builder()
-                        .url(server.getUrl().toString())
-                        .logRequests(logRequest)
-                        .logResponses(logResponse)
-                        .build();
-                case STDIO -> transport = StdioMcpTransport.builder()
-                        .command(server.getCommand())
-                        .logEvents(server.isLogEvents())
-                        .environment(server.getEnvironment())
-                        .build();
-            }
-
-            McpClient mcpClient = DefaultMcpClient.builder()
-                    .key("MCPServer_"+mcpServerIndex)
-                    .transport(transport)
-                    .build();
-
-            ToolExecutor mcpToolExecutor = new McpToolExecutor(mcpClient);
-
-            List<ToolSpecification> toolSpecifications = mcpClient.listTools();
-
-            for (ToolSpecification toolSpecification : toolSpecifications) {
-                logger.info("- Tool: '{}'", toolSpecification.name());
-
-                mcpServersDefinitions.put(toolSpecification,mcpToolExecutor);
-            }
-
-            mcpServerIndex++;
-        }
-
-        ToolService toolService = new ToolService();
-        toolService.tools(ToolFactory.getToolInstanceList(analysisContext));
-        toolService.tools(mcpServersDefinitions);
+        ToolService toolService = ToolServiceFactory.getToolService(config,analysisContext);
 
         taskManager.dump();
 
