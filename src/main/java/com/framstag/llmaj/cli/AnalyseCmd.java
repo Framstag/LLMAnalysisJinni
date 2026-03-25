@@ -144,7 +144,9 @@ public class AnalyseCmd implements Callable<Integer> {
 
         int mcpServerIndex = 0;
         for (MCPServer server : config.getMcpServers())  {
-            logger.info("Initializing MCP Server: '{}'", server.getName());
+            logger.info("Initializing MCP Server: '{}' of type {}",
+                    server.getName(),
+                    server.getType());
 
             McpTransport transport = null;
 

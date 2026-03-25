@@ -5,10 +5,11 @@ import picocli.CommandLine.Command;
 
 @Command(name = "state", description = "state management commands",
         subcommands = {
-        StateDropCmd.class,
-        StateClearCmd.class,
-        CommandLine.HelpCommand.class
-},
+                StateDumpCmd.class,
+                StateDropCmd.class,
+                StateClearCmd.class,
+                CommandLine.HelpCommand.class
+        },
         mixinStandardHelpOptions = true)
 public class StateCmd {
 }
