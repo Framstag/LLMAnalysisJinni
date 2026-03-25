@@ -9,15 +9,18 @@ public class ChatExecutionContext {
     private final Config config;
     private final ChatModel chatModel;
     private final ToolService toolService;
+    private final ToolFilter toolFilter;
     private final ObjectMapper mapper;
 
     public ChatExecutionContext(Config config,
                                 ChatModel chatModel,
                                 ToolService toolService,
+                                ToolFilter toolFilter,
                                 ObjectMapper mapper) {
         this.config = config;
         this.chatModel = chatModel;
         this.toolService = toolService;
+        this.toolFilter = toolFilter;
         this.mapper = mapper;
     }
 
@@ -31,6 +34,10 @@ public class ChatExecutionContext {
 
     public ToolService getToolService() {
         return toolService;
+    }
+
+    public ToolFilter getToolFilter() {
+        return toolFilter;
     }
 
     public ObjectMapper getMapper() {

@@ -8,6 +8,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLParser;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
@@ -19,6 +20,8 @@ public class TaskDefinition {
     private Path prompt;
     private Path responseFormat;
     private String responseProperty;
+    private final List<String> toolWhitelist = new LinkedList<>();
+    private final List<String> toolBlacklist = new LinkedList<>();
     private final Set<String> tags = new HashSet<>();
     private final Set<String> dependsOn = new HashSet<>();
     private String loopOn;
@@ -81,6 +84,14 @@ public class TaskDefinition {
 
     public String getLoopOn() {
         return loopOn;
+    }
+
+    public  List<String> getToolWhitelist() {
+        return toolWhitelist;
+    }
+
+    public List<String> getToolBlacklist() {
+        return toolBlacklist;
     }
 
     public static List<TaskDefinition> loadTasks(Path path) throws IOException {

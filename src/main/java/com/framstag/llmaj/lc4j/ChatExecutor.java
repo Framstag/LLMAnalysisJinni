@@ -168,7 +168,7 @@ public class ChatExecutor {
                         .topP(0.9)
                         .maxOutputTokens(config.getMaximumTokens())
                         .toolChoice(ToolChoice.AUTO)
-                        .toolSpecifications(executionContext.getToolService().toolSpecifications())
+                        .toolSpecifications(executionContext.getToolFilter().filter(executionContext.getToolService().toolSpecifications()))
                         .responseFormat(JsonSchema.builder()
                                 .name(JsonHelper.getSchemaName(responseSchema))
                                 .rootElement(JsonRawSchema.from(rawResponseSchema))
@@ -182,7 +182,7 @@ public class ChatExecutor {
                         .topP(0.9)
                         .maxOutputTokens(config.getMaximumTokens())
                         .toolChoice(ToolChoice.AUTO)
-                        .toolSpecifications(executionContext.getToolService().toolSpecifications())
+                        .toolSpecifications(executionContext.getToolFilter().filter(executionContext.getToolService().toolSpecifications()))
                         .responseFormat(ResponseFormat.TEXT)
                         .build();
             }
@@ -195,7 +195,7 @@ public class ChatExecutor {
                     .topP(0.9)
                     .maxOutputTokens(config.getMaximumTokens())
                     .toolChoice(ToolChoice.AUTO)
-                    .toolSpecifications(executionContext.getToolService().toolSpecifications())
+                    .toolSpecifications(executionContext.getToolFilter().filter(executionContext.getToolService().toolSpecifications()))
                     .responseFormat(ResponseFormat.TEXT)
                     .build();
         }
@@ -206,7 +206,7 @@ public class ChatExecutor {
                     //.topP(0.9)
                     //.maxOutputTokens(config.getMaximumTokens())
                     .toolChoice(ToolChoice.AUTO)
-                    .toolSpecifications(executionContext.getToolService().toolSpecifications())
+                    .toolSpecifications(executionContext.getToolFilter().filter(executionContext.getToolService().toolSpecifications()))
                     .responseFormat(ResponseFormat.TEXT)
                     .build();
         }

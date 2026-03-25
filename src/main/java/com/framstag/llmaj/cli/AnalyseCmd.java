@@ -11,6 +11,7 @@ import com.framstag.llmaj.json.ObjectMapperFactory;
 import com.framstag.llmaj.lc4j.ChatExecutionContext;
 import com.framstag.llmaj.lc4j.ChatExecutor;
 import com.framstag.llmaj.lc4j.ChatModelFactory;
+import com.framstag.llmaj.lc4j.ToolFilter;
 import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
 import com.framstag.llmaj.tasks.TaskManager;
@@ -176,6 +177,7 @@ public class AnalyseCmd implements Callable<Integer> {
                             new ChatExecutionContext(config,
                                     model,
                                     toolService,
+                                    new ToolFilter(task.getToolWhitelist(), task.getToolBlacklist()),
                                     mapper);
 
                     JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
@@ -214,6 +216,7 @@ public class AnalyseCmd implements Callable<Integer> {
                         new ChatExecutionContext(config,
                                 model,
                                 toolService,
+                                new ToolFilter(task.getToolWhitelist(), task.getToolBlacklist()),
                                 mapper);
 
                 JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
