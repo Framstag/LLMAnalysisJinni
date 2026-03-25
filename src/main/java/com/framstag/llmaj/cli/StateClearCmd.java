@@ -9,7 +9,7 @@ import picocli.CommandLine.Command;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 
-@Command(name = "clear", description = "Clears the current state",
+@Command(name = "clear", description = "Clears the current execution state",
         mixinStandardHelpOptions = true)
 public class StateClearCmd implements Callable<Integer> {
     private static final Logger logger = LoggerFactory.getLogger(StateClearCmd.class);
