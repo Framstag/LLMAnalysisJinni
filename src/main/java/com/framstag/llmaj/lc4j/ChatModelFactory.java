@@ -49,14 +49,14 @@ public class ChatModelFactory {
                     .modelName(config.getModelName())
                     .baseUrl(config.getModelURL().toString())
                     .timeout(Duration.ofMinutes(config.getRequestTimeout()))
-                    //.temperature(0.0)
-                    //.topP(0.9)
+                    .temperature(0.0)
+                    .topP(0.9)
                     //.sendThinking(false)
                     //.returnThinking(false)
                     //.listeners(List.of(new ChatListener()))
                     .logRequests(config.isLogRequests())
                     .logResponses(config.isLogResponses())
-                    //.maxTokens(config.getMaximumTokens())
+                    .maxTokens(config.getMaximumTokens())
                     .build();
         }
 
