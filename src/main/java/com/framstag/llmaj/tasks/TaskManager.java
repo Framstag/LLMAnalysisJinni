@@ -1,12 +1,19 @@
 package com.framstag.llmaj.tasks;
 
+import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.framstag.llmaj.json.ObjectMapperFactory;
+import com.networknt.schema.*;
+import com.networknt.schema.Error;
+import com.networknt.schema.dialect.Dialects;
+import com.networknt.schema.serialization.DefaultNodeReader;
+import com.networknt.schema.utils.JsonNodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZonedDateTime;
 import java.util.*;
@@ -165,6 +172,47 @@ public class TaskManager {
         return !errorsFound;
     }
 
+    private static boolean validateResponseSchema(Path analyseDirectory,
+                                                  List<TaskDefinition> tasks) {
+        boolean errorsFound = false;
+
+        SchemaRegistry schemaRegistry = SchemaRegistry.withDialect(Dialects.getDraft202012(),
+                builder -> builder.nodeReader(DefaultNodeReader.Builder::locationAware));
+        Schema schema = schemaRegistry.getSchema(SchemaLocation.of(Dialects.getDraft202012().getId()));
+
+        Set<Path> responseSchemaPaths = tasks.stream()
+                .map(TaskDefinition::getResponseFormat)
+                .collect(Collectors.toSet());
+
+        for (Path path : responseSchemaPaths) {
+            Path responseSchemaPath = analyseDirectory.resolve(path);
+
+            try {
+                String responseSchema = Files.readString(responseSchemaPath);
+
+                List<Error> errors = schema.validate(responseSchema, InputFormat.JSON, executionContext ->
+                    executionContext.executionConfig(executionConfig -> executionConfig.formatAssertionsEnabled(true))
+                );
+
+                if (!errors.isEmpty()) {
+                    logger.error("There were errors in the response schema at '{}'", responseSchemaPath);
+                    for (Error error : errors) {
+                        JsonLocation location = JsonNodes.tokenStreamLocationOf(error.getInstanceNode());
+
+                        logger.error("ERROR: {},{}: {}", location.getLineNr(),location.getColumnNr(),error.getMessage());
+                    }
+                    errorsFound = true;
+                }
+
+            } catch (IOException|IllegalArgumentException e) {
+                logger.error("Cannot load response schema at '{}'", responseSchemaPath, e);
+                errorsFound = true;
+            }
+        }
+
+        return !errorsFound;
+    }
+
     private String getTaskStatus(TaskDefinition task, boolean pending, boolean successful) {
         if (!task.isActive()) {
             return "/";
@@ -276,11 +324,7 @@ public class TaskManager {
 
         Integer lastSuccessfulIndex = taskState.getLastSuccessfulIndex();
 
-        if (lastSuccessfulIndex == null) {
-            return -1;
-        }
-
-        return lastSuccessfulIndex;
+        return Objects.requireNonNullElse(lastSuccessfulIndex, -1);
     }
 
     public void markTaskAsSuccessful(TaskDefinition task) {
@@ -336,7 +380,8 @@ public class TaskManager {
         if (!validateRequiredFields(allTasks) ||
             !validateDependsOn(allTasks) ||
             !validateExecuteVsActive(allTasks,executeOnly) ||
-            !validateNoDependencyCycles(allTasks)) {
+            !validateNoDependencyCycles(allTasks) ||
+            !validateResponseSchema(analyseDirectory,allTasks)) {
             logger.error("There were errors in the task definitions");
 
             return null;

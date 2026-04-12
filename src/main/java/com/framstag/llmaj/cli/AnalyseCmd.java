@@ -123,6 +123,11 @@ public class AnalyseCmd implements Callable<Integer> {
                 workingDirectory,
                 executeOnly);
 
+        if (taskManager == null) {
+            logger.error("Cannot retrieve task list, aborting.");
+            return 1;
+        }
+
         StateManager stateManager = StateManager.initializeState(workingDirectory);
 
         var templateEngine = HandlebarsFactory.create()
