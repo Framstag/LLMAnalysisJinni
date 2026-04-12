@@ -75,33 +75,33 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j</artifactId>
-            <version>1.12.2</version>
+            <version>1.13.0</version>
         </dependency>
 
         <!-- Access to Ollama LLMs -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-ollama</artifactId>
-            <version>1.12.2</version>
+            <version>1.13.0</version>
         </dependency>
 
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai</artifactId>
-            <version>1.12.2</version>  <!-- Use latest -->
+            <version>1.13.0</version>  <!-- Use latest -->
         </dependency>
 
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-local-ai</artifactId>
-            <version>1.12.2-beta22</version>  <!-- Use latest -->
+            <version>1.13.0-beta23</version>  <!-- Use latest -->
         </dependency>
 
         <!-- Access to external MCP Servers -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-mcp</artifactId>
-            <version>1.12.2-beta22</version>
+            <version>1.13.0-beta23</version>
         </dependency>
 
         <!-- Parsing of CycloneDX BOM -->
@@ -122,19 +122,19 @@
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-yaml</artifactId>
-            <version>2.21.1</version>
+            <version>2.21.2</version>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
-            <version>2.21.1</version>
+            <version>2.21.2</version>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jdk8</artifactId>
-            <version>2.21.1</version>
+            <version>2.21.2</version>
         </dependency>
 
         <!-- Parsing Java code -->
@@ -149,7 +149,7 @@
         <dependency>
             <groupId>de.siegmar</groupId>
             <artifactId>fastcsv</artifactId>
-            <version>4.1.1</version>
+            <version>4.2.0</version>
         </dependency>
 
         <!-- Command line handling -->
@@ -225,7 +225,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.14.1</version>
+                <version>3.15.0</version>
                 <configuration>
                     <annotationProcessorPaths>
                         <path>
@@ -266,7 +266,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.1</version>
+                <version>3.6.2</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -276,8 +276,7 @@
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <finalName>LLMAnalysisJinni-jar-with-dependencies</finalName>
-                            <!-- No full support of shade for JDK 25 yet -->
-                            <minimizeJar>false</minimizeJar>
+                            <minimizeJar>true</minimizeJar>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer" />

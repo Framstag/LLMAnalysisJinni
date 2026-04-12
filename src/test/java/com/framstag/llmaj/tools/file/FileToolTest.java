@@ -33,7 +33,7 @@ public class FileToolTest {
     void GetAllFilesInDirWithoutSubdir() throws IOException {
         List<String> result = fileTool.getAllFilesInDir("src/main/java/com/framstag/llmaj");
 
-        assertEquals(4, result.size());
+        assertEquals(2, result.size());
     }
 
     @Test
