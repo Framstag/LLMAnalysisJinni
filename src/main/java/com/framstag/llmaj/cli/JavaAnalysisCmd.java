@@ -32,7 +32,7 @@ public class JavaAnalysisCmd implements Callable<Integer> {
 
         try {
             logger.info("Loading config from workspace '{}'...", workingDirectory);
-            config = ConfigLoader.load(workingDirectory);
+            config = ConfigLoader.loadFromWorkingDirectory(workingDirectory);
             config.dumpToLog();
         } catch (IOException e) {
             logger.error("Cannot load config file", e);

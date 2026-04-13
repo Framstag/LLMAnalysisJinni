@@ -203,7 +203,6 @@ public class TaskManager {
                     }
                     errorsFound = true;
                 }
-
             } catch (IOException|IllegalArgumentException e) {
                 logger.error("Cannot load response schema at '{}'", responseSchemaPath, e);
                 errorsFound = true;

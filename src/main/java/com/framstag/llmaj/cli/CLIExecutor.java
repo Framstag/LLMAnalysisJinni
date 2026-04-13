@@ -11,6 +11,7 @@ import picocli.CommandLine.Command;
                 StateCmd.class,
                 ToolsCmd.class,
                 WorkspaceCmd.class,
+                ConfigCmd.class,
                 CommandLine.HelpCommand.class
         },
         mixinStandardHelpOptions = true)

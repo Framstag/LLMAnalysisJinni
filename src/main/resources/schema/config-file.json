@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Config file",
+  "description": "Schema of config file",
+  "type": "object",
+  "properties": {
+    "modelProvider": {
+      "type": "string",
+      "enum": [
+        "ollama",
+        "openai",
+        "localai"
+      ]
+    },
+    "modelURL": {
+      "type": "string"
+    },
+    "modelName": {
+      "type": "string"
+    },
+    "requestTimeout": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "maximumTokens": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "nativeJSON": {
+      "type": "boolean"
+    },
+    "logRequests": {
+      "type": "boolean"
+    },
+    "logResponses": {
+      "type": "boolean"
+    },
+    "mcpServers": {
+      "type": "array",
+      "description": "List of MCP servers",
+      "items": {
+        "type": "object",
+        "title": "MCPServer",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "http",
+              "stdio"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "command": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "environment": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "logEvents": {
+            "type": "string",
+            "description": "Some build systems have multiple variants, empty string otherwise"
+          }
+        },
+        "required": [
+          "type",
+          "name"
+        ]
+      }
+    },
+    "projectDirectory": {
+      "type": "string"
+    },
+    "analysisDirectory": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "modelProvider",
+    "modelURL",
+    "modelName",
+    "projectDirectory",
+    "analysisDirectory"
+  ]
+}

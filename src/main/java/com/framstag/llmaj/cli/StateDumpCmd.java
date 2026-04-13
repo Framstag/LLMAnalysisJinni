@@ -26,7 +26,7 @@ public class StateDumpCmd implements Callable<Integer> {
         Config config;
 
         try {
-            config = ConfigLoader.load(workingDirectory);
+            config = ConfigLoader.loadFromWorkingDirectory(workingDirectory);
         } catch (IOException e) {
             logger.error("Cannot load config file", e);
             return 1;
