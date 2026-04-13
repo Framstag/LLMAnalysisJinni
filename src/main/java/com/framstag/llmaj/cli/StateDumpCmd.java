@@ -36,6 +36,11 @@ public class StateDumpCmd implements Callable<Integer> {
                 workingDirectory,
                 Collections.emptySet());
 
+        if (taskManager == null) {
+            logger.error("Cannot retrieve task list, aborting.");
+            return 1;
+        }
+
         taskManager.dump();
 
         return 0;
