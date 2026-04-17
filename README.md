@@ -132,3 +132,4 @@ The implementation makes use of the following frameworks and libraries:
 * Picocli for CLI parsing
 * JavParser for parsing Java Files
 * FastCSV for writing CSV files
+* networknt/json-schema-validator for validating JSON schemas and data against JSON schemas
