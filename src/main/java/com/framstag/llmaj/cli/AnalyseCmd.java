@@ -151,7 +151,8 @@ public class AnalyseCmd implements Callable<Integer> {
 
             if (task.hasLoopOn()) {
                 if (!stateManager.startLoop(task.getLoopOn())) {
-                    continue;
+                    logger.error("Configuration error, aborting!");
+                    return 1;
                 }
 
                 int lastSuccessfullyExecutedLoopIndex = taskManager.getTaskSuccessFullLoopIndex(task);
