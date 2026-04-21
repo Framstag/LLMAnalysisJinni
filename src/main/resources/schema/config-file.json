@@ -18,6 +18,9 @@
     "modelName": {
       "type": "string"
     },
+    "apiKey": {
+      "type": "string"
+    },
     "requestTimeout": {
       "type": "integer",
       "minimum": 1
@@ -85,6 +88,12 @@
     },
     "analysisDirectory": {
       "type": "string"
+    },
+    "properties": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
     }
   },
   "required": [

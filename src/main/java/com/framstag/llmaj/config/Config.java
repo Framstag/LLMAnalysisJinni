@@ -8,8 +8,10 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URL;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 public class Config {
     private static final Logger logger = LoggerFactory.getLogger(Config.class);
@@ -27,6 +29,7 @@ public class Config {
     private boolean logRequests;
     private boolean logResponses;
     private final List<MCPServer> mcpServers;
+    private final Map<String,String> properties;
 
     public Config() {
         modelProvider = ModelProvider.OLLAMA;
@@ -37,6 +40,7 @@ public class Config {
         logRequests = false;
         logResponses = false;
         mcpServers = new LinkedList<>();
+        properties = new HashMap<>();
     }
 
     public void setModelProvider(ModelProvider modelProvider) {
@@ -101,7 +105,7 @@ public class Config {
                 ", modelProvider=" + modelProvider +
                 ", modelURL=" + modelURL +
                 ", modelName='" + modelName + '\'' +
-                ", apiKey='" + "XXX" + '\'' +
+                ", apiKey='" + apiKey + '\'' +
                 ", chatWindowSize=" + chatWindowSize +
                 ", requestTimeout=" + requestTimeout +
                 ", maximumTokens=" + maximumTokens +
@@ -109,6 +113,7 @@ public class Config {
                 ", logRequests=" + logRequests +
                 ", logResponses=" + logResponses +
                 ", mcpServers=" + mcpServers +
+                ", properties=" + properties +
                 '}';
     }
 
@@ -180,6 +185,18 @@ public class Config {
         return mcpServers;
     }
 
+    public boolean hasProperty(String key) {
+        return properties.containsKey(key);
+    }
+
+    public String getProperty(String key) {
+        return properties.get(key);
+    }
+
+    public Map<String,String> getProperties() {
+        return properties;
+    }
+
     public void dumpToLog() {
         logger.info("Model provider:     '{}'", modelProvider);
         logger.info("URL:                '{}'", modelURL.toString());
@@ -205,5 +222,7 @@ public class Config {
                 logger.info("  * logEvents:   {}", server.isLogEvents());
             }
         }
+
+        logger.info("Properties:        '{}'", properties);
     }
 }
