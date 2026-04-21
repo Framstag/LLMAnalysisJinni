@@ -40,6 +40,7 @@ public class ToolsDumpCmd implements Callable<Integer> {
         AnalysisContext analysisContext = new AnalysisContext(
                 config.getProjectDirectory(),
                 workingDirectory,
+                config.getProperties(),
                 stateManager.getAnalysisState());
 
         ToolService toolService = ToolServiceFactory.getToolService(config,analysisContext);

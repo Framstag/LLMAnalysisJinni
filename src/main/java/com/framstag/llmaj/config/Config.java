@@ -185,15 +185,7 @@ public class Config {
         return mcpServers;
     }
 
-    public boolean hasProperty(String key) {
-        return properties.containsKey(key);
-    }
-
-    public String getProperty(String key) {
-        return properties.get(key);
-    }
-
-    public Map<String,String> getProperties() {
+    public Map<String, String> getProperties() {
         return properties;
     }
 

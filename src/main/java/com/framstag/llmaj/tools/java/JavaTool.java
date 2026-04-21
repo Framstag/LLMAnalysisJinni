@@ -24,11 +24,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 
 public class JavaTool {
     private static final Logger logger = LoggerFactory.getLogger(JavaTool.class);
+    public static final String JAVA_TOOL_JAR_DEPENDENCIES_DIRECTORY_PROPERTY = "javaTool.jarDependenciesDirectory";
 
     private final AnalysisContext context;
     private final Map<String, Module> moduleMapCache = new HashMap<>();
@@ -169,25 +169,37 @@ public class JavaTool {
     }
 
     private TypeSolver createTypeResolver(Path rootPath,
+                                            Map<String, String> properties,
                                             List<SpecialSubdirectory> specialSubdirectories) throws IOException {
         CombinedTypeSolver typeSolver = new CombinedTypeSolver(
                 new ReflectionTypeSolver(false)
         );
 
-        Files.walk(Paths.get("../spring-petclinic/jars"), 1) // depth=1 for non-recursive; use Integer.MAX_VALUE for recursive
-                .filter(p -> p.toString().endsWith(".jar"))
-                .forEach(jarPath -> {
-                    try {
-                        logger.info("Adding '{}' as search path to java parser...", jarPath);
-                        try {
-                            typeSolver.add(new JarTypeSolver(jarPath));
-                        } catch (NullPointerException e) {
-                            logger.warn("Skip adding '{}' as search path, since there were errors adding it", jarPath, e);
-                        }
-                    } catch (IOException e) {
-                        System.err.println("Could not load JAR: " + jarPath + " — " + e.getMessage());
-                    }
-                });
+        if (properties.containsKey(JAVA_TOOL_JAR_DEPENDENCIES_DIRECTORY_PROPERTY)) {
+            String jarDependencies = properties.get(JAVA_TOOL_JAR_DEPENDENCIES_DIRECTORY_PROPERTY);
+            Path jarDependenciesPath = rootPath.resolve(jarDependencies);
+
+            if (FileHelper.accessAllowed(rootPath, jarDependenciesPath)) {
+                Files.walk(jarDependenciesPath, 1) // depth=1 for non-recursive; use Integer.MAX_VALUE for recursive
+                        .filter(p -> p.toString().endsWith(".jar"))
+                        .forEach(jarPath -> {
+                            try {
+                                logger.info("Adding '{}' as search path to java parser...", jarPath);
+                                try {
+                                    typeSolver.add(new JarTypeSolver(jarPath));
+                                } catch (NullPointerException e) {
+                                    logger.warn("Skip adding '{}' as search path, since there were errors adding it", jarPath, e);
+                                }
+                            } catch (IOException e) {
+                                System.err.println("Could not load JAR: " + jarPath + " — " + e.getMessage());
+                            }
+                        });
+            }
+            else {
+                logger.error("Not allowed to access '{}' ('{}')", jarDependenciesPath, rootPath);
+
+            }
+        }
 
         for (SpecialSubdirectory directory : specialSubdirectories) {
             if (directory.getCategoryId().isSrc()) {
@@ -249,7 +261,7 @@ public class JavaTool {
 
         logger.info("{} *.java file(s) found", srcFiles.size());
 
-        TypeSolver typeSolver = createTypeResolver(rootPath, specialSubdirectories);
+        TypeSolver typeSolver = createTypeResolver(rootPath, context.getProperties(),specialSubdirectories);
 
         StaticJavaParser
                 .getParserConfiguration()

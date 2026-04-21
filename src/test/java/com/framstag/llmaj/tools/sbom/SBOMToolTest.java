@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 
 public class SBOMToolTest {
@@ -45,6 +46,7 @@ public class SBOMToolTest {
         AnalysisContext context = new AnalysisContext(
                 Paths.get("").toAbsolutePath(),
                 Paths.get("").toAbsolutePath(),
+                Collections.emptyMap(),
                 null);
 
         sbomTool = new SBOMTool(context);

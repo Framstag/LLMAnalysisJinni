@@ -49,7 +49,7 @@ public class JavaAnalysisCmd implements Callable<Integer> {
         ObjectNode state = stateManager.getAnalysisState();
 
         AnalysisContext context = new AnalysisContext(config.getProjectDirectory(),
-                workingDirectory, state);
+                workingDirectory, config.getProperties(),state);
 
         JavaTool javaTool = new JavaTool(context);
 

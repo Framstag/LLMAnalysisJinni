@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,6 +25,7 @@ public class FileToolTest {
         context = new AnalysisContext(
                 Paths.get("").toAbsolutePath(),
                 Paths.get("").toAbsolutePath(),
+                Collections.emptyMap(),
                 null);
 
         fileTool = new FileTool(context);
