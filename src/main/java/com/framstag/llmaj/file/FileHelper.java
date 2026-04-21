@@ -6,7 +6,10 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.Path;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.LinkedList;
+import java.util.List;
 
 public class FileHelper {
     private static final Logger logger = LoggerFactory.getLogger(FileHelper.class);
@@ -96,5 +99,30 @@ public class FileHelper {
         }
 
         return true;
+    }
+
+    public static List<Path> getAllMatchingFilesInDirectoryRecursively(List<String> wildcards, Path startPath) throws IOException {
+        List<Path> files = new LinkedList<>();
+
+        FileVisitor<Path> srcMatcherVisitor = new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attribs) {
+
+                FileSystem fs = FileSystems.getDefault();
+
+                for (String wildcard : wildcards) {
+                    PathMatcher matcher = fs.getPathMatcher("glob:" + wildcard);
+                    if (matcher.matches(file.getFileName())) {
+                        files.add(file);
+                    }
+                }
+
+                return FileVisitResult.CONTINUE;
+            }
+        };
+
+        Files.walkFileTree(startPath, srcMatcherVisitor);
+
+        return files;
     }
 }
