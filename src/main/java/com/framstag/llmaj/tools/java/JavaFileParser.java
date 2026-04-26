@@ -51,6 +51,8 @@ public class JavaFileParser {
             logger.info("Package: {}",pck.getName());
             logger.info("BuildUnit: {}",buildUnit.getName());
 
+            ParserHelper.modifyClassAttributesByCategory(buildUnit, category);
+
             buildUnit.addImports(getCompilationUnitImports(cu, typeSolver));
 
             for (ClassOrInterfaceDeclaration type : cu.findAll(ClassOrInterfaceDeclaration.class)) {
@@ -61,8 +63,6 @@ public class JavaFileParser {
                     logger.info("Type: {}",classManager.getQualifiedName());
 
                     type.getComment().ifPresent(comment -> classManager.setDocumentation(comment.getContent()));
-
-                    ParserHelper.modifyClassAttributesByCategory(classManager, category);
 
                     for (AnnotationExpr annotation : type.getAnnotations()) {
                         String annotationName = annotation.getName().asString();

@@ -39,8 +39,6 @@ public class ModuleManager {
                     List<Method> srcClassMethods = srcClass.getMethods();
 
                     Clazz clazz = new Clazz(srcClass.getQualifiedName(),
-                            srcClass.isProduction(),
-                            srcClass.isGenerated(),
                             srcClass.getDocumentation());
 
                     for (Annotation annotation : srcClass.getAnnotations()) {
@@ -55,6 +53,8 @@ public class ModuleManager {
                 }
 
                 BuildUnit buildUnit = new BuildUnit(buildUnitManager.getName(),
+                        buildUnitManager.isProduction(),
+                        buildUnitManager.isGenerated(),
                         buildUnitManager.getImports(),
                         clazzes);
 

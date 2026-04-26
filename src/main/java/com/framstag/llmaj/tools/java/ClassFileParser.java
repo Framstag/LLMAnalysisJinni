@@ -54,7 +54,7 @@ public class ClassFileParser {
             logger.info("BuildUnit: {}",buildUnit.getName());
             logger.info("Type: {}",classManager.getQualifiedName());
 
-            ParserHelper.modifyClassAttributesByCategory(classManager,category);
+            ParserHelper.modifyClassAttributesByCategory(buildUnit,category);
 
             if (classModel.superclass().isPresent()) {
                 String parentQualifiedName = classModel.superclass().get().asSymbol().packageName()+"."+

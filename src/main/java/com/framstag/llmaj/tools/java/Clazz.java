@@ -14,20 +14,14 @@ public class Clazz {
     private static final Logger logger = LoggerFactory.getLogger(Clazz.class);
 
     private final String qualifiedName;
-    private final boolean production;
-    private final boolean generated;
     private final String documentation;
     private final List<Annotation> annotations;
     private final List<Method> methods;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public Clazz(@JsonProperty("qualifiedName") String qualifiedName,
-                 @JsonProperty("production") boolean production,
-                 @JsonProperty("generated") boolean generated,
                  @JsonProperty("documentation") String documentation) {
         this.qualifiedName = qualifiedName;
-        this.production = production;
-        this.generated = generated;
         this.documentation = documentation;
         annotations = new LinkedList<>();
         methods = new LinkedList<>();
@@ -35,14 +29,6 @@ public class Clazz {
 
     public String getQualifiedName() {
         return qualifiedName;
-    }
-
-    public boolean isGenerated() {
-        return generated;
-    }
-
-    public boolean isProduction() {
-        return production;
     }
 
     public List<Annotation> getAnnotations() {

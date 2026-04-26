@@ -16,24 +16,24 @@ public class ParserHelper {
         return defaultValue;
     }
 
-    public static void modifyClassAttributesByCategory(ClassManager classManager, SubdirectoryCategory category) {
+    public static void modifyClassAttributesByCategory(BuildUnitManager buildUnitManager, SubdirectoryCategory category) {
         switch (category) {
             case SRC, OBJ -> {
-                classManager.setProduction(true);
-                classManager.setGenerated(false);
+                buildUnitManager.setProduction(true);
+                buildUnitManager.setGenerated(false);
             }
 
             case GEN_SRC -> {
-                classManager.setProduction(true);
-                classManager.setGenerated(true);
+                buildUnitManager.setProduction(true);
+                buildUnitManager.setGenerated(true);
             }
             case TEST_SRC, TEST_OBJ -> {
-                classManager.setProduction(false);
-                classManager.setGenerated(false);
+                buildUnitManager.setProduction(false);
+                buildUnitManager.setGenerated(false);
             }
             case TEST_GEN_SRC -> {
-                classManager.setProduction(false);
-                classManager.setGenerated(true);
+                buildUnitManager.setProduction(false);
+                buildUnitManager.setGenerated(true);
             }
         }
     }

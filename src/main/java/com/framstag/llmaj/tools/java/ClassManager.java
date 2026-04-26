@@ -9,8 +9,6 @@ public class ClassManager {
     private static final Logger logger = LoggerFactory.getLogger(ClassManager.class);
 
     private final String qualifiedName;
-    private boolean isGenerated;
-    private boolean isProduction;
     private String documentation;
 
     private final List<Annotation> annotations;
@@ -22,29 +20,11 @@ public class ClassManager {
 
     public ClassManager(String qualifiedName) {
         this.qualifiedName = qualifiedName;
-        this.isGenerated = false;
-        this.isProduction = true;
         this.annotations = new LinkedList<>();
     }
 
     public String getQualifiedName() {
         return qualifiedName;
-    }
-
-    public boolean isGenerated() {
-        return isGenerated;
-    }
-
-    public void setGenerated(boolean generated) {
-        isGenerated = generated;
-    }
-
-    public boolean isProduction() {
-        return isProduction;
-    }
-
-    public void setProduction(boolean production) {
-        isProduction = production;
     }
 
     public String getDocumentation() {
