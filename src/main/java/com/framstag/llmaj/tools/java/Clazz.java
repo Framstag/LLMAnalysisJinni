@@ -17,7 +17,6 @@ public class Clazz {
     private final boolean production;
     private final boolean generated;
     private final String documentation;
-    private final List<String> imports;
     private final List<Annotation> annotations;
     private final List<Method> methods;
 
@@ -25,13 +24,11 @@ public class Clazz {
     public Clazz(@JsonProperty("qualifiedName") String qualifiedName,
                  @JsonProperty("production") boolean production,
                  @JsonProperty("generated") boolean generated,
-                 @JsonProperty("documentation") String documentation,
-                 @JsonProperty("imports") List<String> imports) {
+                 @JsonProperty("documentation") String documentation) {
         this.qualifiedName = qualifiedName;
         this.production = production;
         this.generated = generated;
         this.documentation = documentation;
-        this.imports = imports;
         annotations = new LinkedList<>();
         methods = new LinkedList<>();
     }
@@ -46,10 +43,6 @@ public class Clazz {
 
     public boolean isProduction() {
         return production;
-    }
-
-    public List<String> getImports() {
-        return imports;
     }
 
     public List<Annotation> getAnnotations() {

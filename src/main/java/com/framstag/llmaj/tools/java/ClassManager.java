@@ -13,8 +13,6 @@ public class ClassManager {
     private boolean isProduction;
     private String documentation;
 
-    private final Set<String> imports;
-
     private final List<Annotation> annotations;
 
     private final Map<String,Integer> countByName = new HashMap<>();
@@ -26,7 +24,6 @@ public class ClassManager {
         this.qualifiedName = qualifiedName;
         this.isGenerated = false;
         this.isProduction = true;
-        this.imports = new HashSet<>();
         this.annotations = new LinkedList<>();
     }
 
@@ -56,14 +53,6 @@ public class ClassManager {
 
     public void setDocumentation(String documentation) {
         this.documentation = documentation;
-    }
-
-    public List<String> getImports() {
-        return new ArrayList<>(imports);
-    }
-
-    public void addImports(Collection<String> imports) {
-        this.imports.addAll(imports);
     }
 
     public List<Annotation> getAnnotations() {

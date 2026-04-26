@@ -36,7 +36,6 @@ public class JavaTool {
     public JavaTool(AnalysisContext context) {
         this.context = context;
         logger.info("JavaTool initialized.");
-
     }
 
     private String moduleNameToReportName(String moduleName) {
@@ -110,16 +109,24 @@ public class JavaTool {
     }
 
     private static void dumpModuleToLog(Module module) {
-        logger.info(" === Packages, Classes & Methods");
+        logger.info(" === Packages, BuildUnits, Classes & Methods");
 
         for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
             logger.info("# {}", pck.getName());
 
-            for (Clazz clazz : pck.getClasses().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
-                logger.info("  * {} {} {}", clazz.getQualifiedName(), clazz.isProduction(), clazz.isGenerated());
+            for (BuildUnit buildUnit : pck.getBuildUnits()) {
+                logger.info("  - {}", buildUnit.getName());
 
-                for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
-                    logger.info("    - {} {}", (method.getDescriptor() != null) ? method.getDescriptor() : method.getName(), method.getCyclomaticComplexity());
+                for (String importDesc : buildUnit.getImports().stream().sorted().toList()) {
+                    logger.info("    <- {}", importDesc);
+                }
+
+                for (Clazz clazz : buildUnit.getClazzes().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                    logger.info("    * {} production={} generated={}", clazz.getQualifiedName(), clazz.isProduction(), clazz.isGenerated());
+
+                    for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
+                        logger.info("    - {} {}", (method.getDescriptor() != null) ? method.getDescriptor() : method.getName(), method.getCyclomaticComplexity());
+                    }
                 }
             }
         }
@@ -169,8 +176,8 @@ public class JavaTool {
     }
 
     private TypeSolver createTypeResolver(Path rootPath,
-                                            Map<String, String> properties,
-                                            List<SpecialSubdirectory> specialSubdirectories) throws IOException {
+                                          Map<String, String> properties,
+                                          List<SpecialSubdirectory> specialSubdirectories) throws IOException {
         CombinedTypeSolver typeSolver = new CombinedTypeSolver(
                 new ReflectionTypeSolver(false)
         );
@@ -194,8 +201,7 @@ public class JavaTool {
                                 System.err.println("Could not load JAR: " + jarPath + " — " + e.getMessage());
                             }
                         });
-            }
-            else {
+            } else {
                 logger.error("Not allowed to access '{}' ('{}')", jarDependenciesPath, rootPath);
 
             }
@@ -261,7 +267,7 @@ public class JavaTool {
 
         logger.info("{} *.java file(s) found", srcFiles.size());
 
-        TypeSolver typeSolver = createTypeResolver(rootPath, context.getProperties(),specialSubdirectories);
+        TypeSolver typeSolver = createTypeResolver(rootPath, context.getProperties(), specialSubdirectories);
 
         StaticJavaParser
                 .getParserConfiguration()
@@ -315,13 +321,15 @@ public class JavaTool {
         Map<Integer, Integer> prodDistribution = new HashMap<>();
 
         for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
-            for (Clazz clazz : pck.getClasses().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
-                if (clazz.isProduction() && !clazz.isGenerated()) {
-                    for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
-                        if (method.getCyclomaticComplexity() != null) {
-                            Integer currentCount = prodDistribution.getOrDefault(method.getCyclomaticComplexity(), 0);
-                            prodDistribution.put(method.getCyclomaticComplexity(), currentCount + 1);
+            for (BuildUnit buildUnit : pck.getBuildUnits()) {
+                for (Clazz clazz : buildUnit.getClazzes().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                    if (clazz.isProduction() && !clazz.isGenerated()) {
+                        for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
+                            if (method.getCyclomaticComplexity() != null) {
+                                Integer currentCount = prodDistribution.getOrDefault(method.getCyclomaticComplexity(), 0);
+                                prodDistribution.put(method.getCyclomaticComplexity(), currentCount + 1);
 
+                            }
                         }
                     }
                 }
@@ -337,13 +345,15 @@ public class JavaTool {
         Map<Integer, Integer> testDistribution = new HashMap<>();
 
         for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
-            for (Clazz clazz : pck.getClasses().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
-                if (!clazz.isProduction() && !clazz.isGenerated()) {
-                    for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
-                        if (method.getCyclomaticComplexity() != null) {
-                            Integer currentCount = testDistribution.getOrDefault(method.getCyclomaticComplexity(), 0);
-                            testDistribution.put(method.getCyclomaticComplexity(), currentCount + 1);
+            for (BuildUnit buildUnit : pck.getBuildUnits()) {
+                for (Clazz clazz : buildUnit.getClazzes().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                    if (!clazz.isProduction() && !clazz.isGenerated()) {
+                        for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
+                            if (method.getCyclomaticComplexity() != null) {
+                                Integer currentCount = testDistribution.getOrDefault(method.getCyclomaticComplexity(), 0);
+                                testDistribution.put(method.getCyclomaticComplexity(), currentCount + 1);
 
+                            }
                         }
                     }
                 }
@@ -360,13 +370,15 @@ public class JavaTool {
         Map<Integer, Integer> genDistribution = new HashMap<>();
 
         for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
-            for (Clazz clazz : pck.getClasses().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
-                if (clazz.isGenerated()) {
-                    for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
-                        if (method.getCyclomaticComplexity() != null) {
-                            Integer currentCount = genDistribution.getOrDefault(method.getCyclomaticComplexity(), 0);
-                            genDistribution.put(method.getCyclomaticComplexity(), currentCount + 1);
+            for (BuildUnit buildUnit : pck.getBuildUnits()) {
+                for (Clazz clazz : buildUnit.getClazzes().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                    if (clazz.isGenerated()) {
+                        for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
+                            if (method.getCyclomaticComplexity() != null) {
+                                Integer currentCount = genDistribution.getOrDefault(method.getCyclomaticComplexity(), 0);
+                                genDistribution.put(method.getCyclomaticComplexity(), currentCount + 1);
 
+                            }
                         }
                     }
                 }

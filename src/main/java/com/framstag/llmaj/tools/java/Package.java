@@ -9,23 +9,23 @@ import java.util.List;
 
 public class Package {
     private final String name;
-    private final List<Clazz> classes;
+    private final List<BuildUnit> buildUnits;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public Package(@JsonProperty("name")String name) {
         this.name = name;
-        this.classes = new LinkedList<>();
+        this.buildUnits = new LinkedList<>();
     }
 
     public String getName() {
         return name;
     }
 
-    public void addClass(Clazz clazz) {
-        classes.add(clazz);
+    public void addBuildUnit(BuildUnit buildUnit) {
+        buildUnits.add(buildUnit);
     }
 
-    public List<Clazz> getClasses() {
-        return Collections.unmodifiableList(classes);
+    public List<BuildUnit> getBuildUnits() {
+        return Collections.unmodifiableList(buildUnits);
     }
 }

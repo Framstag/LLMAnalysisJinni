@@ -1,6 +1,7 @@
 package com.framstag.llmaj.tools.java;
 
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -27,30 +28,37 @@ public class ModuleManager {
     public Module getModule() {
         Module module = new Module(name);
 
-        List<PackageManager> packages = getPackages();
-
-        for (PackageManager srcPck : packages) {
+        for (PackageManager srcPck : getPackages()) {
             Package pck = new Package(srcPck.getName());
-            List<ClassManager> srcPckClasses = srcPck.getClasses();
 
-            for (ClassManager srcClass : srcPckClasses) {
-                List<Method> srcClassMethods = srcClass.getMethods();
+            for (BuildUnitManager buildUnitManager : srcPck.getBuildUnits()) {
 
-                Clazz clazz = new Clazz(srcClass.getQualifiedName(),
-                        srcClass.isProduction(),
-                        srcClass.isGenerated(),
-                        srcClass.getDocumentation(),
-                        srcClass.getImports());
+                List<Clazz> clazzes = new LinkedList<>();
 
-                for (Annotation annotation : srcClass.getAnnotations()) {
-                    clazz.addAnnotation(annotation);
+                for (ClassManager srcClass : buildUnitManager.getClasses()) {
+                    List<Method> srcClassMethods = srcClass.getMethods();
+
+                    Clazz clazz = new Clazz(srcClass.getQualifiedName(),
+                            srcClass.isProduction(),
+                            srcClass.isGenerated(),
+                            srcClass.getDocumentation());
+
+                    for (Annotation annotation : srcClass.getAnnotations()) {
+                        clazz.addAnnotation(annotation);
+                    }
+
+                    for (Method method : srcClassMethods) {
+                        clazz.addMethod(method);
+                    }
+
+                    clazzes.add(clazz);
                 }
 
-                for (Method method : srcClassMethods) {
-                    clazz.addMethod(method);
-                }
+                BuildUnit buildUnit = new BuildUnit(buildUnitManager.getName(),
+                        buildUnitManager.getImports(),
+                        clazzes);
 
-                pck.addClass(clazz);
+                pck.addBuildUnit(buildUnit);
             }
 
             module.addPackage(pck);

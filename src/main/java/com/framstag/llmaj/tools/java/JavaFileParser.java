@@ -33,26 +33,36 @@ public class JavaFileParser {
                                       ModuleManager moduleManager,
                                       TypeSolver typeSolver) {
         try {
-            logger.info("Parsing java file '{}'...", srcFile);
+            logger.info("# Parsing java file '{}'...", srcFile);
 
             CompilationUnit cu = StaticJavaParser.parse(srcFile.toFile());
 
-            SubdirectoryCategory category = ParserHelper.getCategoryOfFile(specialSubdirectories, srcFile, SubdirectoryCategory.OBJ);
+            SubdirectoryCategory category = ParserHelper.getCategoryOfFile(specialSubdirectories,
+                    srcFile,
+                    SubdirectoryCategory.OBJ);
+
+            Optional<PackageDeclaration> packageDecl = cu.getPackageDeclaration();
+
+            String packageName = packageDecl.get().getNameAsString();
+
+            PackageManager pck = moduleManager.getOrAddPackageByName(packageName);
+            BuildUnitManager buildUnit = pck.getOrAddBuildUnitByName(cu.getPrimaryType().get().getFullyQualifiedName().get());
+
+            logger.info("Package: {}",pck.getName());
+            logger.info("BuildUnit: {}",buildUnit.getName());
+
+            buildUnit.addImports(getCompilationUnitImports(cu, typeSolver));
 
             for (ClassOrInterfaceDeclaration type : cu.findAll(ClassOrInterfaceDeclaration.class)) {
                 if (type.getFullyQualifiedName().isPresent()) {
-                    String packageName = getPackageName(type);
                     String qualifiedName = getClassFileName(type);
-                    logger.info("Type: {} - {}", packageName, qualifiedName);
+                    ClassManager classManager = buildUnit.getOrAddClassByName(qualifiedName);
 
-                    PackageManager pck = moduleManager.getOrAddPackageByName(packageName);
-                    ClassManager classManager = pck.getOrAddClassByName(qualifiedName);
+                    logger.info("Type: {}",classManager.getQualifiedName());
 
                     type.getComment().ifPresent(comment -> classManager.setDocumentation(comment.getContent()));
 
                     ParserHelper.modifyClassAttributesByCategory(classManager, category);
-
-                    classManager.addImports(getCompilationUnitImports(cu, typeSolver));
 
                     for (AnnotationExpr annotation : type.getAnnotations()) {
                         String annotationName = annotation.getName().asString();
@@ -118,6 +128,8 @@ public class JavaFileParser {
                             } catch (UnsolvedSymbolException e) {
                                 // Is expected and ignored
                             }
+
+                            method.addAnnotation(new Annotation(annotationName, qualifiedAnnotationName));
 
                         }
 

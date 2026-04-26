@@ -23,22 +23,36 @@ import static java.util.stream.Collectors.toSet;
 public class ClassFileParser {
     private static final Logger logger = LoggerFactory.getLogger(ClassFileParser.class);
 
+    private static String getBuildUnitName(String qualifiedName) {
+        int dollarPos = qualifiedName.lastIndexOf("$");
+
+        if (dollarPos >= 0) {
+            return qualifiedName.substring(0, dollarPos);
+        }
+        else {
+            return qualifiedName;
+        }
+    }
+
     public static void parseClassFile(Path classFile,
                                        List<SpecialSubdirectory> specialSubdirectories,
                                        ModuleManager moduleManager) {
         try {
-            logger.info("Parsing class file '{}'...", classFile);
+            logger.info("# Parsing class file '{}'...", classFile);
             ClassModel classModel = ClassFile.of().parse(classFile);
             String packageName = classModel.thisClass().asSymbol().packageName();
             String qualifiedName = classModel.thisClass().asSymbol().packageName()+"."+
                     classModel.thisClass().asSymbol().displayName();
 
-            logger.info("Type: {} - {}",packageName, qualifiedName);
-
             SubdirectoryCategory category = getCategoryOfFile(specialSubdirectories,classFile,SubdirectoryCategory.SRC);
 
             PackageManager pck = moduleManager.getOrAddPackageByName(packageName);
-            ClassManager classManager = pck.getOrAddClassByName(qualifiedName);
+            BuildUnitManager buildUnit = pck.getOrAddBuildUnitByName(getBuildUnitName(qualifiedName));
+            ClassManager classManager = buildUnit.getOrAddClassByName(qualifiedName);
+
+            logger.info("Package: {}",pck.getName());
+            logger.info("BuildUnit: {}",buildUnit.getName());
+            logger.info("Type: {}",classManager.getQualifiedName());
 
             ParserHelper.modifyClassAttributesByCategory(classManager,category);
 
@@ -53,7 +67,7 @@ public class ClassFileParser {
                 logger.debug("Implements {}", interf.asInternalName());
             }
 
-            classManager.addImports(getClassModelImports(classModel));
+            buildUnit.addImports(getClassModelImports(classModel));
 
             for (MethodModel methodModel : classModel.methods()) {
 

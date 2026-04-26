@@ -6,7 +6,7 @@ import java.util.Map;
 
 public class PackageManager {
     private final String name;
-    Map<String, ClassManager> classesByName = new HashMap<>();
+    Map<String, BuildUnitManager> buildUnitsByName = new HashMap<>();
 
     public PackageManager(String name) {
         this.name = name;
@@ -16,11 +16,11 @@ public class PackageManager {
         return name;
     }
 
-    public ClassManager getOrAddClassByName(String name) {
-        return classesByName.computeIfAbsent(name, ClassManager::new);
+    public BuildUnitManager getOrAddBuildUnitByName(String name) {
+        return buildUnitsByName.computeIfAbsent(name, BuildUnitManager::new);
     }
 
-    public List<ClassManager> getClasses() {
-        return classesByName.values().stream().toList();
+    public List<BuildUnitManager> getBuildUnits() {
+        return buildUnitsByName.values().stream().toList();
     }
 }
