@@ -43,9 +43,25 @@ public class JavaFileParser {
 
             Optional<PackageDeclaration> packageDecl = cu.getPackageDeclaration();
 
+            if (packageDecl.isEmpty()) {
+                logger.error("Cannot parse package information from file '{}'", srcFile);
+                return;
+            }
+
             String packageName = packageDecl.get().getNameAsString();
 
             PackageManager pck = moduleManager.getOrAddPackageByName(packageName);
+
+            if (cu.getPrimaryType().isEmpty()) {
+                logger.error("Cannot extract primary type from  file '{}'", srcFile);
+                return;
+            }
+
+            if (cu.getPrimaryType().get().getFullyQualifiedName().isEmpty()) {
+                logger.error("Cannot extract primary type name from  file '{}'", srcFile);
+                return;
+            }
+
             BuildUnitManager buildUnit = pck.getOrAddBuildUnitByName(cu.getPrimaryType().get().getFullyQualifiedName().get());
 
             logger.info("Package: {}",pck.getName());
@@ -56,15 +72,74 @@ public class JavaFileParser {
             buildUnit.addImports(getCompilationUnitImports(cu, typeSolver));
 
             for (ClassOrInterfaceDeclaration type : cu.findAll(ClassOrInterfaceDeclaration.class)) {
-                if (type.getFullyQualifiedName().isPresent()) {
-                    String qualifiedName = getClassFileName(type);
-                    ClassManager classManager = buildUnit.getOrAddClassByName(qualifiedName);
+                if (type.getFullyQualifiedName().isEmpty()) {
+                    logger.error("Cannot extract fully qualified name from type '{}'", type);
+                    continue;
+                }
 
-                    logger.info("Type: {}",classManager.getQualifiedName());
+                String qualifiedName = getClassFileName(type);
+                ClassManager classManager = buildUnit.getOrAddClassByName(qualifiedName);
 
-                    type.getComment().ifPresent(comment -> classManager.setDocumentation(comment.getContent()));
+                logger.info("Type: {}",classManager.getQualifiedName());
 
-                    for (AnnotationExpr annotation : type.getAnnotations()) {
+                type.getComment().ifPresent(comment -> classManager.setDocumentation(comment.getContent()));
+
+                for (AnnotationExpr annotation : type.getAnnotations()) {
+                    String annotationName = annotation.getName().asString();
+                    String qualifiedAnnotationName = null;
+
+                    try {
+                        qualifiedAnnotationName = annotation.resolve().getQualifiedName();
+                    } catch (UnsolvedSymbolException e) {
+                        // Is expected and ignored
+                    }
+
+                    classManager.addAnnotation(new Annotation(annotationName, qualifiedAnnotationName));
+                }
+
+                List<MethodDeclaration> methods = type.getMethods();
+
+                for (MethodDeclaration methodDeclaration : methods) {
+                    ResolvedMethodDeclaration resolvedMethod = methodDeclaration.resolve();
+
+                    String methodName = resolvedMethod.getName();
+                    String methodDescriptor;
+
+                    try {
+                        methodDescriptor = resolvedMethod.getName() + resolvedMethod.toDescriptor();
+                    } catch (UnsolvedSymbolException e) {
+                        logger.debug("Cannot resolve Method API with class '{}' as parameter type", e.getName());
+                        methodDescriptor = null;
+                    }
+
+                    if (methodDeclaration.isAbstract()) {
+                        logger.debug("Skipping abstract method: '{}' / '{}'", methodName, methodDescriptor);
+                        continue;
+                    }
+
+                    if (methodDeclaration.getBody().isEmpty() ||
+                            methodDeclaration.getBody().get().getStatements().isEmpty()) {
+                        logger.debug("Skipping method without body: '{}' / '{}'", methodName, methodDescriptor);
+                        continue;
+                    }
+
+                    logger.debug("Method: {} / {}",
+                            methodName,
+                            methodDescriptor);
+
+                    Method method = classManager.getOrAddMethodHeuristic(methodName, methodDescriptor);
+
+                    if (method == null) {
+                        logger.warn("Method '{}' for class '{}' is overloaded, but we do not have a descriptor for differentiation, skipping...",
+                                methodName,
+                                qualifiedName);
+
+                        continue;
+                    }
+
+                    methodDeclaration.getComment().ifPresent(comment -> method.setDocumentation(comment.getContent()));
+
+                    for (AnnotationExpr annotation : methodDeclaration.getAnnotations()) {
                         String annotationName = annotation.getName().asString();
                         String qualifiedAnnotationName = null;
 
@@ -74,94 +149,38 @@ public class JavaFileParser {
                             // Is expected and ignored
                         }
 
-                        classManager.addAnnotation(new Annotation(annotationName, qualifiedAnnotationName));
+                        method.addAnnotation(new Annotation(annotationName, qualifiedAnnotationName));
+
                     }
 
-                    List<MethodDeclaration> methods = type.getMethods();
+                    // All elements that create multiple executions paths
+                    List<CatchClause> catchClause = methodDeclaration.findAll(CatchClause.class);
+                    List<ConditionalExpr> ternaryExpr = methodDeclaration.findAll(ConditionalExpr.class);
+                    List<DoStmt> doStmts = methodDeclaration.findAll(DoStmt.class);
+                    List<ForStmt> forStmts = methodDeclaration.findAll(ForStmt.class);
+                    List<IfStmt> ifStmts = methodDeclaration.findAll(IfStmt.class);
+                    List<SwitchEntry> switchEntrys = methodDeclaration.findAll(SwitchEntry.class).stream().
+                            filter(s -> !s.isDefault())
+                            .toList();
+                    List<WhileStmt> whileStmts = methodDeclaration.findAll(WhileStmt.class);
 
-                    for (MethodDeclaration methodDeclaration : methods) {
-                        ResolvedMethodDeclaration resolvedMethod = methodDeclaration.resolve();
+                    List<BinaryExpr> andExprs = methodDeclaration.findAll(BinaryExpr.class).stream().
+                            filter(f -> f.getOperator() == AND).toList();
+                    List<BinaryExpr> orExprs = methodDeclaration.findAll(BinaryExpr.class).stream().
+                            filter(f -> f.getOperator() == OR).toList();
 
-                        String methodName = resolvedMethod.getName();
-                        String methodDescriptor;
+                    Integer cyclomaticComplexity = catchClause.size() +
+                            ternaryExpr.size() +
+                            doStmts.size() +
+                            forStmts.size() +
+                            ifStmts.size() +
+                            switchEntrys.size() +
+                            whileStmts.size() +
+                            andExprs.size() +
+                            orExprs.size() +
+                            1;
 
-                        try {
-                            methodDescriptor = resolvedMethod.getName() + resolvedMethod.toDescriptor();
-                        } catch (UnsolvedSymbolException e) {
-                            logger.debug("Cannot resolve Method API with class '{}' as parameter type", e.getName());
-                            methodDescriptor = null;
-                        }
-
-                        if (methodDeclaration.isAbstract()) {
-                            logger.debug("Skipping abstract method: '{}' / '{}'", methodName, methodDescriptor);
-                            continue;
-                        }
-
-                        if (methodDeclaration.getBody().isEmpty() ||
-                                methodDeclaration.getBody().get().getStatements().isEmpty()) {
-                            logger.debug("Skipping method without body: '{}' / '{}'", methodName, methodDescriptor);
-                            continue;
-                        }
-
-                        logger.debug("Method: {} / {}",
-                                methodName,
-                                methodDescriptor);
-
-                        Method method = classManager.getOrAddMethodHeuristic(methodName, methodDescriptor);
-
-                        if (method == null) {
-                            logger.warn("Method '{}' for class '{}' is overloaded, but we do not have a descriptor for differentiation, skipping...",
-                                    methodName,
-                                    qualifiedName);
-
-                            continue;
-                        }
-
-                        methodDeclaration.getComment().ifPresent(comment -> method.setDocumentation(comment.getContent()));
-
-                        for (AnnotationExpr annotation : methodDeclaration.getAnnotations()) {
-                            String annotationName = annotation.getName().asString();
-                            String qualifiedAnnotationName = null;
-
-                            try {
-                                qualifiedAnnotationName = annotation.resolve().getQualifiedName();
-                            } catch (UnsolvedSymbolException e) {
-                                // Is expected and ignored
-                            }
-
-                            method.addAnnotation(new Annotation(annotationName, qualifiedAnnotationName));
-
-                        }
-
-                        // All elements that create multiple executions paths
-                        List<CatchClause> catchClause = methodDeclaration.findAll(CatchClause.class);
-                        List<ConditionalExpr> ternaryExpr = methodDeclaration.findAll(ConditionalExpr.class);
-                        List<DoStmt> doStmts = methodDeclaration.findAll(DoStmt.class);
-                        List<ForStmt> forStmts = methodDeclaration.findAll(ForStmt.class);
-                        List<IfStmt> ifStmts = methodDeclaration.findAll(IfStmt.class);
-                        List<SwitchEntry> switchEntrys = methodDeclaration.findAll(SwitchEntry.class).stream().
-                                filter(s -> !s.isDefault())
-                                .toList();
-                        List<WhileStmt> whileStmts = methodDeclaration.findAll(WhileStmt.class);
-
-                        List<BinaryExpr> andExprs = methodDeclaration.findAll(BinaryExpr.class).stream().
-                                filter(f -> f.getOperator() == AND).toList();
-                        List<BinaryExpr> orExprs = methodDeclaration.findAll(BinaryExpr.class).stream().
-                                filter(f -> f.getOperator() == OR).toList();
-
-                        Integer cyclomaticComplexity = catchClause.size() +
-                                ternaryExpr.size() +
-                                doStmts.size() +
-                                forStmts.size() +
-                                ifStmts.size() +
-                                switchEntrys.size() +
-                                whileStmts.size() +
-                                andExprs.size() +
-                                orExprs.size() +
-                                1;
-
-                        method.setCyclomaticComplexity(cyclomaticComplexity);
-                    }
+                    method.setCyclomaticComplexity(cyclomaticComplexity);
                 }
             }
         } catch (Exception e) {
