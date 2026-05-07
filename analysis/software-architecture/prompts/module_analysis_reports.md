@@ -18,9 +18,9 @@
 {{#if programmingLanguages.programmingLanguages.length}}
 ## Solution strategy
 
-* If one of the programming languages is 'Java', call the 'JavaGenerateModuleAnalysisReport' tool.
+* If one of the programming languages is 'Java', call the 'java_generate_module_analysis_report' tool.
 * If there is no matching analysis tool for a detected programming language, just skip this language and continue with the next in the list.
-* If no programming language was found to analyse, just return an empty array of reports.
+* If no programming language was found to analyze, just return an empty array of reports.
 
 ## Hints
 {{~else~}}

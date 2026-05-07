@@ -19,8 +19,10 @@ public class Clazz {
     private final List<Method> methods;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-    public Clazz(@JsonProperty("qualifiedName") String qualifiedName,
-                 @JsonProperty("documentation") String documentation) {
+    public Clazz(@JsonProperty("qualifiedName")
+                 String qualifiedName,
+                 @JsonProperty("documentation")
+                 String documentation) {
         this.qualifiedName = qualifiedName;
         this.documentation = documentation;
         annotations = new LinkedList<>();

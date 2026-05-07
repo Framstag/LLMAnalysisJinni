@@ -1,7 +1,7 @@
 ## Current Goal
 
 * Most applications have some kind of README containing project information in the root directory
-of the project. I want you to locate this README and return it file name to me.
+of the project. I want you to locate this README and return its file name to me.
 
 ## Solution strategy
 
@@ -10,4 +10,4 @@ of the project. I want you to locate this README and return it file name to me.
 
 ## Hints
 
-* You can call the 'GetAllFilesInDir' tool function to scan for READMEs in the root directory ("").
+* You can call the 'filesystem_get_all_files_in_dir' tool function to scan for READMEs in the root directory ("").

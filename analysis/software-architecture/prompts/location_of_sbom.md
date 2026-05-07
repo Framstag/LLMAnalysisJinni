@@ -9,11 +9,11 @@ We want to identify this file below the project directory.
 
 ## Solution strategy
 
-* Locate the SBOM using a call to the 'GetMatchingFilesInDirRecursively' Tool.
+* Locate the SBOM using a call to the 'filesystem_get_matching_files_in_dir_recursively' Tool.
 * If no SBOM was found, state so in the response.
 
 ## Hints
 
 * We expect the SBOM to be placed somewhere in the project directory.
-* You can search for possible candidates yourself using the 'GetMatchingFilesInDirRecursively' tool passing all possible wildcards.
+* You can search for possible candidates yourself using the 'filesystem_get_matching_files_in_dir_recursively' tool passing all possible wildcards.
 * Select the best match, based on directory and file names.

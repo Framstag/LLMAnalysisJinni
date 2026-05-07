@@ -6,8 +6,6 @@
 
 ## Facts
 
-{{> macros/list_of_modules.md}}
-
 {{#with (lookup modules.modules loopIndex)}}
 {{> macros/current_loop_module.md}}
 {{> macros/programming_languages_for_module.md}}
@@ -16,7 +14,7 @@
 ## Solution strategy
 
 * If one of the programming languages is 'Java', call
-  the 'GetCyclomaticComplexityModuleReport' tool.
+  the 'java_get_cyclomatic_complexity_module_report' tool with the module name as parameter.
 * Evaluate the result in relation to common architecture guidelines.
 * This should include:
   * The value range regarding the cyclomatic complexity.

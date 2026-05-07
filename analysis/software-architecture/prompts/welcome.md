@@ -1,13 +1,8 @@
 ## Context
 
-Hello :-)
+Just some initial sanity check.
 
 ## Solution Strategy
 
-* To Check that everything works, please use the given 'ToolsVersion' tool to state the version
-  of the tools.
+* Call the 'info_get_version' tool and return the current version.
 
-## Hints
-
-* If you have successfully called the function, just return the version.
-* Afterward, wait for further instructions.

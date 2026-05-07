@@ -4,7 +4,6 @@ import com.framstag.llmaj.AnalysisContext;
 import de.siegmar.fastcsv.writer.CsvWriter;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
-import org.cyclonedx.exception.ParseException;
 import org.cyclonedx.model.*;
 import org.cyclonedx.parsers.JsonParser;
 import org.slf4j.Logger;
@@ -142,7 +141,7 @@ public class SBOMTool {
         logger.info("SBOMTool initialized.");
     }
 
-    @Tool(name = "SBOMIsAlreadyLoaded",
+    @Tool(name = "sbom_is_already_loaded",
             value =
                     """
                     Returns 'true' if a SBOM was already loaded. Else returns 'false'.
@@ -166,7 +165,7 @@ public class SBOMTool {
         return result;
     }
 
-    @Tool(name="LoadSBOMFromFile",
+    @Tool(name="sbom_load_from_file",
             value =
             """
                 Loads the SBOM file with the given filename.
@@ -175,31 +174,33 @@ public class SBOMTool {
     public String loadSBOM(@P("SBOM filename") String filename) {
         logger.info("## LoadSBOMFromFile('{}')", filename);
 
-        File file = context.getProjectRoot().resolve(filename).toFile();
+        Path absoluteFilename = context.getProjectRoot().resolve(filename);
+        File file = absoluteFilename.toFile();
 
         if (!file.exists()) {
-            logger.error("## LoadSBOMFromFile() => File '{}' does not exist", filename);
+            logger.error("## LoadSBOMFromFile() => File '{}' does not exist", absoluteFilename);
 
             return "Error";
         }
-
-        var parser = new JsonParser();
 
         try {
-            logger.info("## LoadSBOMFromFile() loading '{}'...", filename);
+            logger.info("Loading '{}'...", absoluteFilename);
+            var parser = new JsonParser();
+
             bom = parser.parse(file);
-        } catch (ParseException e) {
-            logger.error("## LoadSBOMFromFile() => Failed to parse SBOM file '{}'", filename, e);
+            logger.info("done.");
+        } catch (Exception e) {
+            logger.error("=> Failed to parse SBOM file '{}'", filename, e);
 
             return "Error";
         }
 
-        logger.info("## LoadSBOMFromFile() => 'OK'");
+        logger.info("## => 'OK'");
 
         return "OK";
     }
 
-    @Tool(name="SBOMApplicationInfo",
+    @Tool(name="sbom_get_application_info",
             value =
                     """
                     Return the application name as stored in the SBOM from the loaded SBOM file.
@@ -215,7 +216,7 @@ public class SBOMTool {
         return component.getName()+" in version "+ component.getVersion();
     }
 
-    @Tool(name="SBOMApplicationDependencyLicences",
+    @Tool(name="sbom_get_dependencies_licenses",
             value =
                     """
                     Return the various licences the application dependencies use.
@@ -228,7 +229,7 @@ public class SBOMTool {
         return getLicenses();
     }
 
-    @Tool(name="SBOMApplicationDependencies",
+    @Tool(name="sbom_get_application_dependencies",
             value =
                     """
                     Return all direct dependencies of the application from the loaded SBOM file.
@@ -272,7 +273,7 @@ public class SBOMTool {
                 .collect(Collectors.toList());
     }
 
-    @Tool(name="SBOMWriteLicenseReports",
+    @Tool(name="sbom_write_license_reports",
             value =
                     """
                     Write various reports regarding used licenses.

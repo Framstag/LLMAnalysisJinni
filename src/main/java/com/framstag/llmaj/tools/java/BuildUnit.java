@@ -1,5 +1,8 @@
 package com.framstag.llmaj.tools.java;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -10,10 +13,16 @@ public class BuildUnit {
     private final List<String> imports;
     private final List<Clazz> clazzes;
 
-    public BuildUnit(String name,
+    @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+    public BuildUnit(@JsonProperty("name")
+                     String name,
+                     @JsonProperty("production")
                      boolean production,
+                     @JsonProperty("generated")
                      boolean generated,
+                     @JsonProperty("imports")
                      List<String> imports,
+                     @JsonProperty("classes")
                      List<Clazz> classesByName) {
         this.name = name;
         this.production = production;

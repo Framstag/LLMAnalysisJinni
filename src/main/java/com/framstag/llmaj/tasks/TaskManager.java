@@ -1,6 +1,5 @@
 package com.framstag.llmaj.tasks;
 
-import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.framstag.llmaj.json.ObjectMapperFactory;
 import com.networknt.schema.*;
@@ -10,6 +9,7 @@ import com.networknt.schema.serialization.DefaultNodeReader;
 import com.networknt.schema.utils.JsonNodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.core.TokenStreamLocation;
 
 import java.io.File;
 import java.io.IOException;
@@ -197,7 +197,7 @@ public class TaskManager {
                 if (!errors.isEmpty()) {
                     logger.error("There were errors in the response schema at '{}'", responseSchemaPath);
                     for (Error error : errors) {
-                        JsonLocation location = JsonNodes.tokenStreamLocationOf(error.getInstanceNode());
+                        TokenStreamLocation location = JsonNodes.tokenStreamLocationOf(error.getInstanceNode());
 
                         logger.error("ERROR: {},{}: {}", location.getLineNr(),location.getColumnNr(),error.getMessage());
                     }

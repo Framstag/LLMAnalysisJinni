@@ -26,7 +26,7 @@ public class FileStatisticsTool {
 
     }
 
-    @Tool(name = "GetStatisticsForMatchingFilesInDirRecursively",
+    @Tool(name = "filestatistics_matching_files_in_dir_recursively",
             value =
                     """
                             Returns file statistics for each passed wildcard.

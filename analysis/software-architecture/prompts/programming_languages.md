@@ -25,9 +25,7 @@
 
 ## Hints
 
-* If you decide to look for programming language usage, you must call the "FileCountPerFileTypeAndDirectory" tool for the source directory (if defined by the build system) or the build module path. In that case you should deduct which programming languages are used in this module.
+* If you decide to look for programming language usage, you must call the 'filesystem_count_per_filetype_and_directory' tool for the source directory (if defined by the build system) or the build module path. In that case you should deduct which programming languages are used in this module.
 * It may be possible that modules do not hold any source code, but it is only a build submodule that creates other artifacts or uses programming languages unknown to us.
-* Do not try to read individual files at this point!
-* Do not use any other tool!
 * You must only return clean JSON content without any prefix or postfix!
 * If a version cannot be determined, leave the version in the response empty.

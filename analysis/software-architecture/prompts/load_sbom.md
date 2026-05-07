@@ -12,4 +12,4 @@ The path of the SBOM file is '{{sbom.path}}'.
 
 ## Hints
 
-* Load the located SBOM using the 'LoadSBOMFromFile' tool.
+* Load the located SBOM using the 'sbom_load_from_file' tool.

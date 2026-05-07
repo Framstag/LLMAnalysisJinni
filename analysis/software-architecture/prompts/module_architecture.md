@@ -35,7 +35,7 @@ The purpose of this build module is: "{{purpose}}"
 * If there are multiple modules and the current module path is the root module, assume that it does not have sources and respond without gathering this information.
 * If this is the root module, and it is the only module of the project, scan the build module directory root for files typical for a programming language.
 * If it is not the root module, scan the build module directory root for files typical for the used programming language.
-* Use the "GetMatchingFilesInDirRecursively" Tool to scan the module directory.
+* Use the 'filesystem_get_matching_files_in_dir_recursively' Tool to scan the module directory.
 * Call it either for the source directory, if defined by the build system, or the module directory, if not.
 * Analyse the architecture of the module based on the file names and their structure.
 * Return the architecture description of the module.

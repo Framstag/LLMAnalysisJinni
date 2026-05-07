@@ -14,8 +14,10 @@ public class Method {
     private Integer cyclomaticComplexity;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-    public Method(@JsonProperty("name")String name,
-                  @JsonProperty("descriptor")String descriptor) {
+    public Method(@JsonProperty("name")
+                  String name,
+                  @JsonProperty("descriptor")
+                  String descriptor) {
         this.name = name;
         this.descriptor = descriptor;
         this.annotations = new LinkedList<>();

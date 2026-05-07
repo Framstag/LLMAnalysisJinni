@@ -12,7 +12,7 @@ The project name is: "{{project.name}}"
 
 ## Solution strategy
 
-* Use the "GetMatchingFilesInDirRecursively" tool using the wildcards for the used build tools to scan the project directory for
+* Use the 'filesystem_get_matching_files_in_dir_recursively' tool using the wildcards for the used build tools to scan the project directory for
 source code modules by searching for the relevant build system files.
 * From the location of these files deduct the individual build modules directory root.
 * Build files may be positioned not only in the module root, but optionally also in subdirectories. Make sure you still list  

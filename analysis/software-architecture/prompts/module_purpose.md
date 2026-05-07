@@ -29,7 +29,7 @@ From the README we have extracted the following general project description:
 * If there are multiple modules and the current module path is the root module, assume that it does not have sources and do not look for programming languages and respond without gathering this information.
 * If this is the root module, and it is the only module of the project, scan the build module directory root for files typical for a programming language.
 * If it is not the root module, scan the build module directory root for files typical for a programming language.
-* Use the "GetMatchingFilesInDirRecursively" Tool to scan the module directory. 
+* Use the 'filesystem_get_matching_files_in_dir_recursively' Tool to scan the module directory. 
 * Call it either for the source directory, if defined by the build system, or for the module directory, if not.
 * Analyze the purpose of the module based on the file names and their structure.
 * Return the purpose of the module.

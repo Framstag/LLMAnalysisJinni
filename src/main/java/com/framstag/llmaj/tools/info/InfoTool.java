@@ -15,11 +15,11 @@ public class InfoTool {
         logger.info("InfoTool initialized.");
     }
 
-    @Tool(name = "ToolsVersion", value = "Returns the version of the tools")
+    @Tool(name = "info_get_version", value = "Returns the version of the tools")
     public String getVersion() {
-        logger.info("## ToolsVersion()");
+        logger.info("## getVersion()");
 
-        logger.info("## ToolsVersion() => '{}'", context.getVersion());
+        logger.info("## getVersion() => '{}'", context.getVersion());
         return context.getVersion();
     }
 }

@@ -108,33 +108,33 @@
         <dependency>
             <groupId>org.cyclonedx</groupId>
             <artifactId>cyclonedx-core-java</artifactId>
-            <version>12.1.0</version>
+            <version>12.2.0</version>
         </dependency>
 
         <!-- Text templating -->
         <dependency>
             <groupId>com.github.jknack</groupId>
             <artifactId>handlebars</artifactId>
-            <version>4.5.0</version>
+            <version>4.5.1</version>
         </dependency>
 
         <!-- Reading/writing YAMLs -->
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-yaml</artifactId>
-            <version>2.21.2</version>
+            <version>2.21.3</version>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
-            <version>2.21.2</version>
+            <version>2.21.3</version>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jdk8</artifactId>
-            <version>2.21.2</version>
+            <version>2.21.3</version>
         </dependency>
 
         <!-- JSON Schema validation -->
@@ -142,7 +142,7 @@
         <dependency>
             <groupId>com.networknt</groupId>
             <artifactId>json-schema-validator</artifactId>
-            <version>2.0.1</version>
+            <version>3.0.2</version>
         </dependency>
 
         <!-- Parsing Java code -->
@@ -150,7 +150,7 @@
         <dependency>
             <groupId>com.github.javaparser</groupId>
             <artifactId>javaparser-symbol-solver-core</artifactId>
-            <version>3.28.0</version>
+            <version>3.28.1</version>
         </dependency>
 
         <!-- Reading and *writing* CSV files -->

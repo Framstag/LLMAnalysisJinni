@@ -224,7 +224,7 @@ public class JavaTool {
         return typeSolver;
     }
 
-    @Tool(name = "JavaGenerateModuleAnalysisReport",
+    @Tool(name = "java_generate_module_analysis_report",
             value =
                     """
                             Generates a report file containing raw data for further detailed architecture analysis.
@@ -307,14 +307,19 @@ public class JavaTool {
         return validatedList;
     }
 
-    @Tool(name = "GetCyclomaticComplexityModuleReport",
+    @Tool(name = "java_get_cyclomatic_complexity_module_report",
             value =
                     """
                             Returns a report regarding the cyclomatic complexity of the module.
                             """)
-    public List<Distribution> getCyclomaticComplexityModuleReport(@P("The name of the module")
+    public List<Distribution> getCyclomaticComplexityModuleReport(@P("The name of the module to analyse")
                                                                   String moduleName) throws IOException {
         logger.info("## GetCyclomaticComplexityModuleReport('{}')", moduleName);
+
+        if (moduleName == null || moduleName.isEmpty()) {
+            logger.warn("No module name given");
+            return List.of();
+        }
 
         Module module = getModuleReport(moduleName);
 

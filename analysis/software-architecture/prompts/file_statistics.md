@@ -20,7 +20,7 @@
 
 ## Solution strategy
 
-* Use the 'GetStatisticsForMatchingFilesInDirRecursively' tool to gather some basic statistics for each build module.
+* Use the 'filestatistics_matching_files_in_dir_recursively' tool to gather some basic statistics for each build module.
 
 ## Hints
 

@@ -41,11 +41,11 @@ For Maven and Java typical subdirectories (relative to the module) are:
 
 * For each programming language used in the current module, scan the files in the module reading source and build product files.
 * If no known programming language is used in the current module, skip the analysis and return an empty list of directories.
-* Use only calls of the 'FileCountPerFileTypeAndDirectory' tool for this task with appropriate wildcards for each src or build artifact.
+* Use only calls of the 'filesystem_count_per_filetype_and_directory' tool for this task with appropriate wildcards for each src or build artifact.
 * Cluster the results to one or more subdirectories.
-* Do not expect a specific directory structure in the calls to 'FileCountPerFileTypeAndDirectory', though.
-  So always scan for files with the module root as the first parameter of 'FileCountPerFileTypeAndDirectory'.
-  A possible call thus could be 'FileCountPerFileTypeAndDirectory("",["*.java])'.
+* Do not expect a specific directory structure in the calls to 'filesystem_count_per_filetype_and_directory', though.
+  So always scan for files with the module root as the first parameter of 'filesystem_count_per_filetype_and_directory'.
+  A possible call thus could be 'filesystem_count_per_filetype_and_directory("",["*.java])'.
 * Assign one of the given category ids to each subdirectory found.
 * Return the path *relative* to the module root for each directory identified.
 
@@ -54,7 +54,7 @@ For Maven and Java typical subdirectories (relative to the module) are:
 * A relevant subdirectory in this context is a directory that bundles a number of files in the same category.
   It bundles, for example, all production code possibly modularized into multiple packages.
 * It does not contain directories that replicate language-specific package structures.
-* Do not use path expression in the wildcards parameter of 'FileCountPerFileTypeAndDirectory'.
+* Do not use path expression in the wildcards parameter of 'filesystem_count_per_filetype_and_directory'.
 * To keep the search fast, look only for wildcards for programming languages that are actually used in the to be analyzed module.
 * Return the path relative to the module root.
 {{else}}
@@ -63,4 +63,3 @@ For Maven and Java typical subdirectories (relative to the module) are:
 * Since no supported programming languages are found, just return an empty array without further actions.
 {{/if}}
 {{/with}}
-

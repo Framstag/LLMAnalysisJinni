@@ -21,4 +21,4 @@
 ## Hints
 
 * Do only analyze the files belonging to the detected build systems. Do not analyze further files loaded from the build system but which are not part of the build system but belong to quality tools or similar that are triggered by the build system.
-* Make sure that files you try to load actually exist by checking the directory before or by using the 'DoesFileExist' tool.
+* Make sure that files you try to load actually exist by checking the directory before or by using the 'filesystem_file_exists' tool.

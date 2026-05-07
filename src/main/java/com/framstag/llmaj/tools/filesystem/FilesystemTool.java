@@ -1,4 +1,4 @@
-package com.framstag.llmaj.tools.file;
+package com.framstag.llmaj.tools.filesystem;
 
 import com.framstag.llmaj.AnalysisContext;
 import com.framstag.llmaj.file.FileHelper;
@@ -16,17 +16,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static java.nio.file.FileVisitResult.CONTINUE;
 import static java.nio.file.FileVisitResult.SKIP_SUBTREE;
 
-public class FileTool {
-    private static final Logger logger = LoggerFactory.getLogger(FileTool.class);
+public class FilesystemTool {
+    private static final Logger logger = LoggerFactory.getLogger(FilesystemTool.class);
 
     private final AnalysisContext context;
 
-    public FileTool(AnalysisContext context) {
+    public FilesystemTool(AnalysisContext context) {
         this.context = context;
         logger.info("FileTool initialized.");
     }
 
-    @Tool(name = "GetAllFilesInDir",
+    @Tool(name = "filesystem_get_all_files_in_dir",
             value =
                     """
                         Returns a list of files in the given sub directory.
@@ -127,7 +127,7 @@ public class FileTool {
                 .toList();
     }
 
-    @Tool(name = "GetMatchingFilesInDirRecursively",
+    @Tool(name = "filesystem_get_matching_files_in_dir_recursively",
             value =
                     """
                         Returns a list of files in the given sub directory and recursively all of its sub directories
@@ -248,7 +248,7 @@ public class FileTool {
         return matchingFilesCount.get();
     }
 
-    @Tool(name = "DoesFileExist",
+    @Tool(name = "filesystem_file_exists",
             value =
                     """
                         Returns 'true' if the given filename exists. Else returns 'false'.
@@ -329,7 +329,7 @@ public class FileTool {
 
     }
 
-    @Tool(name = "FileCountPerFileTypeAndDirectory",
+    @Tool(name = "filesystem_count_per_filetype_and_directory",
             value =
                     """
                        Returns the number of files per wildcard and scanned directory
@@ -378,38 +378,5 @@ public class FileTool {
                         entry.getValue()))
                 .toList();
 
-    }
-
-    @Tool(name = "ReadFile",
-            value =
-                    """
-                        Returns the content of the given file.
-                    """)
-    public String readFile(@P("The file fo which its contents should be returned. The path should be relative to the project root directory") String file) {
-        logger.info("## ReadFile('{}')", file);
-
-        Path root = context.getProjectRoot();
-        Path filePath = Path.of(file);
-
-        if (!FileHelper.accessAllowed(root, filePath)) {
-            return "ERROR";
-        }
-
-        String fileContent;
-
-        try {
-            fileContent = Files.readString(root.resolve(filePath));
-
-            logger.info("## ReadFile() => '{}'", "<file content>");
-
-            return fileContent;
-        }
-        catch (IOException e) {
-            logger.error("Error while reading file",e);
-
-            String errorText="ERROR: "+e.getClass().getName();
-            logger.info("## ReadFile() => '{}'", errorText);
-            return errorText;
-        }
     }
 }

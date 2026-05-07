@@ -1,6 +1,7 @@
-package com.framstag.llmaj.tools.file;
+package com.framstag.llmaj.tools.filesystem;
 
 import com.framstag.llmaj.AnalysisContext;
+import com.framstag.llmaj.tools.file.FileIOTool;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -18,7 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 public class FileToolTest {
 
     private AnalysisContext context;
-    private FileTool fileTool;
+    private FilesystemTool filesystemTool;
+    private FileIOTool fileIOTool;
 
     @BeforeEach
     void initializeContext() {
@@ -28,47 +30,48 @@ public class FileToolTest {
                 Collections.emptyMap(),
                 null);
 
-        fileTool = new FileTool(context);
+        filesystemTool = new FilesystemTool(context);
+        fileIOTool = new FileIOTool(context);
     }
 
     @Test
     void GetAllFilesInDirWithoutSubdir() throws IOException {
-        List<String> result = fileTool.getAllFilesInDir("src/main/java/com/framstag/llmaj");
+        List<String> result = filesystemTool.getAllFilesInDir("src/main/java/com/framstag/llmaj");
 
         assertEquals(2, result.size());
     }
 
     @Test
     void GetAllFilesInDirWithSubdir() throws IOException {
-        List<FilesInDirectory> result = fileTool.getAllFilesInDirRecursively("src/test/java/com/framstag/llmaj");
+        List<FilesInDirectory> result = filesystemTool.getAllFilesInDirRecursively("src/test/java/com/framstag/llmaj");
 
         assertEquals(3, result.size());
     }
 
     @Test
     void fileExistsInRoot() {
-        String result = fileTool.fileExists("pom.xml");
+        String result = filesystemTool.fileExists("pom.xml");
 
         assertEquals("true", result);
     }
 
     @Test
     void fileExistsInSub() {
-        String result = fileTool.fileExists("src/main/resources/logback.xml");
+        String result = filesystemTool.fileExists("src/main/resources/logback.xml");
 
         assertEquals("true", result);
     }
 
     @Test
     void fileExistsRelativeOutside() {
-        String result = fileTool.fileExists("../bla.txt");
+        String result = filesystemTool.fileExists("../bla.txt");
 
         assertEquals("ERROR", result);
     }
 
     @Test
     void findMatchingFileInRootDir() throws IOException {
-        List<FilesInDirectory> result = fileTool.getMatchingFilesInDirRecursively("",List.of("pom.xml"),true);
+        List<FilesInDirectory> result = filesystemTool.getMatchingFilesInDirRecursively("",List.of("pom.xml"),true);
 
         assertEquals(1, result.size());
         assertEquals("", result.getFirst().directory());
@@ -77,7 +80,7 @@ public class FileToolTest {
 
     @Test
     void findMatchingFileInSubDir() throws IOException {
-        List<FilesInDirectory> result = fileTool.getMatchingFilesInDirRecursively("",List.of("Main.java"),true);
+        List<FilesInDirectory> result = filesystemTool.getMatchingFilesInDirRecursively("",List.of("Main.java"),true);
 
         assertEquals(1, result.size());
         assertEquals("src/main/java/com/framstag/llmaj", result.getFirst().directory());
@@ -86,7 +89,7 @@ public class FileToolTest {
 
     @Test
     void findExactlyMatchingFileInSubDir() throws IOException {
-        List<FilesInDirectory> result = fileTool.getMatchingFilesInDirRecursively("src",List.of("logback.xml"),true);
+        List<FilesInDirectory> result = filesystemTool.getMatchingFilesInDirRecursively("src",List.of("logback.xml"),true);
 
         assertEquals(1, result.size());
         assertEquals("src/main/resources", result.getFirst().directory());
@@ -95,62 +98,62 @@ public class FileToolTest {
 
     @Test
     void readExistingFile() throws IOException {
-        String fileContent = fileTool.readFile("pom.xml");
+        String fileContent = fileIOTool.readFile("pom.xml");
 
         assertFalse(fileContent.isEmpty());
     }
 
     @Test
     void readNonExistingFile() {
-        String fileContent = fileTool.readFile("pommes.xml");
+        String fileContent = fileIOTool.readFile("pommes.xml");
         assertEquals("ERROR: java.nio.file.NoSuchFileException",fileContent);
     }
 
     @Test
     void readFileOutsideRoot() throws IOException {
-        String fileContent = fileTool.readFile("../pom.xml");
+        String fileContent = fileIOTool.readFile("../pom.xml");
 
         assertEquals("ERROR",fileContent);
     }
 
     @Test
     void countFilesOutsideRoot() throws IOException {
-        int matchingFilesCount = fileTool.getFilesCount("..","*.java");
+        int matchingFilesCount = filesystemTool.getFilesCount("..","*.java");
 
         assertEquals(0,matchingFilesCount);
     }
 
     @Test
     void countFilesSubdir() throws IOException {
-        int matchingFilesCount = fileTool.getFilesCount("src/main/resources","*.xml");
+        int matchingFilesCount = filesystemTool.getFilesCount("src/main/resources","*.xml");
 
         assertEquals(1,matchingFilesCount);
     }
 
     @Test
     void countFilesSubdirNoMatch() throws IOException {
-        int matchingFilesCount = fileTool.getFilesCount("src/main/resources","*.fun");
+        int matchingFilesCount = filesystemTool.getFilesCount("src/main/resources","*.fun");
 
         assertEquals(0,matchingFilesCount);
     }
 
     @Test
     void getFileCountForFileTypeOneTypeWildcard() throws IOException {
-        List<CountPerWildcard> result = fileTool.fileCountPerFileType("src/main/resources", List.of("*.xml"));
+        List<CountPerWildcard> result = filesystemTool.fileCountPerFileType("src/main/resources", List.of("*.xml"));
 
         assertEquals(List.of(new CountPerWildcard("*.xml",1)),result);
     }
 
     @Test
     void getFileCountForFileTypeOneTypeFile() throws IOException {
-        List<CountPerWildcard> result = fileTool.fileCountPerFileType(".", List.of("pom.xml"));
+        List<CountPerWildcard> result = filesystemTool.fileCountPerFileType(".", List.of("pom.xml"));
 
         assertEquals(List.of(new CountPerWildcard("pom.xml",1)),result);
     }
 
     @Test
     void getFileCountPerFileTypeAndDirectoryWildcard() throws IOException {
-        List<CountPerWildcardAndDirectory> result = fileTool.fileCountPerFileTypeAndDirectory("src/main/resources", List.of("*.xml"));
+        List<CountPerWildcardAndDirectory> result = filesystemTool.fileCountPerFileTypeAndDirectory("src/main/resources", List.of("*.xml"));
 
         assertEquals(List.of(new CountPerWildcardAndDirectory("src/main/resources","*.xml",1)),result);
 
@@ -158,7 +161,7 @@ public class FileToolTest {
 
     @Test
     void getFileCountPerFileTypeAndDirectoryFile() throws IOException {
-        List<CountPerWildcardAndDirectory> result = fileTool.fileCountPerFileTypeAndDirectory(".", List.of("pom.xml"));
+        List<CountPerWildcardAndDirectory> result = filesystemTool.fileCountPerFileTypeAndDirectory(".", List.of("pom.xml"));
 
         assertEquals(List.of(new CountPerWildcardAndDirectory("","pom.xml",1)),result);
 
