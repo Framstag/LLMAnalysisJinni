@@ -19,11 +19,11 @@ public class SBOMToolTest {
         "pkg:maven/com.github.jknack/handlebars@4.5.1?type=jar",
         "pkg:maven/com.networknt/json-schema-validator@3.0.2?type=jar",
         "pkg:maven/de.siegmar/fastcsv@4.2.0?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-local-ai@1.13.0-beta23?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-mcp@1.13.0-beta23?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-ollama@1.13.0?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-open-ai@1.13.0?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j@1.13.0?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j-local-ai@1.14.1-beta24?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j-mcp@1.14.1-beta24?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j-ollama@1.14.1?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j-open-ai@1.14.1?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j@1.14.1?type=jar",
         "pkg:maven/info.picocli/picocli@4.7.7?type=jar",
         "pkg:maven/org.cyclonedx/cyclonedx-core-java@12.2.0?type=jar"
     );
