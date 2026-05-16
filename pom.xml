@@ -75,33 +75,33 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j</artifactId>
-            <version>1.14.1</version>
+            <version>1.15.0</version>
         </dependency>
 
         <!-- Access to Ollama LLMs -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-ollama</artifactId>
-            <version>1.14.1</version>
+            <version>1.15.0</version>
         </dependency>
 
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai</artifactId>
-            <version>1.14.1</version>  <!-- Use latest -->
+            <version>1.15.0</version>  <!-- Use latest -->
         </dependency>
 
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-local-ai</artifactId>
-            <version>1.14.1-beta24</version>  <!-- Use latest -->
+            <version>1.15.0-beta25</version>  <!-- Use latest -->
         </dependency>
 
         <!-- Access to external MCP Servers -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-mcp</artifactId>
-            <version>1.14.1-beta24</version>
+            <version>1.15.0-beta25</version>
         </dependency>
 
         <!-- Parsing of CycloneDX BOM -->
