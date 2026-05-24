@@ -159,6 +159,7 @@ public class JavaFileParser {
                     method.setFinal(methodDeclaration.isFinal());
                     method.setParameterCount(methodDeclaration.getParameters().size());
                     method.setLinesOfCode(methodDeclaration.getBody().get().getStatements().size());
+                    method.setNestingDepth(computeMaxDepth(methodDeclaration.getBody().get()));
 
                     methodDeclaration.getComment().ifPresent(comment -> method.setDocumentation(comment.getContent()));
 
@@ -237,6 +238,7 @@ public class JavaFileParser {
                     }
                     method.setParameterCount(constructorDeclaration.getParameters().size());
                     method.setLinesOfCode(constructorDeclaration.getBody().getStatements().size());
+                    method.setNestingDepth(computeMaxDepth(constructorDeclaration.getBody()));
                 }
             }
         } catch (Exception e) {
@@ -298,4 +300,22 @@ public class JavaFileParser {
 
         return new ArrayList<>(imports);
     }
+
+    private static int computeMaxDepth(com.github.javaparser.ast.Node node) {
+        int maxChildDepth = 0;
+        for (var child : node.getChildNodes()) {
+            if (child instanceof IfStmt || child instanceof ForStmt
+                    || child instanceof WhileStmt || child instanceof DoStmt
+                    || child instanceof SwitchStmt || child instanceof TryStmt
+                    || child instanceof ForEachStmt) {
+                maxChildDepth = Math.max(maxChildDepth,
+                        1 + computeMaxDepth(child));
+            } else {
+                maxChildDepth = Math.max(maxChildDepth,
+                        computeMaxDepth(child));
+            }
+        }
+        return maxChildDepth;
+    }
+
 }

@@ -353,3 +353,20 @@ The analysis resulted in the following findings per module:
 
 {{/modules.modules}}
 {{/if}}
+
+### Analysis of Method Nesting Depth per Module
+
+{{#if modules.modules}}
+The analysis resulted in the following findings per module:
+
+{{#modules.modules}}
+#### Module "{{name}}"
+
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#nestingDepthEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/nestingDepthEvaluation.evaluations~}}
+
+{{/modules.modules}}
+{{/if}}

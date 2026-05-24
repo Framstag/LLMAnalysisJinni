@@ -300,3 +300,18 @@ loopOn: /modules/modules
 toolWhitelist:
   - java_get_method_complexity_report
   - java_get_cyclomatic_complexity_module_report
+---
+id: ModuleNestingDepthEvaluation
+name: Evaluate the method nesting depth of the module
+prompt: prompts/module_nesting_depth_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: nestingDepthEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_nesting_depth_evaluation
+loopOn: /modules/modules
+toolWhitelist:
+  - java_get_method_nesting_depth_report
+  - java_get_cyclomatic_complexity_module_report

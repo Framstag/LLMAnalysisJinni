@@ -17,6 +17,7 @@ public class Method {
     private boolean isFinal;
     private int parameterCount;
     private Integer linesOfCode;
+    private int nestingDepth;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public Method(@JsonProperty("name")
@@ -32,6 +33,7 @@ public class Method {
         this.isFinal = false;
         this.parameterCount = 0;
         this.linesOfCode = null;
+        this.nestingDepth = 0;
     }
 
     public String getName() {
@@ -104,5 +106,13 @@ public class Method {
 
     public void setLinesOfCode(Integer linesOfCode) {
         this.linesOfCode = linesOfCode;
+    }
+
+    public int getNestingDepth() {
+        return nestingDepth;
+    }
+
+    public void setNestingDepth(int nestingDepth) {
+        this.nestingDepth = nestingDepth;
     }
 }

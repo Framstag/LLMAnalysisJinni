@@ -617,6 +617,67 @@ public class JavaTool {
                 prodLocDist, testLocDist, genLocDist);
     }
 
+    @Tool(name = "java_get_method_nesting_depth_report",
+            value =
+                    """
+                            Returns a report regarding the method nesting depth in the module.
+                            """)
+    public List<Distribution> getMethodNestingDepthReport(@P("The name of the module to analyse")
+                                                           String moduleName) throws IOException {
+        logger.info("## GetMethodNestingDepthReport('{}')", moduleName);
+
+        if (moduleName == null || moduleName.isEmpty()) {
+            logger.warn("No module name given");
+            return List.of();
+        }
+
+        Module module = getModuleReport(moduleName);
+
+        // Nesting depth per method
+        Map<Integer, Integer> prodDepth = new HashMap<>();
+        Map<Integer, Integer> testDepth = new HashMap<>();
+        Map<Integer, Integer> genDepth = new HashMap<>();
+
+        for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
+            for (BuildUnit buildUnit : pck.getBuildUnits()) {
+                Map<Integer, Integer> targetDepth;
+
+                if (buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    targetDepth = prodDepth;
+                } else if (!buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    targetDepth = testDepth;
+                } else {
+                    targetDepth = genDepth;
+                }
+
+                for (Clazz clazz : buildUnit.getClazzes().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                    for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
+                        targetDepth.merge(method.getNestingDepth(), 1, Integer::sum);
+                    }
+                }
+            }
+        }
+
+        Distribution prodDepthDist = new Distribution("Nesting depth production code");
+        for (int d : prodDepth.keySet().stream().sorted().toList()) {
+            prodDepthDist.addEntry(Integer.toString(d), prodDepth.get(d));
+        }
+
+        Distribution testDepthDist = new Distribution("Nesting depth test code");
+        for (int d : testDepth.keySet().stream().sorted().toList()) {
+            testDepthDist.addEntry(Integer.toString(d), testDepth.get(d));
+        }
+
+        Distribution genDepthDist = new Distribution("Nesting depth generated code");
+        for (int d : genDepth.keySet().stream().sorted().toList()) {
+            genDepthDist.addEntry(Integer.toString(d), genDepth.get(d));
+        }
+
+        return List.of(prodDepthDist, testDepthDist, genDepthDist);
+    }
+
+
+
 
 
     @Tool(name = "java_get_cyclomatic_complexity_module_report",
