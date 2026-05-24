@@ -256,3 +256,47 @@ tags:
 loopOn: /modules/modules
 toolWhitelist:
   - java_get_cyclomatic_complexity_module_report
+
+---
+id: ModuleVisibilityEvaluation
+name: Evaluate the method visibility distribution of the module
+prompt: prompts/module_visibility_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: visibilityEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_visibility_evaluation
+loopOn: /modules/modules
+toolWhitelist:
+  - java_get_visibility_distribution_report
+---
+id: ModuleInheritanceEvaluation
+name: Evaluate the inheritance patterns of the module
+prompt: prompts/module_inheritance_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: inheritanceEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_inheritance_evaluation
+loopOn: /modules/modules
+toolWhitelist:
+  - java_get_inheritance_report
+---
+id: ModuleMethodComplexityEvaluation
+name: Evaluate the method complexity metrics of the module
+prompt: prompts/module_method_complexity_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: methodComplexityEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_method_complexity_evaluation
+loopOn: /modules/modules
+toolWhitelist:
+  - java_get_method_complexity_report
+  - java_get_cyclomatic_complexity_module_report

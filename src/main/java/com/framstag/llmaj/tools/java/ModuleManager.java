@@ -41,6 +41,11 @@ public class ModuleManager {
                     Clazz clazz = new Clazz(srcClass.getQualifiedName(),
                             srcClass.getDocumentation());
 
+                    clazz.setSuperClass(srcClass.getSuperClass());
+                    for (String iface : srcClass.getInterfaces()) {
+                        clazz.addInterface(iface);
+                    }
+
                     for (Annotation annotation : srcClass.getAnnotations()) {
                         clazz.addAnnotation(annotation);
                     }

@@ -61,10 +61,13 @@ public class ClassFileParser {
                         classModel.superclass().get().asSymbol().displayName();
 
                 logger.debug("Parent: {}", parentQualifiedName);
+                classManager.setSuperClass(parentQualifiedName);
             }
 
             for (ClassEntry interf : classModel.interfaces()) {
-                logger.debug("Implements {}", interf.asInternalName());
+                String ifaceQualifiedName = interf.asSymbol().packageName()+"."+interf.asSymbol().displayName();
+                logger.debug("Implements {}", ifaceQualifiedName);
+                classManager.addInterface(ifaceQualifiedName);
             }
 
             buildUnit.addImports(getClassModelImports(classModel));
@@ -97,6 +100,24 @@ public class ClassFileParser {
                 logger.debug("Method: {} {}", methodDescriptor, methodModel.flags());
 
                 Method method = classManager.getOrAddMethodForce(methodName,methodDescriptor);
+
+                // Extract method visibility from access flags
+                if (methodModel.flags().has(AccessFlag.PUBLIC)) {
+                    method.setVisibility(MethodVisibility.PUBLIC);
+                } else if (methodModel.flags().has(AccessFlag.PROTECTED)) {
+                    method.setVisibility(MethodVisibility.PROTECTED);
+                } else if (methodModel.flags().has(AccessFlag.PRIVATE)) {
+                    method.setVisibility(MethodVisibility.PRIVATE);
+                } else {
+                    method.setVisibility(MethodVisibility.PACKAGE_PRIVATE);
+                }
+
+                // Set parameter count from method type descriptor
+                var methodType = methodModel.methodTypeSymbol();
+                method.setParameterCount(methodType.parameterCount());
+
+                method.setStatic(methodModel.flags().has(AccessFlag.STATIC));
+                method.setFinal(methodModel.flags().has(AccessFlag.FINAL));
             }
         }
         catch (Exception e) {

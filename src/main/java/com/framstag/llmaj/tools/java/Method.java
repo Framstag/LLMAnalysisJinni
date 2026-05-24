@@ -12,6 +12,11 @@ public class Method {
     private String documentation;
     private final List<Annotation> annotations;
     private Integer cyclomaticComplexity;
+    private MethodVisibility visibility;
+    private boolean isStatic;
+    private boolean isFinal;
+    private int parameterCount;
+    private Integer linesOfCode;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public Method(@JsonProperty("name")
@@ -22,6 +27,11 @@ public class Method {
         this.descriptor = descriptor;
         this.annotations = new LinkedList<>();
         this.cyclomaticComplexity = null;
+        this.visibility = null;
+        this.isStatic = false;
+        this.isFinal = false;
+        this.parameterCount = 0;
+        this.linesOfCode = null;
     }
 
     public String getName() {
@@ -54,5 +64,45 @@ public class Method {
 
     public void setCyclomaticComplexity(Integer cyclomaticComplexity) {
         this.cyclomaticComplexity = cyclomaticComplexity;
+    }
+
+    public MethodVisibility getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(MethodVisibility visibility) {
+        this.visibility = visibility;
+    }
+
+    public boolean isStatic() {
+        return isStatic;
+    }
+
+    public void setStatic(boolean isStatic) {
+        this.isStatic = isStatic;
+    }
+
+    public boolean isFinal() {
+        return isFinal;
+    }
+
+    public void setFinal(boolean isFinal) {
+        this.isFinal = isFinal;
+    }
+
+    public int getParameterCount() {
+        return parameterCount;
+    }
+
+    public void setParameterCount(int parameterCount) {
+        this.parameterCount = parameterCount;
+    }
+
+    public Integer getLinesOfCode() {
+        return linesOfCode;
+    }
+
+    public void setLinesOfCode(Integer linesOfCode) {
+        this.linesOfCode = linesOfCode;
     }
 }

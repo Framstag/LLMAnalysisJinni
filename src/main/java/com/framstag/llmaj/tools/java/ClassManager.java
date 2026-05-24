@@ -17,6 +17,8 @@ public class ClassManager {
 
     private final Map<String,Method> methodByName = new HashMap<>();
     private final Map<String,Method> methodByDescriptor = new HashMap<>();
+    private String superClass;
+    private final List<String> interfaces = new LinkedList<>();
 
     public ClassManager(String qualifiedName) {
         this.qualifiedName = qualifiedName;
@@ -41,6 +43,26 @@ public class ClassManager {
 
     public void addAnnotation(Annotation annotation) {
         annotations.add(annotation);
+    }
+
+    public String getSuperClass() {
+        return superClass;
+    }
+
+    public void setSuperClass(String superClass) {
+        this.superClass = superClass;
+    }
+
+    public List<String> getInterfaces() {
+        return interfaces;
+    }
+
+    public void addInterface(String iface) {
+        interfaces.add(iface);
+    }
+
+    public boolean isInterfaceEmpty() {
+        return interfaces.isEmpty();
     }
 
     public Method getOrAddMethodForce(String name, String descriptor) {

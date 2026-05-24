@@ -17,6 +17,8 @@ public class Clazz {
     private final String documentation;
     private final List<Annotation> annotations;
     private final List<Method> methods;
+    private String superClass;
+    private List<String> interfaces;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public Clazz(@JsonProperty("qualifiedName")
@@ -27,6 +29,8 @@ public class Clazz {
         this.documentation = documentation;
         annotations = new LinkedList<>();
         methods = new LinkedList<>();
+        this.superClass = null;
+        this.interfaces = new LinkedList<>();
     }
 
     public String getQualifiedName() {
@@ -44,6 +48,27 @@ public class Clazz {
     public void addAnnotation(Annotation annotation) {
         annotations.add(annotation);
     }
+
+    public String getSuperClass() {
+        return superClass;
+    }
+
+    public void setSuperClass(String superClass) {
+        this.superClass = superClass;
+    }
+
+    public List<String> getInterfaces() {
+        return interfaces;
+    }
+
+    public void setInterfaces(List<String> interfaces) {
+        this.interfaces = interfaces;
+    }
+
+    public void addInterface(String iface) {
+        interfaces.add(iface);
+    }
+
 
     public void addMethod(Method method) {
         methods.add(method);

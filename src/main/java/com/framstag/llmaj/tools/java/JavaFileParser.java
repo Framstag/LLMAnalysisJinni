@@ -84,6 +84,17 @@ public class JavaFileParser {
 
                 type.getComment().ifPresent(comment -> classManager.setDocumentation(comment.getContent()));
 
+                if (type.getExtendedTypes().isNonEmpty()) {
+                    classManager.setSuperClass(type.getExtendedTypes().get(0).resolve().asReferenceType().getQualifiedName());
+                }
+                for (var iface : type.getImplementedTypes()) {
+                    try {
+                        classManager.addInterface(iface.resolve().asReferenceType().getQualifiedName());
+                    } catch (UnsolvedSymbolException e) {
+                        // Interface type not resolvable, skip
+                    }
+                }
+
                 for (AnnotationExpr annotation : type.getAnnotations()) {
                     String annotationName = annotation.getName().asString();
                     String qualifiedAnnotationName = null;
@@ -137,6 +148,18 @@ public class JavaFileParser {
                         continue;
                     }
 
+                    // Set method visibility and modifiers
+                    switch (methodDeclaration.getAccessSpecifier()) {
+                        case PUBLIC -> method.setVisibility(MethodVisibility.PUBLIC);
+                        case PROTECTED -> method.setVisibility(MethodVisibility.PROTECTED);
+                        case PRIVATE -> method.setVisibility(MethodVisibility.PRIVATE);
+                        default -> method.setVisibility(MethodVisibility.PACKAGE_PRIVATE);
+                    }
+                    method.setStatic(methodDeclaration.isStatic());
+                    method.setFinal(methodDeclaration.isFinal());
+                    method.setParameterCount(methodDeclaration.getParameters().size());
+                    method.setLinesOfCode(methodDeclaration.getBody().get().getStatements().size());
+
                     methodDeclaration.getComment().ifPresent(comment -> method.setDocumentation(comment.getContent()));
 
                     for (AnnotationExpr annotation : methodDeclaration.getAnnotations()) {
@@ -181,6 +204,39 @@ public class JavaFileParser {
                             1;
 
                     method.setCyclomaticComplexity(cyclomaticComplexity);
+                }
+
+                // Handle constructors separately - getMethods() in JavaParser excludes constructors
+                for (var constructorDeclaration : type.getConstructors()) {
+                    String constructorDescriptor;
+
+                    try {
+                        constructorDescriptor = constructorDeclaration.getName().asString() + constructorDeclaration.toDescriptor();
+                    } catch (UnsolvedSymbolException e) {
+                        logger.debug("Cannot resolve constructor descriptor for '{}'", constructorDeclaration.getName().asString());
+                        constructorDescriptor = null;
+                    }
+
+                    Method method = classManager.getOrAddMethodHeuristic(
+                            constructorDeclaration.getName().asString(),
+                            constructorDescriptor);
+
+                    if (method == null) {
+                        logger.warn("Constructor '{}' for class '{}' could not be added, skipping...",
+                                constructorDeclaration.getName().asString(),
+                                qualifiedName);
+                        continue;
+                    }
+
+                    // Set constructor visibility and modifiers
+                    switch (constructorDeclaration.getAccessSpecifier()) {
+                        case PUBLIC -> method.setVisibility(MethodVisibility.PUBLIC);
+                        case PROTECTED -> method.setVisibility(MethodVisibility.PROTECTED);
+                        case PRIVATE -> method.setVisibility(MethodVisibility.PRIVATE);
+                        default -> method.setVisibility(MethodVisibility.PACKAGE_PRIVATE);
+                    }
+                    method.setParameterCount(constructorDeclaration.getParameters().size());
+                    method.setLinesOfCode(constructorDeclaration.getBody().getStatements().size());
                 }
             }
         } catch (Exception e) {

@@ -307,6 +307,318 @@ public class JavaTool {
         return validatedList;
     }
 
+    @Tool(name = "java_get_visibility_distribution_report",
+            value =
+                    """
+                            Returns a report regarding the visibility distribution of methods in the module.
+                            """)
+    public List<Distribution> getVisibilityDistributionReport(@P("The name of the module to analyse")
+                                                               String moduleName) throws IOException {
+        logger.info("## GetVisibilityDistributionReport('{}')", moduleName);
+
+        if (moduleName == null || moduleName.isEmpty()) {
+            logger.warn("No module name given");
+            return List.of();
+        }
+
+        Module module = getModuleReport(moduleName);
+
+        // Visibility distribution
+        Map<String, Integer> prodVisibility = new HashMap<>();
+        Map<String, Integer> testVisibility = new HashMap<>();
+        Map<String, Integer> genVisibility = new HashMap<>();
+        int prodStatic = 0, prodNonStatic = 0;
+        int testStatic = 0, testNonStatic = 0;
+        int genStatic = 0, genNonStatic = 0;
+        int prodFinal = 0, prodNonFinal = 0;
+        int testFinal = 0, testNonFinal = 0;
+        int genFinal = 0, genNonFinal = 0;
+
+        for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
+            for (BuildUnit buildUnit : pck.getBuildUnits()) {
+                Map<String, Integer> targetVis;
+                int[] targetStatic;
+                int[] targetFinal;
+
+                if (buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    targetVis = prodVisibility;
+                    targetStatic = new int[]{prodStatic, prodNonStatic};
+                    targetFinal = new int[]{prodFinal, prodNonFinal};
+                } else if (!buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    targetVis = testVisibility;
+                    targetStatic = new int[]{testStatic, testNonStatic};
+                    targetFinal = new int[]{testFinal, testNonFinal};
+                } else {
+                    targetVis = genVisibility;
+                    targetStatic = new int[]{genStatic, genNonStatic};
+                    targetFinal = new int[]{genFinal, genNonFinal};
+                }
+
+                for (Clazz clazz : buildUnit.getClazzes().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                    for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
+                        MethodVisibility vis = method.getVisibility();
+                        String key = (vis != null) ? vis.name() : "UNKNOWN";
+                        targetVis.merge(key, 1, Integer::sum);
+
+                        if (method.isStatic()) {
+                            targetStatic[0]++;
+                        } else {
+                            targetStatic[1]++;
+                        }
+                        if (method.isFinal()) {
+                            targetFinal[0]++;
+                        } else {
+                            targetFinal[1]++;
+                        }
+                    }
+                }
+
+                if (buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    prodStatic = targetStatic[0];
+                    prodNonStatic = targetStatic[1];
+                    prodFinal = targetFinal[0];
+                    prodNonFinal = targetFinal[1];
+                } else if (!buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    testStatic = targetStatic[0];
+                    testNonStatic = targetStatic[1];
+                    testFinal = targetFinal[0];
+                    testNonFinal = targetFinal[1];
+                } else {
+                    genStatic = targetStatic[0];
+                    genNonStatic = targetStatic[1];
+                    genFinal = targetFinal[0];
+                    genNonFinal = targetFinal[1];
+                }
+            }
+        }
+
+        Distribution prodVisDist = new Distribution("Visibility distribution production code");
+        for (String key : prodVisibility.keySet().stream().sorted().toList()) {
+            prodVisDist.addEntry(key, prodVisibility.get(key));
+        }
+        prodVisDist.addEntry("STATIC", prodStatic);
+        prodVisDist.addEntry("FINAL", prodFinal);
+
+        Distribution testVisDist = new Distribution("Visibility distribution test code");
+        for (String key : testVisibility.keySet().stream().sorted().toList()) {
+            testVisDist.addEntry(key, testVisibility.get(key));
+        }
+        testVisDist.addEntry("STATIC", testStatic);
+        testVisDist.addEntry("FINAL", testFinal);
+
+        Distribution genVisDist = new Distribution("Visibility distribution generated code");
+        for (String key : genVisibility.keySet().stream().sorted().toList()) {
+            genVisDist.addEntry(key, genVisibility.get(key));
+        }
+        genVisDist.addEntry("STATIC", genStatic);
+        genVisDist.addEntry("FINAL", genFinal);
+
+        return List.of(prodVisDist, testVisDist, genVisDist);
+    }
+    @Tool(name = "java_get_inheritance_report",
+            value =
+                    """
+                            Returns a report regarding the inheritance metrics in the module.
+                            """)
+    public List<Distribution> getInheritanceReport(@P("The name of the module to analyse")
+                                                    String moduleName) throws IOException {
+        logger.info("## GetInheritanceReport('{}')", moduleName);
+
+        if (moduleName == null || moduleName.isEmpty()) {
+            logger.warn("No module name given");
+            return List.of();
+        }
+
+        Module module = getModuleReport(moduleName);
+
+        // Inheritance depth per class: count classes by depth
+        Map<Integer, Integer> prodDepth = new HashMap<>();
+        Map<Integer, Integer> testDepth = new HashMap<>();
+        Map<Integer, Integer> genDepth = new HashMap<>();
+        // Interface count per class
+        Map<Integer, Integer> prodIfaceCount = new HashMap<>();
+        Map<Integer, Integer> testIfaceCount = new HashMap<>();
+        Map<Integer, Integer> genIfaceCount = new HashMap<>();
+
+        for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
+            for (BuildUnit buildUnit : pck.getBuildUnits()) {
+                Map<Integer, Integer> targetDepth;
+                Map<Integer, Integer> targetIface;
+
+                if (buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    targetDepth = prodDepth;
+                    targetIface = prodIfaceCount;
+                } else if (!buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    targetDepth = testDepth;
+                    targetIface = testIfaceCount;
+                } else {
+                    targetDepth = genDepth;
+                    targetIface = genIfaceCount;
+                }
+
+                for (Clazz clazz : buildUnit.getClazzes().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                    // Compute inheritance depth by traversing superClass chain
+                    int depth = computeInheritanceDepth(buildUnit, clazz, module, new HashSet<>());
+                    targetDepth.merge(depth, 1, Integer::sum);
+
+                    // Count interfaces
+                    int ifaceCount = clazz.getInterfaces() != null ? clazz.getInterfaces().size() : 0;
+                    targetIface.merge(ifaceCount, 1, Integer::sum);
+                }
+            }
+        }
+
+        Distribution prodDepthDist = new Distribution("Inheritance depth production code");
+        for (int d : prodDepth.keySet().stream().sorted().toList()) {
+            prodDepthDist.addEntry(Integer.toString(d), prodDepth.get(d));
+        }
+
+        Distribution testDepthDist = new Distribution("Inheritance depth test code");
+        for (int d : testDepth.keySet().stream().sorted().toList()) {
+            testDepthDist.addEntry(Integer.toString(d), testDepth.get(d));
+        }
+
+        Distribution genDepthDist = new Distribution("Inheritance depth generated code");
+        for (int d : genDepth.keySet().stream().sorted().toList()) {
+            genDepthDist.addEntry(Integer.toString(d), genDepth.get(d));
+        }
+
+        Distribution prodIfaceDist = new Distribution("Interface count production code");
+        for (int c : prodIfaceCount.keySet().stream().sorted().toList()) {
+            prodIfaceDist.addEntry(Integer.toString(c), prodIfaceCount.get(c));
+        }
+
+        Distribution testIfaceDist = new Distribution("Interface count test code");
+        for (int c : testIfaceCount.keySet().stream().sorted().toList()) {
+            testIfaceDist.addEntry(Integer.toString(c), testIfaceCount.get(c));
+        }
+
+        Distribution genIfaceDist = new Distribution("Interface count generated code");
+        for (int c : genIfaceCount.keySet().stream().sorted().toList()) {
+            genIfaceDist.addEntry(Integer.toString(c), genIfaceCount.get(c));
+        }
+
+        return List.of(prodDepthDist, testDepthDist, genDepthDist,
+                prodIfaceDist, testIfaceDist, genIfaceDist);
+    }
+
+    private int computeInheritanceDepth(BuildUnit buildUnit, Clazz clazz, Module module, Set<String> visited) {
+        if (clazz.getSuperClass() == null || clazz.getSuperClass().isEmpty()) {
+            return 0;
+        }
+
+        // Prevent cycles
+        if (visited.contains(clazz.getSuperClass())) {
+            return 0;
+        }
+        visited.add(clazz.getSuperClass());
+
+        // Search all classes in the module for the superclass
+        for (Package pck : module.getPackages()) {
+            for (BuildUnit bu : pck.getBuildUnits()) {
+                for (Clazz c : bu.getClazzes()) {
+                    if (clazz.getSuperClass().equals(c.getQualifiedName())) {
+                        return 1 + computeInheritanceDepth(bu, c, module, visited);
+                    }
+                }
+            }
+        }
+
+        // Superclass not in this module, treat as depth 1
+        return 1;
+    }
+
+    @Tool(name = "java_get_method_complexity_report",
+            value =
+                    """
+                            Returns a report regarding the method complexity (parameter count, lines of code) in the module.
+                            """)
+    public List<Distribution> getMethodComplexityReport(@P("The name of the module to analyse")
+                                                         String moduleName) throws IOException {
+        logger.info("## GetMethodComplexityReport('{}')", moduleName);
+
+        if (moduleName == null || moduleName.isEmpty()) {
+            logger.warn("No module name given");
+            return List.of();
+        }
+
+        Module module = getModuleReport(moduleName);
+
+        // Parameter count per method
+        Map<Integer, Integer> prodParamCount = new HashMap<>();
+        Map<Integer, Integer> testParamCount = new HashMap<>();
+        Map<Integer, Integer> genParamCount = new HashMap<>();
+        // Lines of code per method
+        Map<Integer, Integer> prodLoc = new HashMap<>();
+        Map<Integer, Integer> testLoc = new HashMap<>();
+        Map<Integer, Integer> genLoc = new HashMap<>();
+
+        for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
+            for (BuildUnit buildUnit : pck.getBuildUnits()) {
+                Map<Integer, Integer> targetParams;
+                Map<Integer, Integer> targetLoc;
+
+                if (buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    targetParams = prodParamCount;
+                    targetLoc = prodLoc;
+                } else if (!buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    targetParams = testParamCount;
+                    targetLoc = testLoc;
+                } else {
+                    targetParams = genParamCount;
+                    targetLoc = genLoc;
+                }
+
+                for (Clazz clazz : buildUnit.getClazzes().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                    for (Method method : clazz.getMethods().stream().sorted(Comparator.comparing(Method::getName)).toList()) {
+                        // Parameter count
+                        targetParams.merge(method.getParameterCount(), 1, Integer::sum);
+
+                        // Lines of code (only if available from source parsing)
+                        if (method.getLinesOfCode() != null) {
+                            targetLoc.merge(method.getLinesOfCode(), 1, Integer::sum);
+                        }
+                    }
+                }
+            }
+        }
+
+        Distribution prodParamDist = new Distribution("Parameter count production code");
+        for (int c : prodParamCount.keySet().stream().sorted().toList()) {
+            prodParamDist.addEntry(Integer.toString(c), prodParamCount.get(c));
+        }
+
+        Distribution testParamDist = new Distribution("Parameter count test code");
+        for (int c : testParamCount.keySet().stream().sorted().toList()) {
+            testParamDist.addEntry(Integer.toString(c), testParamCount.get(c));
+        }
+
+        Distribution genParamDist = new Distribution("Parameter count generated code");
+        for (int c : genParamCount.keySet().stream().sorted().toList()) {
+            genParamDist.addEntry(Integer.toString(c), genParamCount.get(c));
+        }
+
+        Distribution prodLocDist = new Distribution("Lines of code production code");
+        for (int c : prodLoc.keySet().stream().sorted().toList()) {
+            prodLocDist.addEntry(Integer.toString(c), prodLoc.get(c));
+        }
+
+        Distribution testLocDist = new Distribution("Lines of code test code");
+        for (int c : testLoc.keySet().stream().sorted().toList()) {
+            testLocDist.addEntry(Integer.toString(c), testLoc.get(c));
+        }
+
+        Distribution genLocDist = new Distribution("Lines of code generated code");
+        for (int c : genLoc.keySet().stream().sorted().toList()) {
+            genLocDist.addEntry(Integer.toString(c), genLoc.get(c));
+        }
+
+        return List.of(prodParamDist, testParamDist, genParamDist,
+                prodLocDist, testLocDist, genLocDist);
+    }
+
+
+
     @Tool(name = "java_get_cyclomatic_complexity_module_report",
             value =
                     """
