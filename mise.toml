@@ -1,5 +1,9 @@
 [tools]
 java = "openjdk-25"
 maven = "3"
+
 # For usage in JetBrains IntelliJ
 pandoc = "latest"
+
+# For KI tools
+node = "22"

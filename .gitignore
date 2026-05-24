@@ -1,3 +1,15 @@
+# Maven
 /target/
-/workspaces/
+
+# IDEs
 /.idea
+/LLMAnalysisJinni.iml
+
+# Mise
+/mise.local.toml
+
+# KI
+/.pi
+
+# Tool Usage
+/workspaces/
