@@ -369,4 +369,49 @@ The analysis resulted in the following findings per module:
 {{/nestingDepthEvaluation.evaluations~}}
 
 {{/modules.modules}}
+
+### Analysis of Method Visibility per Module
+
+The analysis resulted in the following findings per module:
+
+{{#modules.modules}}
+#### Module "{{name}}"
+
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#visibilityEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/visibilityEvaluation.evaluations~}}
+
+{{/modules.modules}}
+
+### Analysis of Class Inheritance per Module
+
+The analysis resulted in the following findings per module:
+
+{{#modules.modules}}
+#### Module "{{name}}"
+
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#inheritanceEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/inheritanceEvaluation.evaluations~}}
+
+{{/modules.modules}}
+
+### Analysis of Method Complexity per Module
+
+The analysis resulted in the following findings per module:
+
+{{#modules.modules}}
+#### Module "{{name}}"
+
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#methodComplexityEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/methodComplexityEvaluation.evaluations~}}
+
+{{/modules.modules}}
 {{/if}}
