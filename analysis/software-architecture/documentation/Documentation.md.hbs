@@ -415,3 +415,33 @@ The analysis resulted in the following findings per module:
 
 {{/modules.modules}}
 {{/if}}
+
+### Analysis of Field Visibility per Module
+
+The analysis resulted in the following findings per module:
+
+{{#modules.modules}}
+#### Module "{{name}}"
+
+||Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#fieldVisibilityEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/fieldVisibilityEvaluation.evaluations~}}
+
+{{/modules.modules}}
+
+### Analysis of Class Cohesion per Module
+
+The analysis resulted in the following findings per module:
+
+{{#modules.modules}}
+#### Module "{{name}}"
+
+||Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#classCohesionEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/classCohesionEvaluation.evaluations~}}
+
+{{/modules.modules}}

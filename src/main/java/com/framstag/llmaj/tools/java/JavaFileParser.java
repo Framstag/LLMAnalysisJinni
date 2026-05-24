@@ -240,6 +240,33 @@ public class JavaFileParser {
                     method.setLinesOfCode(constructorDeclaration.getBody().getStatements().size());
                     method.setNestingDepth(computeMaxDepth(constructorDeclaration.getBody()));
                 }
+
+                // Extract fields from class declarations
+                for (var fieldDeclaration : type.getFields()) {
+                    MethodVisibility vis;
+                    switch (fieldDeclaration.getAccessSpecifier()) {
+                        case PUBLIC -> vis = MethodVisibility.PUBLIC;
+                        case PROTECTED -> vis = MethodVisibility.PROTECTED;
+                        case PRIVATE -> vis = MethodVisibility.PRIVATE;
+                        default -> vis = MethodVisibility.PACKAGE_PRIVATE;
+                    }
+
+                    boolean isStatic = fieldDeclaration.isStatic();
+                    boolean isFinal = fieldDeclaration.isFinal();
+
+                    for (var variable : fieldDeclaration.getVariables()) {
+                        String fieldName = variable.getName().asString();
+                        String fieldType;
+
+                        try {
+                            fieldType = variable.getType().resolve().asReferenceType().getQualifiedName();
+                        } catch (Exception e) {
+                            fieldType = variable.getType().asString();
+                        }
+
+                        classManager.addField(new Field(fieldName, fieldType, vis, isStatic, isFinal));
+                    }
+                }
             }
         } catch (Exception e) {
             logger.error("Error during src file parsing", e);

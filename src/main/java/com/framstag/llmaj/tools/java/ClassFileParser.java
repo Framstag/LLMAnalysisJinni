@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.lang.classfile.MethodModel;
+import java.lang.classfile.FieldModel;
 import java.lang.classfile.MethodSignature;
 import java.lang.classfile.constantpool.ClassEntry;
 import java.lang.classfile.constantpool.ConstantPool;
@@ -119,7 +120,30 @@ public class ClassFileParser {
                 method.setStatic(methodModel.flags().has(AccessFlag.STATIC));
                 method.setFinal(methodModel.flags().has(AccessFlag.FINAL));
             }
+
+            // Extract fields from class bytecode
+            for (FieldModel fieldModel : classModel.fields()) {
+                String fieldName = fieldModel.fieldName().stringValue();
+                String fieldType = fieldModel.fieldTypeSymbol().descriptorString();
+
+                MethodVisibility vis;
+                if (fieldModel.flags().has(AccessFlag.PUBLIC)) {
+                    vis = MethodVisibility.PUBLIC;
+                } else if (fieldModel.flags().has(AccessFlag.PROTECTED)) {
+                    vis = MethodVisibility.PROTECTED;
+                } else if (fieldModel.flags().has(AccessFlag.PRIVATE)) {
+                    vis = MethodVisibility.PRIVATE;
+                } else {
+                    vis = MethodVisibility.PACKAGE_PRIVATE;
+                }
+
+                boolean isStatic = fieldModel.flags().has(AccessFlag.STATIC);
+                boolean isFinal = fieldModel.flags().has(AccessFlag.FINAL);
+
+                classManager.addField(new Field(fieldName, fieldType, vis, isStatic, isFinal));
+            }
         }
+        
         catch (Exception e) {
             logger.error("Error during class file parsing",e);
         }

@@ -19,6 +19,7 @@ public class ClassManager {
     private final Map<String,Method> methodByDescriptor = new HashMap<>();
     private String superClass;
     private final List<String> interfaces = new LinkedList<>();
+    private final List<Field> fields = new LinkedList<>();
 
     public ClassManager(String qualifiedName) {
         this.qualifiedName = qualifiedName;
@@ -59,6 +60,14 @@ public class ClassManager {
 
     public void addInterface(String iface) {
         interfaces.add(iface);
+    }
+
+    public void addField(Field field) {
+        fields.add(field);
+    }
+
+    public List<Field> getFields() {
+        return fields;
     }
 
     public boolean isInterfaceEmpty() {

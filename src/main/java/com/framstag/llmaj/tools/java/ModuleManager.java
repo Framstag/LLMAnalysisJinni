@@ -45,6 +45,9 @@ public class ModuleManager {
                     for (String iface : srcClass.getInterfaces()) {
                         clazz.addInterface(iface);
                     }
+                    for (Field field : srcClass.getFields()) {
+                        clazz.addField(field);
+                    }
 
                     for (Annotation annotation : srcClass.getAnnotations()) {
                         clazz.addAnnotation(annotation);

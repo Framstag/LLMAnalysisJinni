@@ -771,4 +771,165 @@ public class JavaTool {
 
         return List.of(prodCC, testCC, genCC);
     }
+
+    @Tool(name = "java_get_field_visibility_report",
+            value =
+                    """
+                            Returns a report regarding the field visibility distribution in the module.
+                            """)
+    public List<Distribution> getFieldVisibilityReport(@P("The name of the module to analyse")
+                                                        String moduleName) throws IOException {
+        logger.info("## GetFieldVisibilityReport('{}')", moduleName);
+
+        if (moduleName == null || moduleName.isEmpty()) {
+            logger.warn("No module name given");
+            return List.of();
+        }
+
+        Module module = getModuleReport(moduleName);
+
+        Map<String, Integer> prodFields = new HashMap<>();
+        Map<String, Integer> testFields = new HashMap<>();
+        Map<String, Integer> genFields = new HashMap<>();
+        int prodStatic = 0, testStatic = 0, genStatic = 0;
+        int prodFinal = 0, testFinal = 0, genFinal = 0;
+        int prodTotal = 0, testTotal = 0, genTotal = 0;
+
+        for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
+            for (BuildUnit buildUnit : pck.getBuildUnits()) {
+                Map<String, Integer> targetMap;
+                int[] targetStatic;
+                int[] targetFinal;
+                int[] targetTotal;
+
+                if (buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    targetMap = prodFields; targetStatic = new int[]{prodStatic, 0};
+                    targetFinal = new int[]{prodFinal, 0}; targetTotal = new int[]{prodTotal};
+                } else if (!buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    targetMap = testFields; targetStatic = new int[]{testStatic, 0};
+                    targetFinal = new int[]{testFinal, 0}; targetTotal = new int[]{testTotal};
+                } else {
+                    targetMap = genFields; targetStatic = new int[]{genStatic, 0};
+                    targetFinal = new int[]{genFinal, 0}; targetTotal = new int[]{genTotal};
+                }
+
+                for (Clazz clazz : buildUnit.getClazzes().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                    for (Field field : clazz.getFields()) {
+                        String key = field.getVisibility() != null ? field.getVisibility().name() : "UNKNOWN";
+                        targetMap.merge(key, 1, Integer::sum);
+                        if (field.isStatic()) targetStatic[0]++; else targetStatic[1]++;
+                        if (field.isFinal()) targetFinal[0]++; else targetFinal[1]++;
+                        targetTotal[0]++;
+                    }
+                }
+            }
+        }
+
+        Distribution prodDist = new Distribution("Field visibility production code");
+        prodDist.addEntry("STATIC", prodStatic);
+        prodDist.addEntry("FINAL", prodFinal);
+        prodDist.addEntry("TOTAL", prodTotal);
+        for (String k : prodFields.keySet().stream().sorted().toList()) {
+            prodDist.addEntry(k, prodFields.get(k));
+        }
+
+        Distribution testDist = new Distribution("Field visibility test code");
+        testDist.addEntry("STATIC", testStatic);
+        testDist.addEntry("FINAL", testFinal);
+        testDist.addEntry("TOTAL", testTotal);
+        for (String k : testFields.keySet().stream().sorted().toList()) {
+            testDist.addEntry(k, testFields.get(k));
+        }
+
+        Distribution genDist = new Distribution("Field visibility generated code");
+        genDist.addEntry("STATIC", genStatic);
+        genDist.addEntry("FINAL", genFinal);
+        genDist.addEntry("TOTAL", genTotal);
+        for (String k : genFields.keySet().stream().sorted().toList()) {
+            genDist.addEntry(k, genFields.get(k));
+        }
+
+        return List.of(prodDist, testDist, genDist);
+    }
+
+    @Tool(name = "java_get_class_cohesion_report",
+            value =
+                    """
+                            Returns a report regarding the class cohesion metrics in the module.
+                            """)
+    public List<Distribution> getClassCohesionReport(@P("The name of the module to analyse")
+                                                      String moduleName) throws IOException {
+        logger.info("## GetClassCohesionReport('{}')", moduleName);
+
+        if (moduleName == null || moduleName.isEmpty()) {
+            logger.warn("No module name given");
+            return List.of();
+        }
+
+        Module module = getModuleReport(moduleName);
+
+        // Field count per class
+        Map<Integer, Integer> prodFieldCount = new HashMap<>();
+        Map<Integer, Integer> testFieldCount = new HashMap<>();
+        Map<Integer, Integer> genFieldCount = new HashMap<>();
+        // Method-to-field ratio: key is ratio rounded to int
+        Map<Integer, Integer> prodRatio = new HashMap<>();
+        Map<Integer, Integer> testRatio = new HashMap<>();
+        Map<Integer, Integer> genRatio = new HashMap<>();
+
+        for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
+            for (BuildUnit buildUnit : pck.getBuildUnits()) {
+                Map<Integer, Integer> tgtFc, tgtRatio;
+
+                if (buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    tgtFc = prodFieldCount; tgtRatio = prodRatio;
+                } else if (!buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    tgtFc = testFieldCount; tgtRatio = testRatio;
+                } else {
+                    tgtFc = genFieldCount; tgtRatio = genRatio;
+                }
+
+                for (Clazz clazz : buildUnit.getClazzes().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                    int fieldCount = clazz.getFields().size();
+                    int methodCount = clazz.getMethods().size();
+                    tgtFc.merge(fieldCount, 1, Integer::sum);
+                    if (methodCount > 0) {
+                        int ratio = (fieldCount * 100) / methodCount;
+                        tgtRatio.merge(ratio, 1, Integer::sum);
+                    }
+                }
+            }
+        }
+
+        Distribution prodFcDist = new Distribution("Field count production code");
+        for (int c : prodFieldCount.keySet().stream().sorted().toList()) {
+            prodFcDist.addEntry(Integer.toString(c), prodFieldCount.get(c));
+        }
+        Distribution testFcDist = new Distribution("Field count test code");
+        for (int c : testFieldCount.keySet().stream().sorted().toList()) {
+            testFcDist.addEntry(Integer.toString(c), testFieldCount.get(c));
+        }
+        Distribution genFcDist = new Distribution("Field count generated code");
+        for (int c : genFieldCount.keySet().stream().sorted().toList()) {
+            genFcDist.addEntry(Integer.toString(c), genFieldCount.get(c));
+        }
+
+        Distribution prodRatioDist = new Distribution("Field-to-method ratio % production code");
+        for (int r : prodRatio.keySet().stream().sorted().toList()) {
+            prodRatioDist.addEntry(Integer.toString(r), prodRatio.get(r));
+        }
+        Distribution testRatioDist = new Distribution("Field-to-method ratio % test code");
+        for (int r : testRatio.keySet().stream().sorted().toList()) {
+            testRatioDist.addEntry(Integer.toString(r), testRatio.get(r));
+        }
+        Distribution genRatioDist = new Distribution("Field-to-method ratio % generated code");
+        for (int r : genRatio.keySet().stream().sorted().toList()) {
+            genRatioDist.addEntry(Integer.toString(r), genRatio.get(r));
+        }
+
+        return List.of(prodFcDist, testFcDist, genFcDist,
+                prodRatioDist, testRatioDist, genRatioDist);
+    }
+
+
 }

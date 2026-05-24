@@ -78,4 +78,13 @@ public class Clazz {
     public List<Method> getMethods() {
         return Collections.unmodifiableList(methods);
     }
-}
+
+    private final List<Field> fields = new LinkedList<>();
+
+    public void addField(Field field) {
+        fields.add(field);
+    }
+
+    public List<Field> getFields() {
+        return Collections.unmodifiableList(fields);
+    }}
