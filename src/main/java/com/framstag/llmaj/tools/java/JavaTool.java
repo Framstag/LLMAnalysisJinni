@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import com.framstag.llmaj.tools.common.CsvReportWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -413,6 +414,9 @@ public class JavaTool {
         genVisDist.addEntry("STATIC", genStatic);
         genVisDist.addEntry("FINAL", genFinal);
 
+        CsvReportWriter.writeMultiMapCsv(context.getWorkingDirectory(), "VisibilityDistribution.csv",
+                new String[]{"production","test","generated"},
+                prodVisibility, testVisibility, genVisibility);
         return List.of(prodVisDist, testVisDist, genVisDist);
     }
     @Tool(name = "java_get_inheritance_report",
@@ -498,7 +502,13 @@ public class JavaTool {
             genIfaceDist.addEntry(Integer.toString(c), genIfaceCount.get(c));
         }
 
-        return List.of(prodDepthDist, testDepthDist, genDepthDist,
+                CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "InheritanceDepth.csv",
+                new String[]{"production","test","generated"},
+                prodDepth, testDepth, genDepth);
+        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "InterfaceCount.csv",
+                new String[]{"production","test","generated"},
+                prodIfaceCount, testIfaceCount, genIfaceCount);
+return List.of(prodDepthDist, testDepthDist, genDepthDist,
                 prodIfaceDist, testIfaceDist, genIfaceDist);
     }
 
@@ -613,7 +623,13 @@ public class JavaTool {
             genLocDist.addEntry(Integer.toString(c), genLoc.get(c));
         }
 
-        return List.of(prodParamDist, testParamDist, genParamDist,
+                CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "MethodParamCount.csv",
+                new String[]{"production","test","generated"},
+                prodParamCount, testParamCount, genParamCount);
+        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "MethodLinesOfCode.csv",
+                new String[]{"production","test","generated"},
+                prodLoc, testLoc, genLoc);
+return List.of(prodParamDist, testParamDist, genParamDist,
                 prodLocDist, testLocDist, genLocDist);
     }
 
@@ -673,6 +689,9 @@ public class JavaTool {
             genDepthDist.addEntry(Integer.toString(d), genDepth.get(d));
         }
 
+        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "NestingDepth.csv",
+                new String[]{"production","test","generated"},
+                prodDepth, testDepth, genDepth);
         return List.of(prodDepthDist, testDepthDist, genDepthDist);
     }
 
@@ -769,7 +788,10 @@ public class JavaTool {
             genCC.addEntry(cc.toString(), genDistribution.get(cc));
         }
 
-        return List.of(prodCC, testCC, genCC);
+                CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "CyclomaticComplexity.csv",
+                new String[]{"production","test","generated"},
+                prodDistribution, testDistribution, genDistribution);
+return List.of(prodCC, testCC, genCC);
     }
 
     @Tool(name = "java_get_field_visibility_report",
@@ -849,6 +871,9 @@ public class JavaTool {
             genDist.addEntry(k, genFields.get(k));
         }
 
+        CsvReportWriter.writeMultiMapCsv(context.getWorkingDirectory(), "FieldVisibility.csv",
+                new String[]{"production","test","generated"},
+                prodFields, testFields, genFields);
         return List.of(prodDist, testDist, genDist);
     }
 
@@ -927,7 +952,13 @@ public class JavaTool {
             genRatioDist.addEntry(Integer.toString(r), genRatio.get(r));
         }
 
-        return List.of(prodFcDist, testFcDist, genFcDist,
+                CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "FieldCountPerClass.csv",
+                new String[]{"production","test","generated"},
+                prodFieldCount, testFieldCount, genFieldCount);
+        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "FieldToMethodRatio.csv",
+                new String[]{"production","test","generated"},
+                prodRatio, testRatio, genRatio);
+return List.of(prodFcDist, testFcDist, genFcDist,
                 prodRatioDist, testRatioDist, genRatioDist);
     }
 
@@ -1030,7 +1061,13 @@ public class JavaTool {
             genDepDist.addEntry(k, genDep.get(k));
         }
 
-        return List.of(prodCcDist, testCcDist, genCcDist,
+                CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "ClassCoupling.csv",
+                new String[]{"production","test","generated"},
+                prodCc, testCc, genCc);
+        CsvReportWriter.writeMultiMapCsv(context.getWorkingDirectory(), "ModuleDependencies.csv",
+                new String[]{"production","test","generated"},
+                prodDep, testDep, genDep);
+return List.of(prodCcDist, testCcDist, genCcDist,
                 prodDepDist, testDepDist, genDepDist);
     }
 
@@ -1105,6 +1142,11 @@ public class JavaTool {
             untestedDist.addEntry(name, 1);
         }
 
+        java.util.Map<String, Integer> tcData = new java.util.HashMap<>();
+        tcData.put("TESTED_PRODUCTION", tested);
+        tcData.put("UNTESTED_PRODUCTION", untested);
+        tcData.put("TOTAL_PRODUCTION", total);
+        CsvReportWriter.writeMapCsv(context.getWorkingDirectory(), "TestCoverage.csv", tcData);
         return List.of(coverageDist, untestedDist);
     }
 
@@ -1174,6 +1216,7 @@ public class JavaTool {
                         + String.join(" -> ", cycle) + " -> " + cycle.get(0));
             }
         }
+        CsvReportWriter.writeListCsv(context.getWorkingDirectory(), "CircularDeps.csv", "CycleInfo", result);
         return result;
     }
 
@@ -1260,7 +1303,10 @@ public class JavaTool {
         for (int k : test.keySet().stream().sorted().toList()) td.addEntry(Integer.toString(k), test.get(k));
         Distribution gd = new Distribution("Method count generated");
         for (int k : gen.keySet().stream().sorted().toList()) gd.addEntry(Integer.toString(k), gen.get(k));
-        return List.of(pd, td, gd);
+        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "MethodCount.csv",
+                new String[]{"production","test","generated"},
+                prod, test, gen);
+return List.of(pd, td, gd);
     }
 
     @Tool(name = "java_get_documentation_ratio_report",
@@ -1301,7 +1347,13 @@ public class JavaTool {
         Distribution gd = new Distribution("Documentation generated");
         gd.addEntry("DOCUMENTED_CLASSES", genDocCls); gd.addEntry("TOTAL_CLASSES", genCls);
         gd.addEntry("DOCUMENTED_METHODS", genDocMth); gd.addEntry("TOTAL_METHODS", genMth);
-        return List.of(pd, td, gd);
+                java.util.Map<String, Integer> docData = new java.util.HashMap<>();
+        docData.put("PROD_CLASSES", prodCls);
+        docData.put("PROD_DOC_CLASSES", prodDocCls);
+        docData.put("PROD_METHODS", prodMth);
+        docData.put("PROD_DOC_METHODS", prodDocMth);
+        CsvReportWriter.writeMapCsv(context.getWorkingDirectory(), "DocumentationRatio.csv", docData);
+return List.of(pd, td, gd);
     }
 
     private static boolean hasDoc(String doc) {
@@ -1328,6 +1380,7 @@ public class JavaTool {
                 }
             }
         }
+                CsvReportWriter.writeListCsv(context.getWorkingDirectory(), "DataClasses.csv", "ClassName", result);
         if (result.isEmpty()) result.add("No data class candidates found.");
         return result;
     }
@@ -1388,6 +1441,7 @@ public class JavaTool {
                 }
             }
         }
+                CsvReportWriter.writeListCsv(context.getWorkingDirectory(), "BooleanParamFlags.csv", "Method", result);
         if (result.isEmpty()) result.add("No methods with 3+ boolean parameters found.");
         return result;
     }
