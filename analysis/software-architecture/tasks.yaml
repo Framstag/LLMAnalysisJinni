@@ -442,3 +442,45 @@ tags:
 loopOn: /modules/modules
 toolWhitelist:
   - java_get_boolean_parameter_report
+---
+id: ModuleAnnotationEvaluation
+name: Evaluate annotation usage
+prompt: prompts/module_annotation_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: annotationEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_annotation_evaluation
+loopOn: /modules/modules
+toolWhitelist:
+  - java_get_annotation_report
+---
+id: ModulePackageTangleEvaluation
+name: Evaluate package-level tangles
+prompt: prompts/module_package_tangle_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: packageTangleEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_package_tangle_evaluation
+loopOn: /modules/modules
+toolWhitelist:
+  - java_get_package_tangle_report
+---
+id: ModuleImportDiversityEvaluation
+name: Evaluate import diversity
+prompt: prompts/module_import_diversity_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: importDiversityEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_import_diversity_evaluation
+loopOn: /modules/modules
+toolWhitelist:
+  - java_get_import_diversity_report

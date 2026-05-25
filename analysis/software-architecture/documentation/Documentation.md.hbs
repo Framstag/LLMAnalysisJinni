@@ -540,5 +540,49 @@ The analysis resulted in the following findings per module:
 |--- |-------|-----------|-----------|---------|-------|--------------|
 {{#booleanParameterEvaluation.evaluations~}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/booleanParameterEvaluation.evaluations~}}}}
+{{/modules.modules}}
+
+### Analysis of Annotation Usage per Module
+
+The analysis resulted in the following findings per module:
+
+{{#modules.modules}}
+#### Module "{{name}}"
+
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#annotationEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/annotationEvaluation.evaluations~}}
+{{/modules.modules}}
+
+### Analysis of Package Tangles per Module
+
+The analysis resulted in the following findings per module:
+
+{{#modules.modules}}
+#### Module "{{name}}"
+
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#packageTangleEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/packageTangleEvaluation.evaluations~}}
+{{/modules.modules}}
 {{/booleanParameterEvaluation.evaluations~}}
+{{/modules.modules}}
+
+### Analysis of Import Diversity per Module
+
+The analysis resulted in the following findings per module:
+
+{{#modules.modules}}
+#### Module "{{name}}"
+
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#importDiversityEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/importDiversityEvaluation.evaluations~}}
 {{/modules.modules}}

@@ -52,6 +52,12 @@ Tasks execute in dependency order, roughly: **project-wide information** → **m
 | 31 | Detect data class candidates | `ModuleDataClassEvaluation` | Java, per-module | ⚡ Beta |
 | 32 | Detect boolean parameter abuse | `ModuleBooleanParameterEvaluation` | Java, per-module | ⚡ Beta |
 
+| 33 | Evaluate annotation usage | `ModuleAnnotationEvaluation` | Java, per-module | ⚡ beta |
+
+| 34 | Detect package-level tangles | `ModulePackageTangleEvaluation` | Java, per-module | ⚡ beta |
+
+| 35 | Evaluate import diversity | `ModuleImportDiversityEvaluation` | Java, per-module | ⚡ beta |
+
 ### Quality Key
 
 | Rating | Meaning |

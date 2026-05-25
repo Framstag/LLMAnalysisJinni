@@ -1458,5 +1458,268 @@ return List.of(pd, td, gd);
         return count;
     }
 
+    @Tool(name = "java_get_annotation_report",
+            value =
+                    """
+                            Returns a report regarding the annotation usage in the module.
+                            """)
+    public List<Distribution> getAnnotationReport(@P("The name of the module to analyse")
+                                                   String moduleName) throws IOException {
+        logger.info("## GetAnnotationReport('{}')", moduleName);
+        if (moduleName == null || moduleName.isEmpty()) { logger.warn("No module name given"); return List.of(); }
+        Module module = getModuleReport(moduleName);
+
+        Map<String, Integer> prodAnnotations = new HashMap<>();
+        Map<String, Integer> testAnnotations = new HashMap<>();
+        Map<String, Integer> genAnnotations = new HashMap<>();
+
+        for (Package pck : module.getPackages()) {
+            for (BuildUnit bu : pck.getBuildUnits()) {
+                Map<String, Integer> target;
+                if (bu.isProduction() && !bu.isGenerated()) {
+                    target = prodAnnotations;
+                } else if (!bu.isProduction() && !bu.isGenerated()) {
+                    target = testAnnotations;
+                } else {
+                    target = genAnnotations;
+                }
+
+                for (Clazz clazz : bu.getClazzes()) {
+                    for (Annotation ann : clazz.getAnnotations()) {
+                        String key = ann.getQualifiedName() != null ? ann.getQualifiedName() : ann.getName();
+                        target.merge(key, 1, Integer::sum);
+                    }
+                    for (Method method : clazz.getMethods()) {
+                        for (Annotation ann : method.getAnnotations()) {
+                            String key = ann.getQualifiedName() != null ? ann.getQualifiedName() : ann.getName();
+                            target.merge(key, 1, Integer::sum);
+                        }
+                    }
+                }
+            }
+        }
+
+        Distribution prodDist = new Distribution("Annotation distribution production code");
+        for (String k : prodAnnotations.keySet().stream().sorted().toList()) {
+            prodDist.addEntry(k, prodAnnotations.get(k));
+        }
+
+        Distribution testDist = new Distribution("Annotation distribution test code");
+        for (String k : testAnnotations.keySet().stream().sorted().toList()) {
+            testDist.addEntry(k, testAnnotations.get(k));
+        }
+
+        Distribution genDist = new Distribution("Annotation distribution generated code");
+        for (String k : genAnnotations.keySet().stream().sorted().toList()) {
+            genDist.addEntry(k, genAnnotations.get(k));
+        }
+
+        CsvReportWriter.writeMultiMapCsv(context.getWorkingDirectory(), "AnnotationDensity.csv",
+                new String[]{"production","test","generated"},
+                prodAnnotations, testAnnotations, genAnnotations);
+        return List.of(prodDist, testDist, genDist);
+    }
+
+    @Tool(name = "java_get_package_tangle_report",
+            value =
+                    """
+                            Returns a report regarding package-level circular dependencies in the module.
+                            """)
+    public List<String> getPackageTangleReport(@P("The name of the module to analyse")
+                                                 String moduleName) throws IOException {
+        logger.info("## GetPackageTangleReport('{}')", moduleName);
+        if (moduleName == null || moduleName.isEmpty()) { logger.warn("No module name given"); return List.of(); }
+        Module module = getModuleReport(moduleName);
+
+        // Build set of all packages in this module + map of simpleName -> packages
+        Set<String> modulePackages = new HashSet<>();
+        Map<String, Set<String>> simpleNamePackages = new HashMap<>();
+        for (Package pck : module.getPackages()) {
+            for (BuildUnit bu : pck.getBuildUnits()) {
+                for (Clazz clazz : bu.getClazzes()) {
+                    String qn = clazz.getQualifiedName();
+                    int lastDot = qn.lastIndexOf('.');
+                    String pkg = lastDot >= 0 ? qn.substring(0, lastDot) : "";
+                    modulePackages.add(pkg);
+                    String simpleName = lastDot >= 0 ? qn.substring(lastDot + 1) : qn;
+                    simpleNamePackages.computeIfAbsent(simpleName, k -> new HashSet<>()).add(pkg);
+                }
+            }
+        }
+
+        // Build package-level graph: edge from sourcePkg to impPkg if any class in sourcePkg imports from impPkg
+        Map<String, Set<String>> graph = new HashMap<>();
+        // Track which class-level imports contribute to each package-level edge
+        Map<String, Set<String>> edgeDetails = new HashMap<>();
+
+        for (Package pck : module.getPackages()) {
+            for (BuildUnit bu : pck.getBuildUnits()) {
+                for (Clazz clazz : bu.getClazzes()) {
+                    String qn = clazz.getQualifiedName();
+                    int lastDot = qn.lastIndexOf('.');
+                    String sourcePkg = lastDot >= 0 ? qn.substring(0, lastDot) : "";
+                    String simpleName = lastDot >= 0 ? qn.substring(lastDot + 1) : qn;
+
+                    graph.putIfAbsent(sourcePkg, new HashSet<>());
+
+                    for (String imp : bu.getImports()) {
+                        if (imp.startsWith("static ")) continue;
+                        if (imp.startsWith("java.lang")) continue;
+
+                        int impDot = imp.lastIndexOf('.');
+                        if (impDot < 0) continue;
+                        String impPkg = imp.substring(0, impDot);
+
+                        // Only create edges between packages within this module
+                        if (modulePackages.contains(impPkg) && !sourcePkg.equals(impPkg)) {
+                            graph.get(sourcePkg).add(impPkg);
+                            String edgeKey = sourcePkg + "|" + impPkg;
+                            edgeDetails.computeIfAbsent(edgeKey, k -> new TreeSet<>())
+                                    .add(simpleName + " -> " + imp.substring(impDot + 1));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Run Tarjan's SCC on package-level graph (reusing findCycles)
+        List<List<String>> cycles = findCycles(graph);
+
+        List<String> result = new LinkedList<>();
+        if (cycles.isEmpty()) {
+            result.add("No package-level circular dependencies found.");
+        } else {
+            result.add("Found " + cycles.size() + " package-level cycle(s):");
+            for (int i = 0; i < cycles.size(); i++) {
+                List<String> cycle = cycles.get(i);
+                result.add("Cycle " + (i + 1) + " (" + cycle.size() + " packages): "
+                        + String.join(" -> ", cycle) + " -> " + cycle.get(0));
+                result.add("  Contributing class dependencies:");
+                for (int j = 0; j < cycle.size(); j++) {
+                    String fromPkg = cycle.get(j);
+                    String toPkg = cycle.get((j + 1) % cycle.size());
+                    Set<String> details = edgeDetails.get(fromPkg + "|" + toPkg);
+                    if (details != null) {
+                        for (String detail : details) {
+                            result.add("    " + fromPkg + "." + detail);
+                        }
+                    }
+                }
+            }
+        }
+
+        CsvReportWriter.writeListCsv(context.getWorkingDirectory(), "PackageTangles.csv", "PackageCycleInfo", result);
+        return result;
+    }
+
+    @Tool(name = "java_get_import_diversity_report",
+            value =
+                    """
+                            Returns a report regarding import diversity in the module.
+                            """)
+    public List<Distribution> getImportDiversityReport(@P("The name of the module to analyse")
+                                                        String moduleName) throws IOException {
+        logger.info("## GetImportDiversityReport('{}')", moduleName);
+        if (moduleName == null || moduleName.isEmpty()) { logger.warn("No module name given"); return List.of(); }
+        Module module = getModuleReport(moduleName);
+
+        final String projectNamespace = determineProjectNamespace(module);
+
+        Map<String, Integer> prodImports = new HashMap<>();
+        Map<String, Integer> testImports = new HashMap<>();
+        Map<String, Integer> genImports = new HashMap<>();
+
+        for (Package pck : module.getPackages()) {
+            for (BuildUnit bu : pck.getBuildUnits()) {
+                Map<String, Integer> target;
+                if (bu.isProduction() && !bu.isGenerated()) {
+                    target = prodImports;
+                } else if (!bu.isProduction() && !bu.isGenerated()) {
+                    target = testImports;
+                } else {
+                    target = genImports;
+                }
+
+                for (String imp : bu.getImports()) {
+                    if (imp.startsWith("static ")) continue;
+                    if (imp.startsWith("java.lang")) continue;
+
+                    // Extract top-level/second-level prefix
+                    String[] parts = imp.split("\\.");
+                    String prefix;
+                    if (parts.length >= 2) {
+                        prefix = parts[0] + "." + parts[1];
+                    } else if (parts.length == 1) {
+                        prefix = parts[0];
+                    } else {
+                        continue;
+                    }
+                    target.merge(prefix, 1, Integer::sum);
+                }
+            }
+        }
+
+        // Build distributions: separate for external vs internal, plus overall prefix counts
+        Distribution prodDist = new Distribution("Import distribution production code");
+        prodImports.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .forEach(e -> {
+                    String label = e.getKey() + (isInternal(e.getKey(), projectNamespace) ? " (internal)" : " (external)");
+                    prodDist.addEntry(label, e.getValue());
+                });
+
+        Distribution testDist = new Distribution("Import distribution test code");
+        testImports.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .forEach(e -> {
+                    String label = e.getKey() + (isInternal(e.getKey(), projectNamespace) ? " (internal)" : " (external)");
+                    testDist.addEntry(label, e.getValue());
+                });
+
+        Distribution genDist = new Distribution("Import distribution generated code");
+        genImports.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .forEach(e -> {
+                    String label = e.getKey() + (isInternal(e.getKey(), projectNamespace) ? " (internal)" : " (external)");
+                    genDist.addEntry(label, e.getValue());
+                });
+
+        // Write CSV with category, prefix, count columns
+        Map<String, Integer> allImports = new HashMap<>();
+        for (Map.Entry<String, Integer> e : prodImports.entrySet()) {
+            allImports.merge(e.getKey(), e.getValue(), Integer::sum);
+        }
+        for (Map.Entry<String, Integer> e : testImports.entrySet()) {
+            allImports.merge(e.getKey(), e.getValue(), Integer::sum);
+        }
+        for (Map.Entry<String, Integer> e : genImports.entrySet()) {
+            allImports.merge(e.getKey(), e.getValue(), Integer::sum);
+        }
+
+        CsvReportWriter.writeMapCsv(context.getWorkingDirectory(), "ImportDiversity.csv", allImports);
+
+        return List.of(prodDist, testDist, genDist);
+    }
+
+    private boolean isInternal(String prefix, String projectNamespace) {
+        if (projectNamespace == null) return false;
+        return prefix.equals(projectNamespace) || projectNamespace.startsWith(prefix);
+    }
+
+    private String determineProjectNamespace(Module module) {
+        for (Package pck : module.getPackages()) {
+            for (BuildUnit bu : pck.getBuildUnits()) {
+                for (Clazz clazz : bu.getClazzes()) {
+                    String qn = clazz.getQualifiedName();
+                    int lastDot = qn.lastIndexOf('.');
+                    if (lastDot >= 0) {
+                        return qn.substring(0, lastDot);
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
 
 }
