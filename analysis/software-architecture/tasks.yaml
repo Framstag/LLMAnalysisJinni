@@ -344,3 +344,17 @@ loopOn: /modules/modules
 toolWhitelist:
   - java_get_class_cohesion_report
   - java_get_field_visibility_report
+---
+id: ModuleCouplingEvaluation
+name: Evaluate the coupling of the module
+prompt: prompts/module_coupling_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: couplingEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_coupling_evaluation
+loopOn: /modules/modules
+toolWhitelist:
+  - java_get_coupling_report

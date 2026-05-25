@@ -445,3 +445,19 @@ The analysis resulted in the following findings per module:
 {{/classCohesionEvaluation.evaluations~}}
 
 {{/modules.modules}}
+
+
+### Analysis of Class Coupling per Module
+
+The analysis resulted in the following findings per module:
+
+{{#modules.modules}}
+#### Module "{{name}}"
+
+||Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#couplingEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/couplingEvaluation.evaluations~}}
+
+{{/modules.modules}}

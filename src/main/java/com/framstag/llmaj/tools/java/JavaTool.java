@@ -932,4 +932,107 @@ public class JavaTool {
     }
 
 
+
+    @Tool(name = "java_get_coupling_report",
+            value =
+                    """
+                            Returns a report regarding the class coupling (efferent coupling) in the module.
+                            """)
+    public List<Distribution> getCouplingReport(@P("The name of the module to analyse")
+                                                 String moduleName) throws IOException {
+        logger.info("## GetCouplingReport('{}')", moduleName);
+
+        if (moduleName == null || moduleName.isEmpty()) {
+            logger.warn("No module name given");
+            return List.of();
+        }
+
+        Module module = getModuleReport(moduleName);
+
+        // Class-level efferent coupling distribution
+        Map<Integer, Integer> prodCc = new HashMap<>();
+        Map<Integer, Integer> testCc = new HashMap<>();
+        Map<Integer, Integer> genCc = new HashMap<>();
+        // Module-level dependency counts: external module -> count of imports
+        Map<String, Integer> prodDep = new HashMap<>();
+        Map<String, Integer> testDep = new HashMap<>();
+        Map<String, Integer> genDep = new HashMap<>();
+
+        for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
+            for (BuildUnit buildUnit : pck.getBuildUnits()) {
+                Map<Integer, Integer> targetCc;
+                Map<String, Integer> targetDep;
+
+                if (buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    targetCc = prodCc; targetDep = prodDep;
+                } else if (!buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                    targetCc = testCc; targetDep = testDep;
+                } else {
+                    targetCc = genCc; targetDep = genDep;
+                }
+
+                // Collect all unique external imports from this BuildUnit
+                // An import is external if it does not start with the same package prefix as the class
+                for (Clazz clazz : buildUnit.getClazzes().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                    String qualifiedName = clazz.getQualifiedName();
+                    String packageName = "";
+                    int lastDot = qualifiedName.lastIndexOf('.');
+                    if (lastDot >= 0) {
+                        packageName = qualifiedName.substring(0, lastDot);
+                    }
+
+                    int externalCount = 0;
+                    for (String imp : buildUnit.getImports()) {
+                        // Skip static imports, same-package, and java.lang
+                        if (imp.startsWith("static ")) continue;
+                        if (imp.equals(packageName) || imp.startsWith(packageName + ".")) continue;
+                        if (imp.startsWith("java.lang")) continue;
+                        externalCount++;
+
+                        // Track external module (first 2 segments of package)
+                        int firstDot = imp.indexOf('.');
+                        if (firstDot >= 0) {
+                            int secondDot = imp.indexOf('.', firstDot + 1);
+                            String moduleKey = secondDot >= 0
+                                    ? imp.substring(0, secondDot) : imp;
+                            targetDep.merge(moduleKey, 1, Integer::sum);
+                        }
+                    }
+
+                    targetCc.merge(externalCount, 1, Integer::sum);
+                }
+            }
+        }
+
+        Distribution prodCcDist = new Distribution("Efferent coupling production code");
+        for (int c : prodCc.keySet().stream().sorted().toList()) {
+            prodCcDist.addEntry(Integer.toString(c), prodCc.get(c));
+        }
+        Distribution testCcDist = new Distribution("Efferent coupling test code");
+        for (int c : testCc.keySet().stream().sorted().toList()) {
+            testCcDist.addEntry(Integer.toString(c), testCc.get(c));
+        }
+        Distribution genCcDist = new Distribution("Efferent coupling generated code");
+        for (int c : genCc.keySet().stream().sorted().toList()) {
+            genCcDist.addEntry(Integer.toString(c), genCc.get(c));
+        }
+
+        Distribution prodDepDist = new Distribution("Module dependencies production code");
+        for (String k : prodDep.keySet().stream().sorted().toList()) {
+            prodDepDist.addEntry(k, prodDep.get(k));
+        }
+        Distribution testDepDist = new Distribution("Module dependencies test code");
+        for (String k : testDep.keySet().stream().sorted().toList()) {
+            testDepDist.addEntry(k, testDep.get(k));
+        }
+        Distribution genDepDist = new Distribution("Module dependencies generated code");
+        for (String k : genDep.keySet().stream().sorted().toList()) {
+            genDepDist.addEntry(k, genDep.get(k));
+        }
+
+        return List.of(prodCcDist, testCcDist, genCcDist,
+                prodDepDist, testDepDist, genDepDist);
+    }
+
+
 }

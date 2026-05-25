@@ -87,4 +87,15 @@ public class Clazz {
 
     public List<Field> getFields() {
         return Collections.unmodifiableList(fields);
-    }}
+    }
+
+    private int efferentCoupling;
+
+    public int getEfferentCoupling() {
+        return efferentCoupling;
+    }
+
+    public void setEfferentCoupling(int efferentCoupling) {
+        this.efferentCoupling = efferentCoupling;
+    }
+}
