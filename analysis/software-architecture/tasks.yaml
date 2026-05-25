@@ -358,3 +358,87 @@ tags:
 loopOn: /modules/modules
 toolWhitelist:
   - java_get_coupling_report
+---
+id: ModuleTestCoverageEvaluation
+name: Evaluate the test coverage of the module
+prompt: prompts/module_test_coverage_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: testCoverageEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_test_coverage_evaluation
+loopOn: /modules/modules
+toolWhitelist:
+  - java_get_test_coverage_report
+---
+id: ModuleCircularDependencyEvaluation
+name: Evaluate circular dependencies in the module
+prompt: prompts/module_circular_dependency_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: circularDependencyEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_circular_dependency_evaluation
+loopOn: /modules/modules
+toolWhitelist:
+  - java_get_circular_dependency_report
+---
+id: ModuleMethodCountEvaluation
+name: Evaluate method count per class
+prompt: prompts/module_method_count_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: methodCountEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_method_count_evaluation
+loopOn: /modules/modules
+toolWhitelist:
+  - java_get_method_count_report
+---
+id: ModuleDocumentationRatioEvaluation
+name: Evaluate documentation coverage
+prompt: prompts/module_documentation_ratio_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: documentationRatioEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_documentation_ratio_evaluation
+loopOn: /modules/modules
+toolWhitelist:
+  - java_get_documentation_ratio_report
+---
+id: ModuleDataClassEvaluation
+name: Evaluate data class candidates
+prompt: prompts/module_data_class_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: dataClassEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_data_class_evaluation
+loopOn: /modules/modules
+toolWhitelist:
+  - java_get_data_class_report
+---
+id: ModuleBooleanParameterEvaluation
+name: Evaluate boolean parameter abuse
+prompt: prompts/module_boolean_parameter_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: booleanParameterEvaluation
+dependsOn:
+  - module_analysis_reports
+tags:
+  - module_boolean_parameter_evaluation
+loopOn: /modules/modules
+toolWhitelist:
+  - java_get_boolean_parameter_report

@@ -1035,4 +1035,374 @@ public class JavaTool {
     }
 
 
+
+    @Tool(name = "java_get_test_coverage_report",
+            value =
+                    """
+                            Returns a report regarding test coverage in the module.
+                            """)
+    public List<Distribution> getTestCoverageReport(@P("The name of the module to analyse")
+                                                     String moduleName) throws IOException {
+        logger.info("## GetTestCoverageReport('{}')", moduleName);
+
+        if (moduleName == null || moduleName.isEmpty()) {
+            logger.warn("No module name given");
+            return List.of();
+        }
+
+        Module module = getModuleReport(moduleName);
+
+        // Collect production and test class names
+        Set<String> prodClassNames = new HashSet<>();
+        Set<String> testClassNames = new HashSet<>();
+
+        for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
+            for (BuildUnit buildUnit : pck.getBuildUnits()) {
+                for (Clazz clazz : buildUnit.getClazzes().stream().sorted(Comparator.comparing(Clazz::getQualifiedName)).toList()) {
+                    String simpleName = clazz.getQualifiedName();
+                    int lastDot = simpleName.lastIndexOf('.');
+                    String className = lastDot >= 0 ? simpleName.substring(lastDot + 1) : simpleName;
+
+                    if (buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                        // Skip abstract classes
+                        if (!className.contains("Abstract")) {
+                            prodClassNames.add(className);
+                        }
+                    } else if (!buildUnit.isProduction() && !buildUnit.isGenerated()) {
+                        testClassNames.add(className);
+                    }
+                }
+            }
+        }
+
+        // Match production classes to test classes
+        int total = prodClassNames.size();
+        int tested = 0;
+        int untested = 0;
+        List<String> untestedList = new LinkedList<>();
+
+        for (String prodName : prodClassNames) {
+            boolean hasTest = testClassNames.contains(prodName + "Test")
+                    || testClassNames.contains(prodName + "Tests");
+            if (hasTest) {
+                tested++;
+            } else {
+                untested++;
+                untestedList.add(prodName);
+            }
+        }
+
+        Distribution coverageDist = new Distribution("Test coverage summary");
+        coverageDist.addEntry("TOTAL_PRODUCTION_CLASSES", total);
+        coverageDist.addEntry("TESTED_CLASSES", tested);
+        coverageDist.addEntry("UNTESTED_CLASSES", untested);
+        if (total > 0) {
+            coverageDist.addEntry("COVERAGE_RATIO_PERCENT", (tested * 100) / total);
+        }
+
+        Distribution untestedDist = new Distribution("Untested production classes");
+        for (String name : untestedList) {
+            untestedDist.addEntry(name, 1);
+        }
+
+        return List.of(coverageDist, untestedDist);
+    }
+
+
+
+    @Tool(name = "java_get_circular_dependency_report",
+            value =
+                    """
+                            Returns a report regarding circular dependencies in the module.
+                            """)
+    public List<String> getCircularDependencyReport(@P("The name of the module to analyse")
+                                                     String moduleName) throws IOException {
+        logger.info("## GetCircularDependencyReport('{}')", moduleName);
+
+        if (moduleName == null || moduleName.isEmpty()) {
+            logger.warn("No module name given");
+            return List.of();
+        }
+
+        Module module = getModuleReport(moduleName);
+
+        // Build directed graph: class simple name -> set of external class names it imports
+        Map<String, Set<String>> graph = new HashMap<>();
+        // Track which class belongs to which BuildUnit for packaging info
+        Map<String, String> classPackage = new HashMap<>();
+
+        for (Package pck : module.getPackages().stream().sorted(Comparator.comparing(Package::getName)).toList()) {
+            for (BuildUnit buildUnit : pck.getBuildUnits()) {
+                for (Clazz clazz : buildUnit.getClazzes()) {
+                    String qualifiedName = clazz.getQualifiedName();
+                    int lastDot = qualifiedName.lastIndexOf('.');
+                    String simpleName = lastDot >= 0 ? qualifiedName.substring(lastDot + 1) : qualifiedName;
+                    String packageName = lastDot >= 0 ? qualifiedName.substring(0, lastDot) : "";
+
+                    classPackage.put(simpleName, packageName);
+                    graph.putIfAbsent(simpleName, new HashSet<>());
+
+                    // Build edges: for each import, check if it resolves to a class in this module
+                    for (String imp : buildUnit.getImports()) {
+                        if (imp.startsWith("static ")) continue;
+                        if (imp.startsWith("java.lang")) continue;
+
+                        String importSimpleName = imp.substring(imp.lastIndexOf('.') + 1);
+
+                        // Only consider imports that reference another class in this module
+                        if (!importSimpleName.equals(simpleName)
+                                && graph.containsKey(importSimpleName)) {
+                            graph.get(simpleName).add(importSimpleName);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Tarjan's SCC algorithm
+        List<List<String>> cycles = findCycles(graph);
+
+        // Format result as list of strings
+        List<String> result = new LinkedList<>();
+        if (cycles.isEmpty()) {
+            result.add("No circular dependencies found.");
+        } else {
+            result.add("Found " + cycles.size() + " cycle(s):");
+            for (int i = 0; i < cycles.size(); i++) {
+                List<String> cycle = cycles.get(i);
+                result.add("Cycle " + (i + 1) + " (" + cycle.size() + " classes): "
+                        + String.join(" -> ", cycle) + " -> " + cycle.get(0));
+            }
+        }
+        return result;
+    }
+
+    private List<List<String>> findCycles(Map<String, Set<String>> graph) {
+        Map<String, Integer> index = new HashMap<>();
+        Map<String, Integer> lowlink = new HashMap<>();
+        Deque<String> stack = new ArrayDeque<>();
+        Set<String> onStack = new HashSet<>();
+        List<List<String>> sccs = new LinkedList<>();
+        int[] nextIndex = {0};
+
+        for (String node : graph.keySet()) {
+            if (!index.containsKey(node)) {
+                strongConnect(node, graph, index, lowlink, stack, onStack, sccs, nextIndex);
+            }
+        }
+
+        // Filter SCCs of size > 1 (those contain cycles)
+        List<List<String>> cycles = new LinkedList<>();
+        for (List<String> scc : sccs) {
+            if (scc.size() > 1) {
+                cycles.add(scc);
+            }
+        }
+        return cycles;
+    }
+
+    private void strongConnect(String node, Map<String, Set<String>> graph,
+                                Map<String, Integer> index, Map<String, Integer> lowlink,
+                                Deque<String> stack, Set<String> onStack,
+                                List<List<String>> sccs, int[] nextIndex) {
+        index.put(node, nextIndex[0]);
+        lowlink.put(node, nextIndex[0]);
+        nextIndex[0]++;
+        stack.push(node);
+        onStack.add(node);
+
+        for (String neighbor : graph.getOrDefault(node, Set.of())) {
+            if (!index.containsKey(neighbor)) {
+                strongConnect(neighbor, graph, index, lowlink, stack, onStack, sccs, nextIndex);
+                lowlink.put(node, Math.min(lowlink.get(node), lowlink.get(neighbor)));
+            } else if (onStack.contains(neighbor)) {
+                lowlink.put(node, Math.min(lowlink.get(node), index.get(neighbor)));
+            }
+        }
+
+        if (lowlink.get(node).equals(index.get(node))) {
+            List<String> scc = new LinkedList<>();
+            String w;
+            do {
+                w = stack.pop();
+                onStack.remove(w);
+                scc.add(w);
+            } while (!w.equals(node));
+            sccs.add(scc);
+        }
+    }
+
+
+
+    @Tool(name = "java_get_method_count_report",
+            value =
+                    """
+                            Returns the distribution of method count per class in the module.
+                            """)
+    public List<Distribution> getMethodCountReport(@P("The name of the module to analyse")
+                                                    String moduleName) throws IOException {
+        logger.info("## GetMethodCountReport('{}')", moduleName);
+        if (moduleName == null || moduleName.isEmpty()) { logger.warn("No module name"); return List.of(); }
+        Module module = getModuleReport(moduleName);
+        Map<Integer, Integer> prod = new HashMap<>(), test = new HashMap<>(), gen = new HashMap<>();
+        for (Package pck : module.getPackages()) {
+            for (BuildUnit bu : pck.getBuildUnits()) {
+                Map<Integer, Integer> t = bu.isProduction() && !bu.isGenerated() ? prod :
+                    !bu.isProduction() && !bu.isGenerated() ? test : gen;
+                for (Clazz clazz : bu.getClazzes()) {
+                    t.merge(clazz.getMethods().size(), 1, Integer::sum);
+                }
+            }
+        }
+        Distribution pd = new Distribution("Method count production");
+        for (int k : prod.keySet().stream().sorted().toList()) pd.addEntry(Integer.toString(k), prod.get(k));
+        Distribution td = new Distribution("Method count test");
+        for (int k : test.keySet().stream().sorted().toList()) td.addEntry(Integer.toString(k), test.get(k));
+        Distribution gd = new Distribution("Method count generated");
+        for (int k : gen.keySet().stream().sorted().toList()) gd.addEntry(Integer.toString(k), gen.get(k));
+        return List.of(pd, td, gd);
+    }
+
+    @Tool(name = "java_get_documentation_ratio_report",
+            value =
+                    """
+                            Returns documentation coverage statistics for the module.
+                            """)
+    public List<Distribution> getDocumentationRatioReport(@P("The name of the module to analyse")
+                                                           String moduleName) throws IOException {
+        logger.info("## GetDocumentationRatioReport('{}')", moduleName);
+        if (moduleName == null || moduleName.isEmpty()) { logger.warn("No module name"); return List.of(); }
+        Module module = getModuleReport(moduleName);
+        int prodCls=0, prodDocCls=0, prodMth=0, prodDocMth=0;
+        int testCls=0, testDocCls=0, testMth=0, testDocMth=0;
+        int genCls=0, genDocCls=0, genMth=0, genDocMth=0;
+        for (Package pck : module.getPackages()) {
+            for (BuildUnit bu : pck.getBuildUnits()) {
+                boolean isProd = bu.isProduction() && !bu.isGenerated();
+                boolean isTest = !bu.isProduction() && !bu.isGenerated();
+                for (Clazz clazz : bu.getClazzes()) {
+                    if (isProd) { prodCls++; if (hasDoc(clazz.getDocumentation())) prodDocCls++; }
+                    else if (isTest) { testCls++; if (hasDoc(clazz.getDocumentation())) testDocCls++; }
+                    else { genCls++; if (hasDoc(clazz.getDocumentation())) genDocCls++; }
+                    for (Method m : clazz.getMethods()) {
+                        if (isProd) { prodMth++; if (hasDoc(m.getDocumentation())) prodDocMth++; }
+                        else if (isTest) { testMth++; if (hasDoc(m.getDocumentation())) testDocMth++; }
+                        else { genMth++; if (hasDoc(m.getDocumentation())) genDocMth++; }
+                    }
+                }
+            }
+        }
+        Distribution pd = new Distribution("Documentation production");
+        pd.addEntry("DOCUMENTED_CLASSES", prodDocCls); pd.addEntry("TOTAL_CLASSES", prodCls);
+        pd.addEntry("DOCUMENTED_METHODS", prodDocMth); pd.addEntry("TOTAL_METHODS", prodMth);
+        Distribution td = new Distribution("Documentation test");
+        td.addEntry("DOCUMENTED_CLASSES", testDocCls); td.addEntry("TOTAL_CLASSES", testCls);
+        td.addEntry("DOCUMENTED_METHODS", testDocMth); td.addEntry("TOTAL_METHODS", testMth);
+        Distribution gd = new Distribution("Documentation generated");
+        gd.addEntry("DOCUMENTED_CLASSES", genDocCls); gd.addEntry("TOTAL_CLASSES", genCls);
+        gd.addEntry("DOCUMENTED_METHODS", genDocMth); gd.addEntry("TOTAL_METHODS", genMth);
+        return List.of(pd, td, gd);
+    }
+
+    private static boolean hasDoc(String doc) {
+        return doc != null && !doc.trim().isEmpty();
+    }
+
+    @Tool(name = "java_get_data_class_report",
+            value =
+                    """
+                            Identifies data class candidates in the module.
+                            """)
+    public List<String> getDataClassReport(@P("The name of the module to analyse")
+                                            String moduleName) throws IOException {
+        logger.info("## GetDataClassReport('{}')", moduleName);
+        if (moduleName == null || moduleName.isEmpty()) { logger.warn("No module name"); return List.of(); }
+        Module module = getModuleReport(moduleName);
+        List<String> result = new LinkedList<>();
+        for (Package pck : module.getPackages()) {
+            for (BuildUnit bu : pck.getBuildUnits()) {
+                for (Clazz clazz : bu.getClazzes()) {
+                    if (isDataClass(clazz)) {
+                        result.add(clazz.getQualifiedName());
+                    }
+                }
+            }
+        }
+        if (result.isEmpty()) result.add("No data class candidates found.");
+        return result;
+    }
+
+    private boolean isDataClass(Clazz clazz) {
+        List<Field> fields = clazz.getFields();
+        List<Method> methods = clazz.getMethods();
+        if (fields.isEmpty()) return false;
+
+        boolean allPrivate = fields.stream().allMatch(f -> f.getVisibility() == MethodVisibility.PRIVATE);
+        boolean allPublic = fields.stream().allMatch(f -> f.getVisibility() == MethodVisibility.PUBLIC);
+        if (!allPrivate && !allPublic) return false;
+
+        if (allPrivate) {
+            for (Method m : methods) {
+                String name = m.getName();
+                if (name.equals("<init>") || name.equals("<clinit>")) continue;
+                if (!name.startsWith("get") && !name.startsWith("set") && !name.startsWith("is")) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // All fields public: check for non-trivial methods
+        if (allPublic) {
+            for (Method m : methods) {
+                String name = m.getName();
+                if (name.equals("<init>") || name.equals("<clinit>")) continue;
+                if (name.equals("toString") || name.equals("hashCode") || name.equals("equals")) continue;
+                return false; // has business logic
+            }
+            return true;
+        }
+        return false;
+    }
+
+    @Tool(name = "java_get_boolean_parameter_report",
+            value =
+                    """
+                            Identifies methods with excessive boolean parameters in the module.
+                            """)
+    public List<String> getBooleanParameterReport(@P("The name of the module to analyse")
+                                                   String moduleName) throws IOException {
+        logger.info("## GetBooleanParameterReport('{}')", moduleName);
+        if (moduleName == null || moduleName.isEmpty()) { logger.warn("No module name"); return List.of(); }
+        Module module = getModuleReport(moduleName);
+        List<String> result = new LinkedList<>();
+        for (Package pck : module.getPackages()) {
+            for (BuildUnit bu : pck.getBuildUnits()) {
+                for (Clazz clazz : bu.getClazzes()) {
+                    for (Method m : clazz.getMethods()) {
+                        String desc = m.getDescriptor();
+                        if (desc != null && countBooleanParams(desc) >= 3) {
+                            result.add(clazz.getQualifiedName() + "." + m.getName());
+                        }
+                    }
+                }
+            }
+        }
+        if (result.isEmpty()) result.add("No methods with 3+ boolean parameters found.");
+        return result;
+    }
+
+    private static int countBooleanParams(String descriptor) {
+        // Descriptor format: (paramTypes)returnType
+        int paren = descriptor.indexOf(')');
+        if (paren < 0) return 0;
+        String params = descriptor.substring(1, paren);
+        int count = 0;
+        for (int i = 0; i < params.length(); i++) {
+            if (params.charAt(i) == 'Z') count++;
+        }
+        return count;
+    }
+
+
 }

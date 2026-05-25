@@ -423,7 +423,7 @@ The analysis resulted in the following findings per module:
 {{#modules.modules}}
 #### Module "{{name}}"
 
-||Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
 |--- |-------|-----------|-----------|---------|-------|--------------|
 {{#fieldVisibilityEvaluation.evaluations~}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
@@ -438,7 +438,7 @@ The analysis resulted in the following findings per module:
 {{#modules.modules}}
 #### Module "{{name}}"
 
-||Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
 |--- |-------|-----------|-----------|---------|-------|--------------|
 {{#classCohesionEvaluation.evaluations~}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
@@ -454,10 +454,91 @@ The analysis resulted in the following findings per module:
 {{#modules.modules}}
 #### Module "{{name}}"
 
-||Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
 |--- |-------|-----------|-----------|---------|-------|--------------|
 {{#couplingEvaluation.evaluations~}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
 {{/couplingEvaluation.evaluations~}}
 
+{{/modules.modules}}
+
+
+### Analysis of Test Coverage per Module
+
+The analysis resulted in the following findings per module:
+
+{{#modules.modules}}
+#### Module "{{name}}"
+
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#testCoverageEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/testCoverageEvaluation.evaluations~}}
+
+{{/modules.modules}}
+
+
+### Analysis of Circular Dependencies per Module
+
+The analysis resulted in the following findings per module:
+
+{{#modules.modules}}
+#### Module "{{name}}"
+
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#circularDependencyEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/circularDependencyEvaluation.evaluations~}}
+
+{{/modules.modules}}
+
+
+### Analysis of Method Count per Module
+
+The analysis resulted in the following findings per module:
+{{#modules.modules}}
+#### Module "{{name}}"
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#methodCountEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/methodCountEvaluation.evaluations~}}
+{{/modules.modules}}
+
+### Analysis of Documentation Ratio per Module
+
+The analysis resulted in the following findings per module:
+{{#modules.modules}}
+#### Module "{{name}}"
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#documentationRatioEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/documentationRatioEvaluation.evaluations~}}
+{{/modules.modules}}
+
+### Analysis of Data Class Candidates per Module
+
+The analysis resulted in the following findings per module:
+{{#modules.modules}}
+#### Module "{{name}}"
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#dataClassEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/dataClassEvaluation.evaluations~}}
+{{/modules.modules}}
+
+### Analysis of Boolean Parameter Abuse per Module
+
+The analysis resulted in the following findings per module:
+{{#modules.modules}}
+#### Module "{{name}}"
+|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
+|--- |-------|-----------|-----------|---------|-------|--------------|
+{{#booleanParameterEvaluation.evaluations~}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/booleanParameterEvaluation.evaluations~}}
 {{/modules.modules}}
