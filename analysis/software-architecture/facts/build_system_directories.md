@@ -1,4 +1,4 @@
-Depending on the build system the following source directories can be expected:
+Depending on the build system, the following source directories can be expected:
 
 |Build System |Variant     | Source-Directories |
 |-------------|------------|--------------------|
