@@ -5,7 +5,6 @@
 ## Facts
 
 {{> macros/list_of_build_systems.md}}
-{{> macros/list_of_modules.md}}
 
 {{#with (lookup modules.modules loopIndex)}}
 {{> macros/current_loop_module.md}}
