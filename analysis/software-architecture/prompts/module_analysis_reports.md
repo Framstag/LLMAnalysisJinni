@@ -6,8 +6,6 @@
 
 ## Facts
 
-{{> macros/list_of_modules.md}}
-
 {{#with (lookup modules.modules loopIndex)}}
 {{> macros/current_loop_module.md}}
 
