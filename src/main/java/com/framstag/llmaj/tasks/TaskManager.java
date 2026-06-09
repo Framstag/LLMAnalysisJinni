@@ -287,8 +287,23 @@ public class TaskManager {
         return calculateNextTask();
     }
 
-    public void markTaskAsLoopProcessing(TaskDefinition task,
-                                         int successfulLoopIndex) {
+    public boolean isIndexSuccessful(TaskDefinition task, int index) {
+        String taskId = task.getId();
+
+        TaskState taskState = taskStateMap.get(taskId);
+        if (taskState == null) {
+            return false;
+        }
+
+        Set<Integer> indices = taskState.successfulIndices();
+        if (indices == null) {
+            return false;
+        }
+
+        return indices.contains(index);
+    }
+
+    public synchronized void markIndexSuccessful(TaskDefinition task, int index) {
         String taskId = task.getId();
 
         if (!pendingTaskIds.contains(taskId)) {
@@ -297,33 +312,26 @@ public class TaskManager {
             return;
         }
 
+        TaskState currentState = taskStateMap.get(taskId);
+        Set<Integer> indices = currentState != null ? currentState.successfulIndices() : null;
+
+        if (indices == null) {
+            indices = new HashSet<>();
+        }
+
+        indices.add(index);
+
         taskStateMap.put(taskId,
                 new TaskState(taskId,
                         ZonedDateTime.now(),
-                        successfulLoopIndex,
+                        indices,
                         TaskStatus.PROCESSING));
 
         saveState();
     }
 
-    public int getTaskSuccessFullLoopIndex(TaskDefinition task) {
-        String taskId = task.getId();
-
-        if (!pendingTaskIds.contains(taskId)) {
-            logger.error("Trying to mark task with id {} as finished, though it is not pending!",
-                    taskId);
-            return -1;
-        }
-
-        TaskState taskState = taskStateMap.get(taskId);
-
-        if (taskState == null) {
-            return -1;
-        }
-
-        Integer lastSuccessfulIndex = taskState.getLastSuccessfulIndex();
-
-        return Objects.requireNonNullElse(lastSuccessfulIndex, -1);
+    public void markLoopTaskAsSuccessful(TaskDefinition task) {
+        markTaskAsSuccessful(task);
     }
 
     public void markTaskAsSuccessful(TaskDefinition task) {

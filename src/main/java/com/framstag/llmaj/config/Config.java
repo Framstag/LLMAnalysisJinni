@@ -25,6 +25,7 @@ public class Config {
     private int chatWindowSize;
     private int requestTimeout;
     private int maximumTokens;
+    private int loopParallelism;
     private boolean nativeJSON;
     private boolean logRequests;
     private boolean logResponses;
@@ -36,11 +37,20 @@ public class Config {
         chatWindowSize = 50;
         requestTimeout = 120;
         maximumTokens = 65536;
+        loopParallelism = 1;
         nativeJSON = false;
         logRequests = false;
         logResponses = false;
         mcpServers = new LinkedList<>();
         properties = new HashMap<>();
+    }
+
+    public int getLoopParallelism() {
+        return loopParallelism;
+    }
+
+    public void setLoopParallelism(int loopParallelism) {
+        this.loopParallelism = loopParallelism;
     }
 
     public void setModelProvider(ModelProvider modelProvider) {
@@ -112,6 +122,7 @@ public class Config {
                 ", nativeJSON=" + nativeJSON +
                 ", logRequests=" + logRequests +
                 ", logResponses=" + logResponses +
+                ", loopParallelism=" + loopParallelism +
                 ", mcpServers=" + mcpServers +
                 ", properties=" + properties +
                 '}';
@@ -199,6 +210,7 @@ public class Config {
         logger.info("Log requests:       {}", logRequests);
         logger.info("Log responses:      {}", logResponses);
         logger.info("Maximum tokens:     {}", maximumTokens);
+        logger.info("Loop parallelism:   {} ", loopParallelism);
         logger.info("Native JSON:        {}", nativeJSON);
         logger.info("==");
         logger.info("AnalysisDirectory: '{}'", analysisDirectory);

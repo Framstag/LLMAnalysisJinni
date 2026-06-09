@@ -33,10 +33,11 @@ import picocli.CommandLine.Parameters;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Command(name = "analyse", description = "Analyse the project")
 public class AnalyseCmd implements Callable<Integer> {
@@ -156,58 +157,81 @@ public class AnalyseCmd implements Callable<Integer> {
                     return 1;
                 }
 
-                int lastSuccessfullyExecutedLoopIndex = taskManager.getTaskSuccessFullLoopIndex(task);
+                int totalIndices = stateManager.getLoopArraySize();
+                int parallelism = config.getLoopParallelism();
 
-                if (lastSuccessfullyExecutedLoopIndex>=0) {
-                    logger.info("Last successfully executed loop index: {}", lastSuccessfullyExecutedLoopIndex);
-                }
+                logger.info("Executing task '{}' with {} loop indices, parallelism={}",
+                        task.getId(), totalIndices, parallelism);
 
-                while (stateManager.canLoop()) {
-                    stateManager.loopNext();
+                ExecutorService executor = Executors.newFixedThreadPool(parallelism);
+                List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-                    logger.info("===>[{}] Task: {} - {}",
-                            stateManager.getLoopIndex(),
-                            task.getId(),
-                            task.getName());
-
-                    if (stateManager.getLoopIndex()<=lastSuccessfullyExecutedLoopIndex) {
-                        logger.info("Loop index was already successfully executed, skipping...");
+                for (int index = 0; index < totalIndices; index++) {
+                    if (taskManager.isIndexSuccessful(task, index)) {
+                        logger.info("Loop index {} was already successfully executed, skipping...", index);
                         continue;
                     }
 
-                    LinkedList<ChatMessage> messages = resolveChatMessages(config,
-                            templateEngine,
-                            task,
-                            stateManager.getStateObject());
+                    final int currentIndex = index;
 
-                    ChatExecutionContext execContext =
-                            new ChatExecutionContext(config,
-                                    model,
-                                    toolService,
-                                    new ToolFilter(task.getToolWhitelist(), task.getToolBlacklist()),
-                                    mapper);
+                    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                        try {
+                            stateManager.loopAtIndex(currentIndex);
 
-                    JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
-                            execContext,
-                            messages,
-                            jsonResponseRawSchema,
-                            jsonResponseSchema);
+                            // Inject per-worker loopIndex without touching shared state
+                            Map<String, Object> workerState = new HashMap<>();
+                            workerState.putAll((Map<String, Object>) stateManager.getStateObject());
+                            workerState.put("loopIndex", currentIndex);
 
-                    if (taskResultJson != null) {
-                        logger.info("===>[{}] {}: {}",
-                                stateManager.getLoopIndex(),
-                                JsonHelper.getSchemaName(jsonResponseSchema),
-                                taskResultJson.toPrettyString());
+                            logger.info("<===[{}] Task: {} - {}",
+                                    currentIndex,
+                                    task.getId(),
+                                    task.getName());
 
-                        stateManager.updateLoopState(task.getResponseProperty(), taskResultJson);
-                        stateManager.saveState();
-                        taskManager.markTaskAsLoopProcessing(task, stateManager.getLoopIndex());
-                    } else {
-                        logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
-                    }
+                            LinkedList<ChatMessage> messages = resolveChatMessages(config,
+                                    templateEngine,
+                                    task,
+                                    workerState);
+
+                            ChatExecutionContext execContext =
+                                    new ChatExecutionContext(config,
+                                            model,
+                                            toolService,
+                                            new ToolFilter(task.getToolWhitelist(), task.getToolBlacklist()),
+                                            mapper);
+
+                            JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
+                                    execContext,
+                                    messages,
+                                    jsonResponseRawSchema,
+                                    jsonResponseSchema);
+
+                            if (taskResultJson != null) {
+                                logger.info("===>[{}] {}: {}",
+                                        currentIndex,
+                                        JsonHelper.getSchemaName(jsonResponseSchema),
+                                        taskResultJson.toPrettyString());
+
+                                stateManager.updateLoopState(currentIndex, task.getResponseProperty(), taskResultJson);
+                                taskManager.markIndexSuccessful(task, currentIndex);
+                            } else {
+                                logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
+                            }
+                        } catch (Exception e) {
+                            logger.error("Error processing loop index {}: {}", currentIndex, e.getMessage(), e);
+                        }
+                    }, executor);
+
+                    futures.add(future);
                 }
 
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+                executor.shutdown();
+
                 stateManager.endLoop();
+
+                taskManager.markLoopTaskAsSuccessful(task);
             }
             else {
                 logger.info("===> Task: {} - {}",
@@ -240,9 +264,10 @@ public class AnalyseCmd implements Callable<Integer> {
                 } else {
                     logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
                 }
-            }
 
-            taskManager.markTaskAsSuccessful(task);
+                taskManager.markTaskAsSuccessful(task);
+
+            }
 
             if (singleStep) {
                 break;

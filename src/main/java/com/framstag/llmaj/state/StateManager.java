@@ -87,6 +87,19 @@ public class StateManager {
         return new JsonNodeModelWrapper(analysisState);
     }
 
+    public int getLoopArraySize() {
+        if (loopPos == null) {
+            return 0;
+        }
+
+        return loopPos.size();
+    }
+
+    public JsonNode loopAtIndex(int index) {
+        loopValue = loopPos.get(index);
+        return loopValue;
+    }
+
     public boolean startLoop(String loopOn) {
         if (loopPos != null) {
             logger.error("Loop already started");
@@ -113,43 +126,9 @@ public class StateManager {
         return true;
     }
 
-    public boolean canLoop() {
-        if (loopPos == null) {
-            logger.error("Not in loop");
-            return false;
-        }
 
-        return loopIterator.hasNext();
-    }
-
-    public void loopNext() {
-        if (loopPos == null) {
-            logger.error("Not in loop");
-            return;
-        }
-
-        if (loopValue == null) {
-            loopIndex = 0;
-        }
-        else {
-            loopIndex++;
-        }
-
-        analysisState.put("loopIndex",loopIndex);
-        loopValue = loopIterator.next();
-    }
-
-    public int getLoopIndex() {
-        if (loopPos == null) {
-            logger.error("Not in loop");
-            return 0;
-        }
-
-        return loopIndex;
-    }
-
-    public void updateLoopState(String path,JsonNode value) {
-        ((ObjectNode)loopValue).set(path, value);
+    public void updateLoopState(int index, String path, JsonNode value) {
+        ((ObjectNode) loopPos.get(index)).set(path, value);
     }
 
     public void endLoop() {
@@ -169,7 +148,7 @@ public class StateManager {
         analysisState.set(path, value);
     }
 
-    public void saveState() {
+    public synchronized void saveState() {
         Path stateFilePath=getStateFilePath(workingDirectory);
         logger.info("Writing current analysis state  to '{}'...",stateFilePath);
         writeStateToFile(analysisState, stateFilePath);

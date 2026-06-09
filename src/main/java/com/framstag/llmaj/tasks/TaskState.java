@@ -10,12 +10,14 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLParser;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.ZonedDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 public record TaskState(String taskId,
                         @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSZ")
                         ZonedDateTime lastExecution,
-                        @JsonInclude(JsonInclude.Include.NON_NULL)
-                        Integer lastSuccessfulIndex,
+                        @JsonInclude(JsonInclude.Include.NON_EMPTY)
+                        Set<Integer> successfulIndices,
                         TaskStatus state) {
 
     @JsonIgnore
@@ -26,10 +28,6 @@ public record TaskState(String taskId,
     @JsonIgnore
     public boolean isFailed() {
         return state==TaskStatus.FAILED;
-    }
-
-    public Integer getLastSuccessfulIndex() {
-        return lastSuccessfulIndex;
     }
 
     public static TaskState[] loadTaskState(Path path) throws IOException {
