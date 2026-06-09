@@ -1,4 +1,4 @@
-Regarding the now to be analyzed module:
+Regarding the now to be analyzed module #{{loopIndex}}:
 
 The name of the current module to analyze is: "{{name}}"
 The path of this build module is: "{{path}}"
