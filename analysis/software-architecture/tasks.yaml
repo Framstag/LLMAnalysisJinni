@@ -143,6 +143,8 @@ dependsOn:
   - sbom_location
 tags:
   - sbom
+toolWhitelist:
+  - sbom_load_from_file
 ---
 id: DependencyList
 name: Get list of Dependencies
@@ -484,3 +486,18 @@ tags:
 loopOn: /modules/modules
 toolWhitelist:
   - java_get_import_diversity_report
+
+---
+id: InterModuleDependencyEvaluation
+name: Evaluate inter-module dependencies and module stability
+prompt: prompts/inter_module_dependency_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ArchitectureEvaluation.json
+responseProperty: interModuleDependencyEvaluation
+active: true
+dependsOn:
+  - module_analysis_reports
+tags:
+  - inter_module_dependency_evaluation
+toolWhitelist:
+  - java_get_inter_module_dependency_report
