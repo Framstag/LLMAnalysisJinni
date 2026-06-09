@@ -586,3 +586,17 @@ The analysis resulted in the following findings per module:
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
 {{/importDiversityEvaluation.evaluations~}}
 {{/modules.modules}}
+
+{{/modules.modules}}
+
+### Analysis of Inter-Module Dependencies
+
+{{#if interModuleDependencyEvaluation}}
+A cross-module analysis of inter-module dependencies was performed, including fan-in (Ca), fan-out (Ce), and Instability metrics.
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|-------|--------|-------------|-------------|----------|---------|---------------|
+{{#interModuleDependencyEvaluation.evaluations}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
+{{/interModuleDependencyEvaluation.evaluations}}
+{{/if}}

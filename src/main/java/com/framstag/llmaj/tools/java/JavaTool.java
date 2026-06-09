@@ -1720,6 +1720,243 @@ return List.of(pd, td, gd);
         }
         return null;
     }
+    @Tool(name = "java_get_inter_module_dependency_report",
+           value = """
+                   Analyses all modules and their imports to determine inter-module dependencies.
+                   Returns Ce-inter, Ca (afferent coupling), and Instability per module.
+                   Also writes InterModuleDependencyMatrix.csv with the full dependency matrix.
+                   """)
+    public List<Distribution> getInterModuleDependencyReport() throws IOException {
+        logger.info("## GetInterModuleDependencyReport");
+
+        ObjectNode analysisState = context.getAnalysisState();
+        JsonNode modulesSection = analysisState.get("modules");
+
+        if (modulesSection == null || modulesSection.isNull()) {
+            logger.warn("No modules section in analysis state");
+            return List.of();
+        }
+
+        JsonNode modulesArray = modulesSection.get("modules");
+
+        if (modulesArray == null || !modulesArray.isArray() || modulesArray.isEmpty()) {
+            logger.warn("No modules found in analysis state");
+            return List.of();
+        }
+
+        // Step 1: Collect all module names
+        List<String> moduleNames = new LinkedList<>();
+        for (JsonNode moduleNode : modulesArray) {
+            moduleNames.add(moduleNode.get("name").asText());
+        }
+
+        if (moduleNames.size() < 2) {
+            logger.info("Fewer than 2 modules, skipping inter-module analysis");
+            return List.of();
+        }
+
+        // Step 2: Load all module reports
+        Map<String, Module> allModules = new HashMap<>();
+        for (String name : moduleNames) {
+            try {
+                allModules.put(name, getModuleReport(name));
+            } catch (IOException e) {
+                logger.warn("Could not load module report for '{}': {}", name, e.getMessage());
+            }
+        }
+
+        // Step 3: Build namespace index per module
+        Map<String, Set<String>> moduleClassNames = new HashMap<>();
+        Map<String, Set<String>> modulePackages = new HashMap<>();
+
+        for (Map.Entry<String, Module> entry : allModules.entrySet()) {
+            String modName = entry.getKey();
+            Module mod = entry.getValue();
+            Set<String> classNames = new HashSet<>();
+            Set<String> pkgSet = new HashSet<>();
+
+            for (Package pck : mod.getPackages()) {
+                for (BuildUnit bu : pck.getBuildUnits()) {
+                    for (Clazz clazz : bu.getClazzes()) {
+                        String qn = clazz.getQualifiedName();
+                        classNames.add(qn);
+                        int lastDot = qn.lastIndexOf('.');
+                        if (lastDot >= 0) {
+                            pkgSet.add(qn.substring(0, lastDot));
+                        }
+                    }
+                }
+            }
+
+            moduleClassNames.put(modName, classNames);
+            modulePackages.put(modName, pkgSet);
+        }
+
+        // Step 4: For each module, classify its imports
+        Map<String, Map<String, Integer>> dependencyMatrix = new HashMap<>();
+
+        for (Map.Entry<String, Module> entry : allModules.entrySet()) {
+            String fromModule = entry.getKey();
+            Module mod = entry.getValue();
+            Map<String, Integer> depCounts = new HashMap<>();
+
+            for (Package pck : mod.getPackages()) {
+                for (BuildUnit bu : pck.getBuildUnits()) {
+                    for (String imp : bu.getImports()) {
+                        if (imp.startsWith("static ")) continue;
+                        if (imp.startsWith("java.lang")) continue;
+                        if (imp.startsWith("java.") || imp.startsWith("javax.")) continue;
+
+                        String targetModule = findTargetModule(imp, fromModule, moduleClassNames, modulePackages);
+                        if (targetModule != null) {
+                            depCounts.merge(targetModule, 1, Integer::sum);
+                        }
+                    }
+                }
+            }
+
+            dependencyMatrix.put(fromModule, depCounts);
+        }
+
+        // Step 5: Compute Ce-inter, Ca, Instability
+        Map<String, Integer> ceInter = new HashMap<>();
+        Map<String, Integer> ca = new HashMap<>();
+
+        List<String> allModuleNames = new ArrayList<>(moduleNames);
+        Collections.sort(allModuleNames);
+
+        for (String modName : allModuleNames) {
+            Map<String, Integer> deps = dependencyMatrix.getOrDefault(modName, new HashMap<>());
+            int uniqueDeps = 0;
+            for (String target : deps.keySet()) {
+                if (!target.equals(modName)) {
+                    uniqueDeps++;
+                }
+            }
+            ceInter.put(modName, uniqueDeps);
+        }
+
+        for (Map.Entry<String, Map<String, Integer>> entry : dependencyMatrix.entrySet()) {
+            String fromMod = entry.getKey();
+            for (String toMod : entry.getValue().keySet()) {
+                if (!toMod.equals(fromMod)) {
+                    ca.merge(toMod, 1, Integer::sum);
+                }
+            }
+        }
+
+        for (String modName : allModuleNames) {
+            ca.putIfAbsent(modName, 0);
+        }
+
+        // Step 6: Build distributions
+        Distribution ceInterDist = new Distribution("Inter-module Ce per module");
+        for (String name : allModuleNames) {
+            Integer count = ceInter.get(name);
+            if (count != null) {
+                ceInterDist.addEntry(name, count);
+            }
+        }
+
+        Distribution caDist = new Distribution("Inter-module Ca per module");
+        for (String name : allModuleNames) {
+            Integer count = ca.get(name);
+            if (count != null) {
+                caDist.addEntry(name, count);
+            }
+        }
+
+        Distribution instabilityDist = new Distribution("Instability (Ce/(Ce+Ca)*100) per module");
+        for (String name : allModuleNames) {
+            int ce = ceInter.getOrDefault(name, 0);
+            int aff = ca.getOrDefault(name, 0);
+            int denom = ce + aff;
+            int instabilityScaled = denom > 0 ? (ce * 100) / denom : 0;
+            instabilityDist.addEntry(name + "=" + instabilityScaled, instabilityScaled);
+        }
+
+        // Step 7: Write CSV matrix
+        writeDependencyMatrixCsv(dependencyMatrix, allModuleNames);
+
+        logger.info("## GetInterModuleDependencyReport done. {} modules analysed.", allModules.size());
+
+        return List.of(ceInterDist, caDist, instabilityDist);
+    }
+
+    private String findTargetModule(String importString, String currentModule,
+                                     Map<String, Set<String>> moduleClassNames,
+                                     Map<String, Set<String>> modulePackages) {
+        // Try exact class match first
+        for (Map.Entry<String, Set<String>> entry : moduleClassNames.entrySet()) {
+            String moduleName = entry.getKey();
+            if (moduleName.equals(currentModule)) continue;
+            if (entry.getValue().contains(importString)) {
+                return moduleName;
+            }
+        }
+
+        // Handle wildcard imports: "com.framstag.llmaj.core.*"
+        String importPkg;
+        if (importString.endsWith(".*")) {
+            importPkg = importString.substring(0, importString.length() - 2);
+        } else {
+            int lastDot = importString.lastIndexOf('.');
+            if (lastDot < 0) return null;
+            importPkg = importString.substring(0, lastDot);
+        }
+
+        if (importPkg.isEmpty()) return null;
+
+        // Longest prefix match to avoid false positives
+        String bestMatch = null;
+        int bestMatchLength = 0;
+
+        for (Map.Entry<String, Set<String>> entry : modulePackages.entrySet()) {
+            String moduleName = entry.getKey();
+            if (moduleName.equals(currentModule)) continue;
+
+            for (String pkg : entry.getValue()) {
+                if (importPkg.equals(pkg) || importPkg.startsWith(pkg + ".")) {
+                    if (pkg.length() > bestMatchLength) {
+                        bestMatch = moduleName;
+                        bestMatchLength = pkg.length();
+                    }
+                }
+            }
+        }
+
+        return bestMatch;
+    }
+
+    private void writeDependencyMatrixCsv(Map<String, Map<String, Integer>> matrix, List<String> sortedModules) {
+        List<String[]> rows = new LinkedList<>();
+
+        for (String from : sortedModules) {
+            Map<String, Integer> deps = matrix.getOrDefault(from, new HashMap<>());
+            for (String to : sortedModules) {
+                if (from.equals(to)) continue;
+                Integer count = deps.get(to);
+                if (count != null && count > 0) {
+                    rows.add(new String[]{from, to, String.valueOf(count)});
+                }
+            }
+        }
+
+        if (rows.isEmpty()) {
+            logger.info("No inter-module dependencies found, skipping CSV");
+            return;
+        }
+
+        CsvReportWriter.writeCsv(
+                context.getWorkingDirectory(),
+                "InterModuleDependencyMatrix.csv",
+                new String[]{"From", "To", "ImportCount"},
+                rows
+        );
+
+        logger.info("Wrote InterModuleDependencyMatrix.csv with {} rows", rows.size());
+    }
+
 
 
 }

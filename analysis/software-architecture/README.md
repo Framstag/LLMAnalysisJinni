@@ -58,6 +58,8 @@ Tasks execute in dependency order, roughly: **project-wide information** → **m
 
 | 35 | Evaluate import diversity | `ModuleImportDiversityEvaluation` | Java, per-module | ⚡ beta |
 
+| 36 | Evaluate inter-module dependencies | `InterModuleDependencyEvaluation` | General, cross-module | ⚡ beta |
+
 ### Quality Key
 
 | Rating | Meaning |
