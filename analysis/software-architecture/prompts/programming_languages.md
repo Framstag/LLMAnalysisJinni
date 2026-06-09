@@ -1,6 +1,6 @@
 ## Goal
 
-* The project may have one or more build modules.
+* The project has {{modules.modules.length}} build modules.
 * We want to identify all used programming languages for each build module.
 * If there are multiple modules, we want to skip the root module if it does not have any code.
 * We analyze each module separately by repeatedly calling this prompt for each module.
@@ -9,7 +9,6 @@
 
 {{> macros/list_of_build_systems.md}}
 {{> facts/build_system_directories.md}}
-{{> macros/list_of_modules.md}}
 
 {{#with (lookup modules.modules loopIndex)}}
 {{> macros/current_loop_module.md}}
