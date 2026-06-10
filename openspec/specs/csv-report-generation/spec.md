@@ -12,6 +12,7 @@ Every Java analysis @Tool method that returns analysis distributions or findings
 
 #### Scenario: Tool called with data
 - **WHEN** an analysis @Tool method is called and data exists
+- **THEN** a CSV file is written to a subdirectory named after the report type, with filename derived from the module name
 - **THEN** a CSV file is written to the working directory with a name derived from the tool name
 
 #### Scenario: Tool called with no data

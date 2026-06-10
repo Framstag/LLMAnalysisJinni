@@ -280,8 +280,8 @@ public class SBOMTool {
                     """)
     public void writeLicencesReports() throws IOException {
         logger.info("## SBOMWriteLicenseReports()");
-        Path listOfLicenseCSVFile = context.getWorkingDirectory().resolve("AllLicenses.csv");
-        Path listOfDependenciesAndLicenseCSVFile = context.getWorkingDirectory().resolve("DependenciesAndLicenses.csv");;
+        Path listOfLicenseCSVFile = context.getWorkingDirectory().resolve("AllLicenses/AllLicenses.csv");
+        Path listOfDependenciesAndLicenseCSVFile = context.getWorkingDirectory().resolve("DependenciesAndLicenses/DependenciesAndLicenses.csv");
 
         List<License> licenses = getLicenses();
         CsvWriter.CsvWriterBuilder licensesWriter = CsvWriter.builder();

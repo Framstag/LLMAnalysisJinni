@@ -3,6 +3,7 @@ package com.framstag.llmaj.tools.common;
 import de.siegmar.fastcsv.writer.CsvWriter;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +12,20 @@ public class CsvReportWriter {
 
     public static void writeCsv(Path workingDir, String filename, String[] header, List<String[]> rows) {
         if (rows == null || rows.isEmpty()) return;
+
         Path csvPath = workingDir.resolve(filename);
+
+        // Create parent directory if filename contains subdirectory path
+        Path parentDir = csvPath.getParent();
+        if (parentDir != null && !parentDir.equals(workingDir)) {
+            try {
+                Files.createDirectories(parentDir);
+            } catch (IOException e) {
+                System.err.println("Error creating directory for CSV " + filename + ": " + e.getMessage());
+                return;
+            }
+        }
+
         try (CsvWriter csv = CsvWriter.builder().build(csvPath)) {
             csv.writeRecord(header);
             for (String[] row : rows) {

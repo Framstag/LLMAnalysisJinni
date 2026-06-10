@@ -43,6 +43,10 @@ public class JavaTool {
         return "Java_" + moduleName.replace(" ", "_");
     }
 
+    private static String sanitizeModuleName(String moduleName) {
+        return moduleName.replaceAll("[^\\w.-]", "_");
+    }
+
     private JsonNode getModuleNodeByName(ObjectNode analysisState, String moduleName) {
         JsonNode modulesSection = analysisState.get("modules");
         assert (modulesSection != null && !modulesSection.isNull());
@@ -414,7 +418,7 @@ public class JavaTool {
         genVisDist.addEntry("STATIC", genStatic);
         genVisDist.addEntry("FINAL", genFinal);
 
-        CsvReportWriter.writeMultiMapCsv(context.getWorkingDirectory(), "VisibilityDistribution.csv",
+        CsvReportWriter.writeMultiMapCsv(context.getWorkingDirectory(), "VisibilityDistribution/" + sanitizeModuleName(moduleName) + ".csv",
                 new String[]{"production","test","generated"},
                 prodVisibility, testVisibility, genVisibility);
         return List.of(prodVisDist, testVisDist, genVisDist);
@@ -502,10 +506,10 @@ public class JavaTool {
             genIfaceDist.addEntry(Integer.toString(c), genIfaceCount.get(c));
         }
 
-                CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "InheritanceDepth.csv",
+        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "InheritanceDepth/" + sanitizeModuleName(moduleName) + ".csv",
                 new String[]{"production","test","generated"},
                 prodDepth, testDepth, genDepth);
-        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "InterfaceCount.csv",
+        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "InterfaceCount/" + sanitizeModuleName(moduleName) + ".csv",
                 new String[]{"production","test","generated"},
                 prodIfaceCount, testIfaceCount, genIfaceCount);
 return List.of(prodDepthDist, testDepthDist, genDepthDist,
@@ -623,10 +627,10 @@ return List.of(prodDepthDist, testDepthDist, genDepthDist,
             genLocDist.addEntry(Integer.toString(c), genLoc.get(c));
         }
 
-                CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "MethodParamCount.csv",
+        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "MethodParamCount/" + sanitizeModuleName(moduleName) + ".csv",
                 new String[]{"production","test","generated"},
                 prodParamCount, testParamCount, genParamCount);
-        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "MethodLinesOfCode.csv",
+        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "MethodLinesOfCode/" + sanitizeModuleName(moduleName) + ".csv",
                 new String[]{"production","test","generated"},
                 prodLoc, testLoc, genLoc);
 return List.of(prodParamDist, testParamDist, genParamDist,
@@ -689,7 +693,7 @@ return List.of(prodParamDist, testParamDist, genParamDist,
             genDepthDist.addEntry(Integer.toString(d), genDepth.get(d));
         }
 
-        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "NestingDepth.csv",
+        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "NestingDepth/" + sanitizeModuleName(moduleName) + ".csv",
                 new String[]{"production","test","generated"},
                 prodDepth, testDepth, genDepth);
         return List.of(prodDepthDist, testDepthDist, genDepthDist);
@@ -788,7 +792,7 @@ return List.of(prodParamDist, testParamDist, genParamDist,
             genCC.addEntry(cc.toString(), genDistribution.get(cc));
         }
 
-                CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "CyclomaticComplexity.csv",
+        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "CyclomaticComplexity/" + sanitizeModuleName(moduleName) + ".csv",
                 new String[]{"production","test","generated"},
                 prodDistribution, testDistribution, genDistribution);
 return List.of(prodCC, testCC, genCC);
@@ -871,7 +875,7 @@ return List.of(prodCC, testCC, genCC);
             genDist.addEntry(k, genFields.get(k));
         }
 
-        CsvReportWriter.writeMultiMapCsv(context.getWorkingDirectory(), "FieldVisibility.csv",
+        CsvReportWriter.writeMultiMapCsv(context.getWorkingDirectory(), "FieldVisibility/" + sanitizeModuleName(moduleName) + ".csv",
                 new String[]{"production","test","generated"},
                 prodFields, testFields, genFields);
         return List.of(prodDist, testDist, genDist);
@@ -952,10 +956,10 @@ return List.of(prodCC, testCC, genCC);
             genRatioDist.addEntry(Integer.toString(r), genRatio.get(r));
         }
 
-                CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "FieldCountPerClass.csv",
+                CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "FieldCountPerClass/" + sanitizeModuleName(moduleName) + ".csv",
                 new String[]{"production","test","generated"},
                 prodFieldCount, testFieldCount, genFieldCount);
-        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "FieldToMethodRatio.csv",
+        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "FieldToMethodRatio/" + sanitizeModuleName(moduleName) + ".csv",
                 new String[]{"production","test","generated"},
                 prodRatio, testRatio, genRatio);
 return List.of(prodFcDist, testFcDist, genFcDist,
@@ -1061,10 +1065,10 @@ return List.of(prodFcDist, testFcDist, genFcDist,
             genDepDist.addEntry(k, genDep.get(k));
         }
 
-                CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "ClassCoupling.csv",
+                CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "ClassCoupling/" + sanitizeModuleName(moduleName) + ".csv",
                 new String[]{"production","test","generated"},
                 prodCc, testCc, genCc);
-        CsvReportWriter.writeMultiMapCsv(context.getWorkingDirectory(), "ModuleDependencies.csv",
+        CsvReportWriter.writeMultiMapCsv(context.getWorkingDirectory(), "ModuleDependencies/" + sanitizeModuleName(moduleName) + ".csv",
                 new String[]{"production","test","generated"},
                 prodDep, testDep, genDep);
 return List.of(prodCcDist, testCcDist, genCcDist,
@@ -1146,7 +1150,7 @@ return List.of(prodCcDist, testCcDist, genCcDist,
         tcData.put("TESTED_PRODUCTION", tested);
         tcData.put("UNTESTED_PRODUCTION", untested);
         tcData.put("TOTAL_PRODUCTION", total);
-        CsvReportWriter.writeMapCsv(context.getWorkingDirectory(), "TestCoverage.csv", tcData);
+        CsvReportWriter.writeMapCsv(context.getWorkingDirectory(), "TestCoverage/" + sanitizeModuleName(moduleName) + ".csv", tcData);
         return List.of(coverageDist, untestedDist);
     }
 
@@ -1216,7 +1220,7 @@ return List.of(prodCcDist, testCcDist, genCcDist,
                         + String.join(" -> ", cycle) + " -> " + cycle.get(0));
             }
         }
-        CsvReportWriter.writeListCsv(context.getWorkingDirectory(), "CircularDeps.csv", "CycleInfo", result);
+        CsvReportWriter.writeListCsv(context.getWorkingDirectory(), "CircularDeps/" + sanitizeModuleName(moduleName) + ".csv", "CycleInfo", result);
         return result;
     }
 
@@ -1303,7 +1307,7 @@ return List.of(prodCcDist, testCcDist, genCcDist,
         for (int k : test.keySet().stream().sorted().toList()) td.addEntry(Integer.toString(k), test.get(k));
         Distribution gd = new Distribution("Method count generated");
         for (int k : gen.keySet().stream().sorted().toList()) gd.addEntry(Integer.toString(k), gen.get(k));
-        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "MethodCount.csv",
+        CsvReportWriter.writeMultiIntMapCsv(context.getWorkingDirectory(), "MethodCount/" + sanitizeModuleName(moduleName) + ".csv",
                 new String[]{"production","test","generated"},
                 prod, test, gen);
 return List.of(pd, td, gd);
@@ -1352,7 +1356,7 @@ return List.of(pd, td, gd);
         docData.put("PROD_DOC_CLASSES", prodDocCls);
         docData.put("PROD_METHODS", prodMth);
         docData.put("PROD_DOC_METHODS", prodDocMth);
-        CsvReportWriter.writeMapCsv(context.getWorkingDirectory(), "DocumentationRatio.csv", docData);
+        CsvReportWriter.writeMapCsv(context.getWorkingDirectory(), "DocumentationRatio/" + sanitizeModuleName(moduleName) + ".csv", docData);
 return List.of(pd, td, gd);
     }
 
@@ -1380,7 +1384,7 @@ return List.of(pd, td, gd);
                 }
             }
         }
-                CsvReportWriter.writeListCsv(context.getWorkingDirectory(), "DataClasses.csv", "ClassName", result);
+                CsvReportWriter.writeListCsv(context.getWorkingDirectory(), "DataClasses/" + sanitizeModuleName(moduleName) + ".csv", "ClassName", result);
         if (result.isEmpty()) result.add("No data class candidates found.");
         return result;
     }
@@ -1441,7 +1445,7 @@ return List.of(pd, td, gd);
                 }
             }
         }
-                CsvReportWriter.writeListCsv(context.getWorkingDirectory(), "BooleanParamFlags.csv", "Method", result);
+                CsvReportWriter.writeListCsv(context.getWorkingDirectory(), "BooleanParamFlags/" + sanitizeModuleName(moduleName) + ".csv", "Method", result);
         if (result.isEmpty()) result.add("No methods with 3+ boolean parameters found.");
         return result;
     }
@@ -1514,7 +1518,7 @@ return List.of(pd, td, gd);
             genDist.addEntry(k, genAnnotations.get(k));
         }
 
-        CsvReportWriter.writeMultiMapCsv(context.getWorkingDirectory(), "AnnotationDensity.csv",
+        CsvReportWriter.writeMultiMapCsv(context.getWorkingDirectory(), "AnnotationDensity/" + sanitizeModuleName(moduleName) + ".csv",
                 new String[]{"production","test","generated"},
                 prodAnnotations, testAnnotations, genAnnotations);
         return List.of(prodDist, testDist, genDist);
@@ -1608,7 +1612,7 @@ return List.of(pd, td, gd);
             }
         }
 
-        CsvReportWriter.writeListCsv(context.getWorkingDirectory(), "PackageTangles.csv", "PackageCycleInfo", result);
+        CsvReportWriter.writeListCsv(context.getWorkingDirectory(), "PackageTangles/" + sanitizeModuleName(moduleName) + ".csv", "PackageCycleInfo", result);
         return result;
     }
 
@@ -1696,7 +1700,7 @@ return List.of(pd, td, gd);
             allImports.merge(e.getKey(), e.getValue(), Integer::sum);
         }
 
-        CsvReportWriter.writeMapCsv(context.getWorkingDirectory(), "ImportDiversity.csv", allImports);
+        CsvReportWriter.writeMapCsv(context.getWorkingDirectory(), "ImportDiversity/" + sanitizeModuleName(moduleName) + ".csv", allImports);
 
         return List.of(prodDist, testDist, genDist);
     }
@@ -1949,12 +1953,12 @@ return List.of(pd, td, gd);
 
         CsvReportWriter.writeCsv(
                 context.getWorkingDirectory(),
-                "InterModuleDependencyMatrix.csv",
+                "InterModuleDependencyMatrix/InterModuleDependencyMatrix.csv",
                 new String[]{"From", "To", "ImportCount"},
                 rows
         );
 
-        logger.info("Wrote InterModuleDependencyMatrix.csv with {} rows", rows.size());
+        logger.info("Wrote InterModuleDependencyMatrix/InterModuleDependencyMatrix.csv with {} rows", rows.size());
     }
 
 
