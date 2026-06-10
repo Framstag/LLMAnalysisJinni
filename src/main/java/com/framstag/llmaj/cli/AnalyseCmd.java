@@ -211,8 +211,11 @@ public class AnalyseCmd implements Callable<Integer> {
                                         currentIndex,
                                         JsonHelper.getSchemaName(jsonResponseSchema),
                                         taskResultJson.toPrettyString());
-
-                                stateManager.updateLoopState(currentIndex, task.getResponseProperty(), taskResultJson);
+                                // Thread-safe: synchronize on stateManager so update + save are atomic
+                                synchronized (stateManager) {
+                                    stateManager.updateLoopState(currentIndex, task.getResponseProperty(), taskResultJson);
+                                    stateManager.saveState();
+                                }
                                 taskManager.markIndexSuccessful(task, currentIndex);
                             } else {
                                 logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
