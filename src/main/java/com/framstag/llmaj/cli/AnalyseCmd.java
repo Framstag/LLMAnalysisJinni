@@ -2,11 +2,13 @@ package com.framstag.llmaj.cli;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.framstag.llmaj.AnalysisContext;
 import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.config.ConfigLoader;
 import com.framstag.llmaj.handlebars.HandlebarsFactory;
 import com.framstag.llmaj.json.JsonHelper;
+import com.framstag.llmaj.json.JsonNodeModelWrapper;
 import com.framstag.llmaj.json.ObjectMapperFactory;
 import com.framstag.llmaj.lc4j.ChatExecutionContext;
 import com.framstag.llmaj.lc4j.ChatExecutor;
@@ -180,7 +182,8 @@ public class AnalyseCmd implements Callable<Integer> {
 
                             // Inject per-worker loopIndex without touching shared state
                             Map<String, Object> workerState = new HashMap<>();
-                            workerState.putAll((Map<String, Object>) stateManager.getStateObject());
+                            // Deep copy for thread safety - each worker gets own snapshot
+                            workerState.putAll(new JsonNodeModelWrapper(stateManager.getAnalysisState().deepCopy()));
                             workerState.put("loopIndex", currentIndex);
 
                             logger.info("<===[{}] Task: {} - {}",

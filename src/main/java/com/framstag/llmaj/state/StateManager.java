@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Iterator;
 
 public class StateManager {
     private static final Logger logger = LoggerFactory.getLogger(StateManager.class);
@@ -21,9 +20,6 @@ public class StateManager {
     final ObjectNode   analysisState;
 
     JsonNode           loopPos;
-    Iterator<JsonNode> loopIterator;
-    int                loopIndex;
-    JsonNode           loopValue;
 
     static {
         mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
@@ -96,8 +92,7 @@ public class StateManager {
     }
 
     public JsonNode loopAtIndex(int index) {
-        loopValue = loopPos.get(index);
-        return loopValue;
+        return loopPos.get(index);
     }
 
     public boolean startLoop(String loopOn) {
@@ -120,8 +115,7 @@ public class StateManager {
             return false;
         }
 
-        loopIndex = -1;
-        loopIterator = loopPos.iterator();
+        // No sequential iteration state needed (parallel loop execution)
 
         return true;
     }
@@ -138,8 +132,6 @@ public class StateManager {
         }
 
         loopPos = null;
-        loopIterator = null;
-        loopValue = null;
         analysisState.remove("loopIndex");
 
     }

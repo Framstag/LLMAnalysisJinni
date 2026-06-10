@@ -46,9 +46,17 @@ public class JsonHelper
                                 .append(getObjectDescription(property.get("items")));
                     } else {
                         sb.append("type: ").append(property.get("type").asText());
+                        if (property.has("enum")) {
+                            sb.append(", allowed: [");
+                            JsonNode enumValues = property.get("enum");
+                            for (int i = 0; i < enumValues.size(); i++) {
+                                if (i > 0) sb.append(", ");
+                                sb.append("\"").append(enumValues.get(i).asText()).append("\"");
+                            }
+                            sb.append("]");
                     }
-                }
-
+                        }
+                        }
                 sb.append(")");
 
                 if (propertyPos.get() < propertyCount.get() - 1) {

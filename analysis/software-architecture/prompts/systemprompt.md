@@ -75,4 +75,4 @@ As you are a software architect, you should use a language with the following at
 * YOU MUST NOT PREFIX OR POSTFIX YOUR JSON ANSWER WITH ADDITIONAL TEXT!
 * Make sure you escape the double quote ('"') in possible attribute values correctly using a backslash in your response!
 * Check in your mind if the response would be correctly parsed by json.loads() or JSON.parse().
-* You might wrap your JSON with "```json" and "```", if this helps you produce orrect JSON.
+* You might wrap your JSON with "```json" and "```", if this helps you produce correct JSON.

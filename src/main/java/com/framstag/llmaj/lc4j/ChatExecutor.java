@@ -27,6 +27,9 @@ import dev.langchain4j.service.tool.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.networknt.schema.*;
+import com.networknt.schema.dialect.Dialects;
+import com.networknt.schema.serialization.DefaultNodeReader;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -273,7 +276,7 @@ public class ChatExecutor {
         InvocationContext invocationContext = InvocationContext.builder()
                 .build();
 
-        if (!config.isNativeJSON() && !messages.isEmpty() && messages.getLast() instanceof UserMessage) {
+        if (!messages.isEmpty() && messages.getLast() instanceof UserMessage) {
             UserMessage um = (UserMessage) messages.removeLast();
             messages.addLast(patchUserMessageWithSchema(um, responseSchema));
         }
@@ -349,7 +352,29 @@ public class ChatExecutor {
         if (taskResultString != null && !taskResultString.isEmpty()) {
             taskResultString = JsonHelper.extractJSON(taskResultString);
             try (JsonParser parser = executionContext.getMapper().getFactory().createParser(taskResultString)) {
-                return executionContext.getMapper().readTree(parser);
+                JsonNode result = executionContext.getMapper().readTree(parser);
+
+                // Validate result against the JSON schema
+                if (responseSchema != null) {
+                    try {
+                        SchemaRegistry schemaRegistry = SchemaRegistry.withDialect(
+                                Dialects.getDraft202012(),
+                                builder -> builder.nodeReader(DefaultNodeReader.Builder::locationAware));
+                        String schemaString = executionContext.getMapper().writeValueAsString(responseSchema);
+                        Schema schema = schemaRegistry.getSchema(schemaString, InputFormat.JSON);
+                        java.util.List<com.networknt.schema.Error> errors = schema.validate(taskResultString, InputFormat.JSON);
+                        if (!errors.isEmpty()) {
+                            logger.warn("LLM response does not conform to JSON schema ({} errors):", errors.size());
+                            for (com.networknt.schema.Error error : errors) {
+                                logger.warn("  Schema violation: {}", error.getMessage());
+                            }
+                        }
+                    } catch (Exception e) {
+                        logger.warn("Could not validate response against schema: {}", e.getMessage());
+                    }
+                }
+
+                return result;
             }
         } else {
             return null;
