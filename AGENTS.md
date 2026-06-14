@@ -1,184 +1,307 @@
 # AGENTS.md — AI Agent Guide for LLMAnalysisJinni
 
-## What this project is
+## Project
 
-A **scriptable LLM analysis engine** that performs code architecture analysis through structured, iterative LLM calls instead of monolithic prompts. The engine chains tasks defined in YAML, each with:
+LLMAnalysisJinni is a Java/Maven engine for scriptable LLM-based code analysis. It runs a DAG of small tasks instead of one huge prompt. Each task can use Handlebars prompts, JSON Schema responses, tag dependencies, loops, and MCP tool access.
 
-- A prompt (Handlebars template, enriched with dynamic context)
-- A JSON Schema response format (enforces structured output)
-- A dependency graph (tasks wait on tags from other tasks)
-- Optional loop support (iterate over analysis substructures e.g., modules)
-- Tool whitelist/blacklist (which MCP tools the LLM can call)
+Current domain: `analysis/software-architecture/`.
 
-## Quickstart for agents
+## Repo map
 
-### Build
-
-```bash
-mvn verify -DskipTests   # build without tests (generates SBOM under target/)
-mvn verify                # build with tests
+```text
+.
+├── AGENTS.md
+├── LICENSE
+├── Models.md
+├── README.md
+├── LLMAnalysisJinni.iml          # local IDE file
+├── mise.toml
+├── mise.local.toml               # local Mise overrides
+├── openspec/
+├── analysis/software-architecture/
+├── examples/
+├── guidelines/
+│   ├── CodeStyles.md
+│   └── TestApproach.md
+├── src/
+├── target/                       # generated build output
+└── workspaces/                   # local analysis workspaces
 ```
 
-### Run
+## Main Java areas
+
+```text
+src/main/java/com/framstag/llmaj/
+  Main.java               # Picocli entry point
+  AnalysisContext.java    # project/workspace/state context
+  cli/                    # workspace, analyse, document, state, tools
+  config/                 # config.json load/store
+  handlebars/             # prompt/result template factory
+  json/                   # Jackson/ObjectMapper helpers
+  lc4j/                   # LangChain4j execution and tool filtering
+  state/                  # analysis.json persistence and loop state
+  tasks/                  # YAML task loading, DAG scheduling, state.json
+  tools/                  # MCP tool registration and implementations
+```
+
+## Guidelines
+
+Do not duplicate project rules here. Use:
+
+- `guidelines/CodeStyles.md`
+- `guidelines/TestApproach.md`
+- `Models.md`
+- `README.md`
+- `analysis/software-architecture/README.md`
+
+## Environment
 
 ```bash
-# Initialize workspace
-mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- workspace init \
-  --modelProvider=OLLAMA --modelUrl http://localhost:11434 \
-  --model "qwen2.5:7b" -j=true -- <project-dir> analysis/software-architecture <workspace-dir>
+mise install
+```
 
-# Run analysis
+Stack:
+
+- Java 25
+- Maven 3
+- Node 22
+- Pandoc
+
+## Build
+
+```bash
+mvn verify -DskipTests
+mvn verify
+```
+
+First run generates SBOM artifacts used by tests.
+
+## CLI
+
+### Init workspace
+
+```bash
+mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- \
+  workspace init \
+  --modelProvider=OLLAMA \
+  --modelUrl=http://localhost:11434 \
+  --model="qwen2.5:7b" \
+  -j=true \
+  --project=<project-dir> \
+  --analysis=analysis/software-architecture \
+  <workspace-dir>
+```
+
+Writes `config.json` into the workspace.
+
+### Analyse
+
+```bash
 mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- analyse <workspace-dir>
+```
 
-# Generate docs
+Outputs:
+
+- `analysis.json`
+- `state.json`
+
+### Document
+
+```bash
 mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- document <workspace-dir>
 ```
 
-## Source tree map
+Outputs `Documentation.md`.
 
-```
-src/main/java/com/framstag/llmaj/
-  Main.java                          # Entry point (picocli)
-  AnalysisContext.java               # Mutable analysis state (JSON object node)
-  cli/                               # CLI commands
-  config/                            # Config loading/storing
-  file/                              # File helpers
-  handlebars/                        # Handlebars template factory
-  json/                              # JSON helpers, ObjectMapper factory
-  lc4j/                              # LangChain4j integration
-    ChatExecutor.java                # Core: sends prompt to LLM, validates JSON response
-    ChatModelFactory.java            # Creates LangChain4j chat models
-    ToolFilter.java                  # Filters available MCP tools per task
-  state/                             # State persistence (state.json)
-  tasks/
-    TaskDefinition.java              # YAML -> task POJO
-    TaskManager.java                 # DAG scheduler, validation, state I/O
-    TaskState.java / TaskStatus.java # Execution state tracking
-  tools/
-    filesystem/                      # file listing, glob matching, counting
-    fileio/                          # read file contents
-    filestatistics/                  # file count/type statistics
-    info/                            # system info (version)
-    java/                            # JavaParser-based analysis (classes, methods, cyclomatic complexity)
-    sbom/                            # CycloneDX SBOM parsing
-    ToolFactory.java                 # Tool registration
+### State helpers
+
+```bash
+# show task state
+mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- state dump <workspace-dir>
+
+# clear task state, keep analysis.json
+mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- state clear <workspace-dir>
+
+# drop selected task states
+mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- state drop <workspace-dir> TaskId
+
+# run selected active tasks only
+mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- analyse -o TaskId <workspace-dir>
 ```
 
-```
-analysis/software-architecture/
-  tasks.yaml              # The main pipeline: task definitions with dependencies
-  prompts/                # Handlebars prompt templates (systemprompt.md + per-task)
-  results/                # JSON Schema files for LLM response validation
-  macros/                 # Shared Handlebars partials (e.g., list_of_modules)
-  facts/                  # Static knowledge (e.g., build system wildcards)
-  documentation/          # Documentation generation template (Documentation.md.hbs)
-```
+## Analysis pipeline
 
-## Key conventions
+`analysis/software-architecture/tasks.yaml` defines the DAG. Rough flow:
 
-### 1. Tasks are YAML, not code
+1. tool/version
+2. README locate
+3. project summary
+4. build systems
+5. module discovery
+6. per-module purpose/architecture/build/language analysis
+7. SBOM load/dependency/license/technology analysis
+8. file statistics/code size
+9. Java parser reports
+10. Java metric evaluations
+11. documentation render
 
-New analysis capabilities require writing:
+See `analysis/software-architecture/README.md` for task table and quality ratings.
 
-1. A prompt template in `analysis/<domain>/prompts/`
-2. A JSON Schema in `analysis/<domain>/results/`
-3. A YAML block in `analysis/<domain>/tasks.yaml`
+## Task YAML
 
-No Java code needed for basic tasks. Only new MCP tools require Java.
-
-### 2. Task YAML anatomy
+New analysis features usually need only YAML, prompts, and schemas.
 
 ```yaml
 ---
 id: MyTaskId
 name: Human-readable name
-systemPrompt: prompts/systemprompt.md   # shared system prompt
-prompt: prompts/my_task.md              # task-specific prompt
-responseFormat: results/MySchema.json   # JSON Schema
-responseProperty: myProperty            # where to store result in analysis state
+systemPrompt: prompts/systemprompt.md
+prompt: prompts/my_task.md
+responseFormat: results/MySchema.json
+responseProperty: myProperty
 active: true
 dependsOn:
-  - some_tag                            # tags from other tasks
+  - some_tag
 tags:
-  - my_tag                              # tags this task publishes
-loopOn: /modules/modules                # optional: iterate over JSONPath
+  - my_tag
+loopOn: /modules/modules
 toolWhitelist:
-  - filesystem_get_all_files_in_dir     # tools LLM may use
+  - filesystem_get_all_files_in_dir
 ```
 
-### 3. State machine
+Rules:
 
-The `TaskManager` tracks tasks via `state.json` in the workspace:
+- `dependsOn` references tags, not task IDs.
+- `tags` unlock dependent tasks.
+- `active` defaults to `true`.
+- `loopOn` is a JSONPath into `analysis.json`.
+- `responseProperty` stores the result.
+- `toolWhitelist` / `toolBlacklist` are regex filters.
 
-- `PENDING` → `PROCESSING` (while LLM runs) → `SUCCESSFUL` / `FAILED`
-- Failed tasks can be retried; `state.json` stores the execution history
-- Dependency resolution = tag matching: all `dependsOn` tags must be published by successful tasks before a task runs
+Validation checks required fields, tag references, dependency cycles, active `executeOnly` targets, and JSON Schema syntax.
 
-### 4. Prompt template model
+## Prompt model
 
-Prompts use Handlebars (`{{...}}`) and have access to:
+Handlebars templates can use:
 
-- `context` — the full `AnalysisContext` (project root, working dir, properties)
-- `analysis` — accumulated JSON analysis state (`analysis.json`)
-- `currentLoopElement` — current item when looping
-- Includes: `{{> macros/list_of_modules}}` etc.
+- `context` — project root, workspace, config, analysis state
+- `analysis` — `analysis.json`
+- `currentLoopElement` — current loop item
+- `loopIndex` — current loop index
+- partials like `{{> macros/list_of_modules}}`
 
-### 5. LLM response enforcement
+Template root is the active analysis directory.
 
-All LLM responses must be valid JSON matching the task's schema. The `ChatExecutor` validates with networknt/json-schema-validator. The system prompt enforces this strictly.
+## LLM execution
 
-### 6. MCP tools
+Each task expects JSON matching `responseFormat`.
 
-Tools are registered in `ToolFactory.java`. Each tool category provides functions the LLM can call via LangChain4j's tool interface. Tool access per task is controlled via `toolWhitelist`/`toolBlacklist` (regex patterns matching tool names).
+Runtime:
 
-## OpenSpec workflow (embedded in repo)
+- prompt is patched with schema description
+- tool calls may happen before final answer
+- Ollama can use native JSON when `-j=true`
+- OpenAI uses tool calls first, then final JSON-only call
+- JSON is extracted, parsed with Jackson, then schema-validated
+- schema violations currently log warnings and do not stop execution
 
-The repository uses OpenSpec for structured change management:
+Do not assume invalid JSON aborts a run.
 
-| Directory | Purpose |
-|---|---|
-| `.ai/mcp/mcp.json` | External MCP server definitions |
-| `openspec/` | OpenSpec change specs and workflow config |
-| `openspec/` | OpenSpec change specs and workflow config |
+## MCP tools
 
-When working on changes, use the OpenSpec workflow:
-1. `openspec-propose` skill to design a change
-2. `openspec-apply-change` skill to implement
-3. `openspec-verify-change` skill before archiving
-4. `openspec-archive-change` skill to finalize
+Registered in `ToolFactory.java`:
 
-## Adding a new analysis domain
+- `info`
+- `fileio`
+- `filesystem`
+- `sbom`
+- `filestatistics`
+- `java`
 
-Create a new directory under `analysis/`, e.g.:
+Use narrow tool whitelists. Broad wildcards need justification.
 
+Adding a new MCP tool requires Java changes.
+
+## State
+
+Workspace:
+
+```text
+<workspace-dir>/
+  config.json     # model, paths, runtime options
+  analysis.json   # accumulated analysis results/context
+  state.json      # task execution state
 ```
+
+Task states:
+
+- `PENDING`
+- `PROCESSING`
+- `SUCCESSFUL`
+- `FAILED`
+
+Successful task tags unlock dependents. Loop tasks remember successful indices and skip them on rerun.
+
+## Add analysis domain
+
+Create:
+
+```text
 analysis/my-domain/
   tasks.yaml
   prompts/
   results/
-  macros/     (optional)
-  facts/      (optional)
-  documentation/  (optional)
+  macros/       # optional
+  facts/        # optional
+  documentation/# optional
 ```
 
-Then pass `analysis/my-domain` as the analysis directory on `workspace init`.
+Initialize with:
+
+```bash
+--analysis=analysis/my-domain
+```
+
+For normal analysis tasks, add prompts, schemas, YAML, update domain README, run tests. Add Java only for new tools or engine changes.
 
 ## Testing
 
-Tests live in `src/test/java/com/framstag/llmaj/`. Currently limited to:
+Use JUnit unit tests. See `guidelines/TestApproach.md`.
 
-- `JsonHelperTest` — JSON serialization
-- `FileToolTest` — filesystem tool behavior
-- `SBOMToolTest` — SBOM parsing
+Current tests cover JSON helpers, filesystem tools, Java tools, SBOM tools, task definitions, and documentation templates.
+
+## OpenSpec
+
+Use OpenSpec for structured changes.
+
+```text
+openspec/config.yaml
+openspec/changes/
+openspec/specs/
+```
+
+Workflow: propose → apply → verify → archive. Keep specs small and testable.
+
+## Common pitfalls
+
+- Do not add Maven deps for analysis logic.
+- Put static knowledge in `facts/`, dynamic snippets in `macros/`.
+- Use tags in `dependsOn`, not task IDs.
+- Every task needs `responseFormat`.
+- `active: false` tasks do not run by default.
+- JSON schema validation only warns today.
+- Use `state clear`/`state drop` for task reruns; do not delete `analysis.json` unless intended.
+- Avoid broad tool wildcards.
+- Do not change Java parser behavior without tests.
 
 ## Models
 
-See `Models.md` for tested LLM models. Current recommendation: `qwen2.5:7b` or `gpt-oss:20b` via Ollama. Project uses LangChain4j — supports Ollama, OpenAI, and LocalAI providers.
+See `Models.md`.
 
-## Common agent pitfalls
+Useful Ollama models:
 
-- **Don't add Maven deps for analysis logic** — prompts + schemas + YAML suffice for most new tasks
-- **Don't hardcode values** — put static knowledge in `facts/`, dynamic context in `macros/`
-- **Don't skip schema validation** — every task MUST have a valid JSON Schema response format
-- **Tags = dependency mechanism** — `dependsOn` references tag names, not task IDs
-- **State persistence is on by default** — tasks can resume after failure; clear with `state clear` or delete `state.json`
+- `qwen2.5:7b` — OK, small context
+- `qwen3:4b` — bigger context, more creative
+- `gpt-oss:20b` — better results, slower
+
+Use `-j=true` when native JSON mode is supported.

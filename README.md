@@ -32,6 +32,8 @@ The software and the prompts are licensed under GPL.
 
 We use [Mise](https://mise.jdx.dev/) for a definition of used developer tools versions. See the `mise.toml` for details.
 
+For coding agents and developer conventions, see `AGENTS.md` and the files in `guidelines/`.
+
 ## Build
 
 For simpler test setup we use the repository itself for testing.
