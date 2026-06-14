@@ -10,6 +10,7 @@
 - The Java code follows the standard Java code style.
 - The code should not contain unused imports.
 - The code should not contain wildcard imports.
+- Use idiomatic Java code, that fits the capabilities of the used Java JDK version. 
 
 ## JSON files
 

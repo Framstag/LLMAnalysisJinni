@@ -35,6 +35,8 @@ public class JavaTool {
     private final AnalysisContext context;
     private final Map<String, Module> moduleMapCache = new HashMap<>();
 
+    private static final String JAVA_REPORT_SUBDIRECTORY = "Java";
+
     public JavaTool(AnalysisContext context) {
         this.context = context;
         logger.info("JavaTool initialized.");
@@ -143,7 +145,9 @@ public class JavaTool {
 
         logger.info("Id of generated report: {}", reportId);
 
-        Path reportPath = context.getWorkingDirectory().resolve(reportId + ".json");
+        Path reportDir = context.getWorkingDirectory().resolve(JAVA_REPORT_SUBDIRECTORY);
+        Files.createDirectories(reportDir);
+        Path reportPath = reportDir.resolve(reportId + ".json");
 
         logger.info("Writing report file '{}'...", reportPath);
 
@@ -167,7 +171,7 @@ public class JavaTool {
 
         String reportId = moduleNameToReportName(moduleName);
 
-        Path reportPath = context.getWorkingDirectory().resolve(reportId + ".json");
+        Path reportPath = context.getWorkingDirectory().resolve(JAVA_REPORT_SUBDIRECTORY).resolve(reportId + ".json");
 
         logger.info("Reading report file '{}'...", reportPath);
 
@@ -226,7 +230,7 @@ public class JavaTool {
     }
 
     private boolean reportFileExists(String moduleName) {
-        return Files.exists(context.getWorkingDirectory().resolve(moduleNameToReportName(moduleName) + ".json"));
+        return Files.exists(context.getWorkingDirectory().resolve(JAVA_REPORT_SUBDIRECTORY).resolve(moduleNameToReportName(moduleName) + ".json"));
     }
 
     private Map<String, Object> moduleReportDescriptor(String moduleName,

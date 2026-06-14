@@ -125,7 +125,8 @@ class JavaToolTest {
 
     @Test
     void generateAllModuleAnalysisReportsContinuesAfterModuleError() throws Exception {
-        Files.writeString(tempDir.resolve("Java_core.json"), "{}");
+        Files.createDirectories(tempDir.resolve("Java"));
+        Files.writeString(tempDir.resolve("Java/Java_core.json"), "{}");
         Map<String, String> modulePaths = new LinkedHashMap<>();
         modulePaths.put("core", ".");
         modulePaths.put("api", "missing-api");
@@ -145,7 +146,8 @@ class JavaToolTest {
 
     @Test
     void generateAllModuleAnalysisReportsReusesExistingReportsAndSkipsNonJavaModules() throws Exception {
-        Files.writeString(tempDir.resolve("Java_core.json"), "{}");
+        Files.createDirectories(tempDir.resolve("Java"));
+        Files.writeString(tempDir.resolve("Java/Java_core.json"), "{}");
         AnalysisContext context = contextWithModules("core", "docs");
         JavaTool javaTool = new JavaTool(context);
 
@@ -252,7 +254,7 @@ class JavaToolTest {
 
         List<?> reports = (List<?>) result.get("reports");
         assertEquals(1, reports.size());
-        assertTrue(Files.exists(tempDir.resolve("Java_core.json")));
+        assertTrue(Files.exists(tempDir.resolve("Java/Java_core.json")));
 
         Map<?, ?> coreReport = (Map<?, ?>) reports.getFirst();
         assertReportDescriptor(coreReport, "core", "GENERATED", "Java", "Java_core");
@@ -308,7 +310,8 @@ class JavaToolTest {
         Module module = new Module(moduleName);
         module.addPackage(pkg);
 
-        objectMapper.writeValue(tempDir.resolve("Java_" + moduleName + ".json").toFile(), module);
+        Files.createDirectories(tempDir.resolve("Java"));
+        objectMapper.writeValue(tempDir.resolve("Java/Java_" + moduleName + ".json").toFile(), module);
     }
 
     private AnalysisContext contextWithModules(String... moduleNames) {
