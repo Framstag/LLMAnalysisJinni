@@ -1,0 +1,64 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ModuleAnalysisReportsAll",
+    "description": "Batch collection of generated or reused Java module analysis reports",
+    "type": "object",
+    "properties": {
+        "reasoning": {
+            "type": "string",
+            "description": "Short description of the batch collection result"
+        },
+        "reports": {
+            "type": "array",
+            "description": "Generated or reused Java module report descriptors",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "moduleName": {
+                        "type": "string",
+                        "description": "Name of the module"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["GENERATED", "REUSED", "SKIPPED", "ERROR"],
+                        "description": "Report collection status"
+                    },
+                    "programmingLanguage": {
+                        "type": "string",
+                        "description": "Programming language for generated or reused reports"
+                    },
+                    "reportName": {
+                        "type": "string",
+                        "description": "Raw report file name without extension"
+                    },
+                    "reasoning": {
+                        "type": "string",
+                        "description": "Reasoning for this module result"
+                    }
+                },
+                "required": ["moduleName", "status", "programmingLanguage", "reportName", "reasoning"]
+            }
+        },
+        "skipped": {
+            "type": "array",
+            "description": "Modules skipped because they are not Java or could not be processed",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "moduleName": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["SKIPPED", "ERROR"]
+                    },
+                    "reasoning": {
+                        "type": "string"
+                    }
+                },
+                "required": ["moduleName", "status", "reasoning"]
+            }
+        }
+    },
+    "required": ["reasoning", "reports", "skipped"]
+}

@@ -1,0 +1,79 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ModuleBatchEvaluation",
+    "description": "Batch module evaluation with one top-level response for all modules",
+    "type": "object",
+    "properties": {
+        "reasoning": {
+            "type": "string",
+            "description": "Overall reasoning for this metric across all modules"
+        },
+        "moduleEvaluations": {
+            "type": "array",
+            "description": "One evaluation entry per affected module",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "moduleName": {
+                        "type": "string",
+                        "description": "Name of the evaluated module"
+                    },
+                    "reasoning": {
+                        "type": "string",
+                        "description": "Module-level reasoning"
+                    },
+                    "evaluations": {
+                        "type": "array",
+                        "description": "Findings for this module or group of modules",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "aspect": {
+                                    "type": "string",
+                                    "description": "Short description of the evaluated aspect"
+                                },
+                                "expectation": {
+                                    "type": "string",
+                                    "description": "Expectation in the context of the aspect analyzed"
+                                },
+                                "reasoning": {
+                                    "type": "string",
+                                    "description": "Reasoning that leads to the finding"
+                                },
+                                "finding": {
+                                    "type": "string",
+                                    "description": "The actual finding. Grouped findings must explicitly list affected modules, for example: Affected modules: core, api, web."
+                                },
+                                "recommendation": {
+                                    "type": "string",
+                                    "description": "Recommendation of action to improve the situation"
+                                },
+                                "urgency": {
+                                    "type": "string",
+                                    "enum": ["NONE", "LOW", "MEDIUM", "HIGH"],
+                                    "description": "Urgency of recommendation"
+                                },
+                                "criticality": {
+                                    "type": "string",
+                                    "enum": ["NONE", "LOW", "MEDIUM", "HIGH"],
+                                    "description": "Criticality of recommendation"
+                                }
+                            },
+                            "required": [
+                                "aspect",
+                                "expectation",
+                                "reasoning",
+                                "finding",
+                                "recommendation",
+                                "urgency",
+                                "criticality"
+                            ]
+                        }
+                    }
+                },
+                "required": ["moduleName", "reasoning", "evaluations"]
+            }
+        }
+    },
+    "required": ["reasoning", "moduleEvaluations"]
+}

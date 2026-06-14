@@ -1,0 +1,33 @@
+## Current Goal
+
+* Evaluate package-level tangles across all Java modules in one batch task.
+* Call **`java_get_all_package_tangle_reports`** once.
+* Produce findings for all modules in one response using `moduleEvaluations[]`.
+
+## Facts
+
+{{#with modules.modules}}
+The project has {{length}} build modules:
+
+| Module | Path | Root |
+|--------|------|------|
+{{#each this}}
+| {{name}} | `{{path}}` | {{root}} |
+{{/each}}
+{{/with}}
+
+## Solution Strategy
+
+* Call `java_get_all_package_tangle_reports`.
+* Use the returned compact findings for each module.
+* Preserve any CSV side effects produced by the tool.
+* Evaluate all modules together. Group findings common to multiple modules once.
+* Every grouped finding must explicitly list all affected modules, for example: `Affected modules: core, api, web.`
+* Do not use vague grouped wording such as `several modules`, `many modules`, or `some modules`.
+* Do not apply an initial per-module finding limit.
+
+## Response Requirements
+
+* Use the `ModuleBatchEvaluation` response schema.
+* Each `moduleEvaluations[]` entry must include `moduleName`, `reasoning`, and `evaluations`.
+* If a finding applies to multiple modules, include the full affected module list in the finding text.
