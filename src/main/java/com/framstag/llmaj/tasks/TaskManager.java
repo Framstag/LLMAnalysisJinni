@@ -437,7 +437,10 @@ public class TaskManager {
 
         taskStateMap.forEach((taskId, state) -> {
             if (state.isSuccessful()) {
-                scheduledTags.addAll(taskByIdMap.get(taskId).getTags());
+                TaskDefinition task = taskByIdMap.get(taskId);
+                if (task != null && task.isActive()) {
+                    scheduledTags.addAll(task.getTags());
+                }
             }
         });
 

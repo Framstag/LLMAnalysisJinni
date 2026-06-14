@@ -14,7 +14,7 @@ import java.util.Set;
 
 public class TaskDefinition {
     private String id;
-    private final boolean active = true;
+    private boolean active = true;
     private String name;
     private Path systemPrompt;
     private Path prompt;
