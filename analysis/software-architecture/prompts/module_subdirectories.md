@@ -55,6 +55,7 @@ For Maven and Java typical subdirectories (relative to the module) are:
 * It does not contain directories that replicate language-specific package structures.
 * Do not use path expression in the wildcards parameter of 'filesystem_count_per_filetype_and_directory'.
 * To keep the search fast, look only for wildcards for programming languages that are actually used in the to be analyzed module.
+* Do only one call to 'filesystem_count_per_filetype_and_directory', passing all wildcards in one go as an array.
 * Return the path relative to the module root.
 {{else}}
 ## Solution Strategy

@@ -279,13 +279,23 @@ We list the identified architecture per module.
 {{#modules.modules}}
 #### Module "{{name}}"
 
+{{#if architecture}}
 ##### Architecture
 
-{{architecture.architecture}}
-
-##### Reasoning
-
 {{architecture.reasoning}}
+
+{{#if architecture.architectureElements}}
+| Aspect | Urgency | Criticality | Finding | Recommendation |
+|--------|---------|-------------|---------|----------------|
+{{~#architecture.architectureElements}}
+|{{aspect}}|{{urgency}}|{{criticality}}|{{finding}}|{{recommendation}}|
+{{~/architecture.architectureElements}}
+{{else}}
+No architecture elements recorded.
+{{/if}}
+{{else}}
+No architecture analysis recorded for this module.
+{{/if}}
 {{/modules.modules}}
 {{/if}}
 
@@ -322,7 +332,7 @@ We gather some file statistics per module and programming language:
 |------|--------|---------|-------------|
 {{#modules.modules~}}
 {{#fileStatisticsPerProgrammingLanguage.fileStatistics~}}
-|{{name}}|{{wildcard}}|{{fileCount}}|{{lineCount}}|
+|{{../name}}|{{wildcard}}|{{fileCount}}|{{lineCount}}|
 {{/fileStatisticsPerProgrammingLanguage.fileStatistics~}}
 {{/modules.modules~}}
 {{/if}}
@@ -339,255 +349,327 @@ We got the following findings:
 
 ### Analysis of Cyclomatic Complexity per Module
 
-{{#if modules.modules}}
+{{#if cyclomaticComplexityEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
-{{#modules.modules}}
-#### Module "{{name}}"
+{{~#each cyclomaticComplexityEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
 
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|------|-------|-----------|-----------|---------|-------|--------------|
-{{#cyclomaticComplexityEvaluation.evaluations~}}
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/cyclomaticComplexityEvaluation.evaluations~}}
+{{~/each}}
 
-{{/modules.modules}}
+{{~/each}}
 {{/if}}
 
 ### Analysis of Method Nesting Depth per Module
 
-{{#if modules.modules}}
+{{#if nestingDepthEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
-{{#modules.modules}}
-#### Module "{{name}}"
+{{~#each nestingDepthEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
 
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#nestingDepthEvaluation.evaluations~}}
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/nestingDepthEvaluation.evaluations~}}
+{{~/each}}
 
-{{/modules.modules}}
+{{~/each}}
+{{/if}}
 
 ### Analysis of Method Visibility per Module
 
+{{#if visibilityEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
-{{#modules.modules}}
-#### Module "{{name}}"
+{{~#each visibilityEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
 
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#visibilityEvaluation.evaluations~}}
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/visibilityEvaluation.evaluations~}}
+{{~/each}}
 
-{{/modules.modules}}
+{{~/each}}
+{{/if}}
 
 ### Analysis of Class Inheritance per Module
 
+{{#if inheritanceEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
-{{#modules.modules}}
-#### Module "{{name}}"
+{{~#each inheritanceEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
 
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#inheritanceEvaluation.evaluations~}}
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/inheritanceEvaluation.evaluations~}}
+{{~/each}}
 
-{{/modules.modules}}
+{{~/each}}
+{{/if}}
 
 ### Analysis of Method Complexity per Module
 
+{{#if methodComplexityEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
-{{#modules.modules}}
-#### Module "{{name}}"
+{{~#each methodComplexityEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
 
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#methodComplexityEvaluation.evaluations~}}
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/methodComplexityEvaluation.evaluations~}}
+{{~/each}}
 
-{{/modules.modules}}
+{{~/each}}
 {{/if}}
 
 ### Analysis of Field Visibility per Module
 
+{{#if fieldVisibilityEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
-{{#modules.modules}}
-#### Module "{{name}}"
+{{~#each fieldVisibilityEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
 
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#fieldVisibilityEvaluation.evaluations~}}
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/fieldVisibilityEvaluation.evaluations~}}
+{{~/each}}
 
-{{/modules.modules}}
+{{~/each}}
+{{/if}}
 
 ### Analysis of Class Cohesion per Module
 
+{{#if classCohesionEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
-{{#modules.modules}}
-#### Module "{{name}}"
+{{~#each classCohesionEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
 
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#classCohesionEvaluation.evaluations~}}
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/classCohesionEvaluation.evaluations~}}
+{{~/each}}
 
-{{/modules.modules}}
-
+{{~/each}}
+{{/if}}
 
 ### Analysis of Class Coupling per Module
 
+{{#if couplingEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
-{{#modules.modules}}
-#### Module "{{name}}"
+{{~#each couplingEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
 
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#couplingEvaluation.evaluations~}}
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/couplingEvaluation.evaluations~}}
+{{~/each}}
 
-{{/modules.modules}}
-
+{{~/each}}
+{{/if}}
 
 ### Analysis of Test Coverage per Module
 
+{{#if testCoverageEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
-{{#modules.modules}}
-#### Module "{{name}}"
+{{~#each testCoverageEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
 
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#testCoverageEvaluation.evaluations~}}
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/testCoverageEvaluation.evaluations~}}
+{{~/each}}
 
-{{/modules.modules}}
-
+{{~/each}}
+{{/if}}
 
 ### Analysis of Circular Dependencies per Module
 
+{{#if circularDependencyEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
-{{#modules.modules}}
-#### Module "{{name}}"
+{{~#each circularDependencyEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
 
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#circularDependencyEvaluation.evaluations~}}
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/circularDependencyEvaluation.evaluations~}}
+{{~/each}}
 
-{{/modules.modules}}
-
+{{~/each}}
+{{/if}}
 
 ### Analysis of Method Count per Module
 
+{{#if methodCountEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
-{{#modules.modules}}
-#### Module "{{name}}"
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#methodCountEvaluation.evaluations~}}
+
+{{~#each methodCountEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
+
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/methodCountEvaluation.evaluations~}}
-{{/modules.modules}}
+{{~/each}}
+
+{{~/each}}
+{{/if}}
 
 ### Analysis of Documentation Ratio per Module
 
+{{#if documentationRatioEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
-{{#modules.modules}}
-#### Module "{{name}}"
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#documentationRatioEvaluation.evaluations~}}
+
+{{~#each documentationRatioEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
+
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/documentationRatioEvaluation.evaluations~}}
-{{/modules.modules}}
+{{~/each}}
+
+{{~/each}}
+{{/if}}
 
 ### Analysis of Data Class Candidates per Module
 
+{{#if dataClassEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
-{{#modules.modules}}
-#### Module "{{name}}"
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#dataClassEvaluation.evaluations~}}
+
+{{~#each dataClassEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
+
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/dataClassEvaluation.evaluations~}}
-{{/modules.modules}}
+{{~/each}}
+
+{{~/each}}
+{{/if}}
 
 ### Analysis of Boolean Parameter Abuse per Module
 
+{{#if booleanParameterEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
-{{#modules.modules}}
-#### Module "{{name}}"
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#booleanParameterEvaluation.evaluations~}}
+
+{{~#each booleanParameterEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
+
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/booleanParameterEvaluation.evaluations~}}}}
-{{/modules.modules}}
+{{~/each}}
+
+{{~/each}}
+{{/if}}
 
 ### Analysis of Annotation Usage per Module
 
+{{#if annotationEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
-{{#modules.modules}}
-#### Module "{{name}}"
+{{~#each annotationEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
 
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#annotationEvaluation.evaluations~}}
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/annotationEvaluation.evaluations~}}
-{{/modules.modules}}
+{{~/each}}
+
+{{~/each}}
+{{/if}}
 
 ### Analysis of Package Tangles per Module
 
+{{#if packageTangleEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
-{{#modules.modules}}
-#### Module "{{name}}"
+{{~#each packageTangleEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
 
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#packageTangleEvaluation.evaluations~}}
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/packageTangleEvaluation.evaluations~}}
-{{/modules.modules}}
-{{/booleanParameterEvaluation.evaluations~}}
-{{/modules.modules}}
+{{~/each}}
+
+{{~/each}}
+{{/if}}
 
 ### Analysis of Import Diversity per Module
 
+{{#if importDiversityEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
-{{#modules.modules}}
-#### Module "{{name}}"
+{{~#each importDiversityEvaluationAll.moduleEvaluations}}
+#### Module "{{moduleName}}"
 
-|Aspect|Urgency|Criticality|Expectation|Reasoning|Finding|Recommendation|
-|--- |-------|-----------|-----------|---------|-------|--------------|
-{{#importDiversityEvaluation.evaluations~}}
+{{reasoning}}
+
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
+|--------|---------|-------------|-------------|-----------|---------|----------------|
+{{~#each evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/importDiversityEvaluation.evaluations~}}
-{{/modules.modules}}
+{{~/each}}
 
-{{/modules.modules}}
+{{~/each}}
+{{/if}}
+
 
 ### Analysis of Inter-Module Dependencies
 
@@ -596,7 +678,31 @@ A cross-module analysis of inter-module dependencies was performed, including fa
 
 | Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation |
 |-------|--------|-------------|-------------|----------|---------|---------------|
-{{#interModuleDependencyEvaluation.evaluations}}
+{{~#interModuleDependencyEvaluation.evaluations}}
 |{{aspect}}|{{urgency}}|{{criticality}}|{{expectation}}|{{reasoning}}|{{finding}}|{{recommendation}}|
-{{/interModuleDependencyEvaluation.evaluations}}
+{{~/interModuleDependencyEvaluation.evaluations}}
+{{/if}}
+
+### Batch Java Report Collection
+
+{{#if analysisReportsAll.reports}}
+Batch Java raw report collection generated or reused the following reports:
+
+| Module | Status | Programming Language | Report | Reasoning |
+|--------|--------|----------------------|--------|-----------|
+{{~#analysisReportsAll.reports}}
+|{{moduleName}}|{{status}}|{{programmingLanguage}}|{{reportName}}|{{reasoning}}|
+{{~/analysisReportsAll.reports}}
+{{/if}}
+
+
+
+{{#if analysisReportsAll.skipped}}
+Skipped or errored modules:
+
+| Module | Status | Reasoning |
+|--------|--------|-----------|
+{{~#analysisReportsAll.skipped}}
+|{{moduleName}}|{{status}}|{{reasoning}}|
+{{~/analysisReportsAll.skipped}}
 {{/if}}

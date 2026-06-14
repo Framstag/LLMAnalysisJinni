@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
+
 public class JavaTool {
     private static final Logger logger = LoggerFactory.getLogger(JavaTool.class);
     public static final String JAVA_TOOL_JAR_DEPENDENCIES_DIRECTORY_PROPERTY = "javaTool.jarDependenciesDirectory";
@@ -180,6 +181,143 @@ public class JavaTool {
         return module;
     }
 
+    private List<JsonNode> getModuleNodes(ObjectNode analysisState) {
+        JsonNode modules = analysisState.get("modules");
+        if (modules == null || modules.isNull()) {
+            return List.of();
+        }
+
+        JsonNode moduleArray = modules.get("modules");
+        if (moduleArray == null || !moduleArray.isArray()) {
+            return List.of();
+        }
+
+        List<JsonNode> result = new ArrayList<>();
+        moduleArray.forEach(result::add);
+        return result;
+    }
+
+    private List<String> getJavaModuleNames(ObjectNode analysisState) {
+        return getModuleNodes(analysisState).stream()
+                .filter(this::isJavaModule)
+                .map(module -> module.get("name").asText())
+                .toList();
+    }
+
+    private boolean isJavaModule(JsonNode module) {
+        JsonNode programmingLanguages = module.get("programmingLanguages");
+        if (programmingLanguages == null || programmingLanguages.isNull()) {
+            return false;
+        }
+
+        JsonNode languageArray = programmingLanguages.get("programmingLanguages");
+        if (languageArray == null || !languageArray.isArray()) {
+            return false;
+        }
+
+        for (JsonNode language : languageArray) {
+            JsonNode name = language.get("name");
+            if (name != null && "Java".equalsIgnoreCase(name.asText())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean reportFileExists(String moduleName) {
+        return Files.exists(context.getWorkingDirectory().resolve(moduleNameToReportName(moduleName) + ".json"));
+    }
+
+    private Map<String, Object> moduleReportDescriptor(String moduleName,
+                                                       String status,
+                                                       String reportName,
+                                                       String reasoning) {
+        return moduleReportDescriptor(moduleName, status, reportName, reasoning, "");
+    }
+
+    private Map<String, Object> moduleReportDescriptor(String moduleName,
+                                                       String status,
+                                                       String reportName,
+                                                       String reasoning,
+                                                       String programmingLanguage) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("moduleName", moduleName);
+        descriptor.put("status", status);
+        if (programmingLanguage != null && !programmingLanguage.isEmpty()) {
+            descriptor.put("programmingLanguage", programmingLanguage);
+        }
+        descriptor.put("reportName", reportName);
+        descriptor.put("reasoning", reasoning);
+        return descriptor;
+    }
+
+    private Map<String, Object> moduleMetricReport(String moduleName,
+                                                   String metricName,
+                                                   Object report) {
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("moduleName", moduleName);
+        entry.put("metric", metricName);
+        entry.put("report", compactMetricReport(report));
+        return entry;
+    }
+
+    private Object compactMetricReport(Object report) {
+        if (report instanceof List<?> list) {
+            return list.stream()
+                    .map(this::compactMetricItem)
+                    .toList();
+        }
+        return report;
+    }
+
+    private Object compactMetricItem(Object item) {
+        if (item instanceof Distribution distribution) {
+            Map<String, Object> distributionMap = new LinkedHashMap<>();
+            distributionMap.put("name", distribution.getName());
+            distributionMap.put("entries", distribution.getEntries().stream()
+                    .map(entry -> {
+                        Map<String, Object> entryMap = new LinkedHashMap<>();
+                        entryMap.put("value", entry.getValue());
+                        entryMap.put("count", entry.getCount());
+                        return entryMap;
+                    })
+                    .toList());
+            return distributionMap;
+        }
+        return item;
+    }
+
+    private <T> Map<String, Object> getAllModuleMetricReports(String metricName,
+                                                              MetricReportProvider<T> provider) throws IOException {
+        List<Map<String, Object>> reports = new ArrayList<>();
+        List<Map<String, Object>> skipped = new ArrayList<>();
+
+        for (String moduleName : getJavaModuleNames(context.getAnalysisState())) {
+            try {
+                T report = provider.get(moduleName);
+                reports.add(moduleMetricReport(moduleName, metricName, report));
+            } catch (IOException e) {
+                skipped.add(moduleReportDescriptor(
+                        moduleName,
+                        "ERROR",
+                        moduleNameToReportName(moduleName),
+                        "Could not load or compute Java metric report: " + e.getMessage()));
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("metric", metricName);
+        result.put("reports", reports);
+        result.put("skipped", skipped);
+        return result;
+    }
+
+    @FunctionalInterface
+    private interface MetricReportProvider<T> {
+        T get(String moduleName) throws IOException;
+    }
+
     private TypeSolver createTypeResolver(Path rootPath,
                                           Map<String, String> properties,
                                           List<SpecialSubdirectory> specialSubdirectories) throws IOException {
@@ -292,6 +430,70 @@ public class JavaTool {
         dumpModuleToLog(module);
 
         return storeModuleReport(moduleName, module);
+    }
+
+    @Tool(name = "java_generate_all_module_analysis_reports",
+            value = """
+                    Generates or reuses raw Java analysis report files for all detected Java modules.
+
+                    The method reads the current analysis state, selects modules whose programming language is Java,
+                    reuses existing Java_<moduleName>.json files by default, and generates missing reports.
+                    """)
+    public Map<String, Object> generateAllModuleAnalysisReports() throws IOException {
+        logger.info("## JavaGenerateAllModuleAnalysisReports()");
+
+        List<Map<String, Object>> reports = new ArrayList<>();
+        List<Map<String, Object>> skipped = new ArrayList<>();
+
+        for (JsonNode module : getModuleNodes(context.getAnalysisState())) {
+            JsonNode nameNode = module.get("name");
+            if (nameNode == null || nameNode.isNull()) {
+                skipped.add(moduleReportDescriptor("unknown", "ERROR", "", "Module entry has no name."));
+                continue;
+            }
+
+            String moduleName = nameNode.asText();
+            if (!isJavaModule(module)) {
+                skipped.add(moduleReportDescriptor(
+                        moduleName,
+                        "SKIPPED",
+                        "",
+                        "Module is not detected as Java."));
+                continue;
+            }
+
+            if (reportFileExists(moduleName)) {
+                reports.add(moduleReportDescriptor(
+                        moduleName,
+                        "REUSED",
+                        moduleNameToReportName(moduleName),
+                        "Existing Java raw report file reused.",
+                        "Java"));
+                continue;
+            }
+
+            try {
+                generateModuleAnalysisReport(moduleName);
+                reports.add(moduleReportDescriptor(
+                        moduleName,
+                        "GENERATED",
+                        moduleNameToReportName(moduleName),
+                        "Missing Java raw report generated.",
+                        "Java"));
+            } catch (IOException | RuntimeException e) {
+                reports.add(moduleReportDescriptor(
+                        moduleName,
+                        "ERROR",
+                        moduleNameToReportName(moduleName),
+                        "Could not generate Java raw report: " + e.getMessage(),
+                        "Java"));
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("reports", reports);
+        result.put("skipped", skipped);
+        return result;
     }
 
     private static List<SpecialSubdirectory> filterSubdirectoriesWithAllowedAccess(List<SpecialSubdirectory> specialSubdirectories, Path rootPath) {
@@ -1724,6 +1926,142 @@ return List.of(pd, td, gd);
         }
         return null;
     }
+    @Tool(name = "java_get_all_cyclomatic_complexity_reports",
+            value = """
+                    Returns compact cyclomatic complexity distributions for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllCyclomaticComplexityReports() throws IOException {
+        return getAllModuleMetricReports("Cyclomatic complexity", this::getCyclomaticComplexityModuleReport);
+    }
+
+    @Tool(name = "java_get_all_visibility_distribution_reports",
+            value = """
+                    Returns compact method visibility distributions for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllVisibilityDistributionReports() throws IOException {
+        return getAllModuleMetricReports("Method visibility distribution", this::getVisibilityDistributionReport);
+    }
+
+    @Tool(name = "java_get_all_inheritance_reports",
+            value = """
+                    Returns compact inheritance pattern distributions for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllInheritanceReports() throws IOException {
+        return getAllModuleMetricReports("Inheritance", this::getInheritanceReport);
+    }
+
+    @Tool(name = "java_get_all_method_complexity_reports",
+            value = """
+                    Returns compact method complexity distributions for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllMethodComplexityReports() throws IOException {
+        return getAllModuleMetricReports("Method complexity", this::getMethodComplexityReport);
+    }
+
+    @Tool(name = "java_get_all_method_nesting_depth_reports",
+            value = """
+                    Returns compact method nesting depth distributions for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllMethodNestingDepthReports() throws IOException {
+        return getAllModuleMetricReports("Method nesting depth", this::getMethodNestingDepthReport);
+    }
+
+    @Tool(name = "java_get_all_field_visibility_reports",
+            value = """
+                    Returns compact field visibility distributions for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllFieldVisibilityReports() throws IOException {
+        return getAllModuleMetricReports("Field visibility distribution", this::getFieldVisibilityReport);
+    }
+
+    @Tool(name = "java_get_all_class_cohesion_reports",
+            value = """
+                    Returns compact class cohesion distributions for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllClassCohesionReports() throws IOException {
+        return getAllModuleMetricReports("Class cohesion", this::getClassCohesionReport);
+    }
+
+    @Tool(name = "java_get_all_coupling_reports",
+            value = """
+                    Returns compact coupling distributions for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllCouplingReports() throws IOException {
+        return getAllModuleMetricReports("Coupling", this::getCouplingReport);
+    }
+
+    @Tool(name = "java_get_all_test_coverage_reports",
+            value = """
+                    Returns compact test coverage distributions for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllTestCoverageReports() throws IOException {
+        return getAllModuleMetricReports("Test coverage", this::getTestCoverageReport);
+    }
+
+    @Tool(name = "java_get_all_circular_dependency_reports",
+            value = """
+                    Returns compact circular dependency findings for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllCircularDependencyReports() throws IOException {
+        return getAllModuleMetricReports("Circular dependency", this::getCircularDependencyReport);
+    }
+
+    @Tool(name = "java_get_all_method_count_reports",
+            value = """
+                    Returns compact method count distributions for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllMethodCountReports() throws IOException {
+        return getAllModuleMetricReports("Method count", this::getMethodCountReport);
+    }
+
+    @Tool(name = "java_get_all_documentation_ratio_reports",
+            value = """
+                    Returns compact documentation ratio distributions for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllDocumentationRatioReports() throws IOException {
+        return getAllModuleMetricReports("Documentation ratio", this::getDocumentationRatioReport);
+    }
+
+    @Tool(name = "java_get_all_data_class_reports",
+            value = """
+                    Returns compact data class candidate findings for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllDataClassReports() throws IOException {
+        return getAllModuleMetricReports("Data class candidates", this::getDataClassReport);
+    }
+
+    @Tool(name = "java_get_all_boolean_parameter_reports",
+            value = """
+                    Returns compact boolean parameter findings for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllBooleanParameterReports() throws IOException {
+        return getAllModuleMetricReports("Boolean parameters", this::getBooleanParameterReport);
+    }
+
+    @Tool(name = "java_get_all_annotation_reports",
+            value = """
+                    Returns compact annotation usage distributions for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllAnnotationReports() throws IOException {
+        return getAllModuleMetricReports("Annotation usage", this::getAnnotationReport);
+    }
+
+    @Tool(name = "java_get_all_package_tangle_reports",
+            value = """
+                    Returns compact package tangle findings for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllPackageTangleReports() throws IOException {
+        return getAllModuleMetricReports("Package tangles", this::getPackageTangleReport);
+    }
+
+    @Tool(name = "java_get_all_import_diversity_reports",
+            value = """
+                    Returns compact import diversity distributions for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllImportDiversityReports() throws IOException {
+        return getAllModuleMetricReports("Import diversity", this::getImportDiversityReport);
+    }
+
     @Tool(name = "java_get_inter_module_dependency_report",
            value = """
                    Analyses all modules and their imports to determine inter-module dependencies.

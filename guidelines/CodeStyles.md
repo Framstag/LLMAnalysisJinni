@@ -8,6 +8,8 @@
 ## Java files
 
 - The Java code follows the standard Java code style.
+- The code should not contain unused imports.
+- The code should not contain wildcard imports.
 
 ## JSON files
 

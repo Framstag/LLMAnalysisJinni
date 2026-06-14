@@ -229,263 +229,276 @@ loopOn: /modules/modules
 toolWhitelist:
   - filesystem_count_per_filetype_and_directory
 ---
-id: ModuleAnalysisReports
-name: Collect analysis data per identified module
-prompt: prompts/module_analysis_reports.md
+id: CollectJavaModuleReportsAll
+name: Collect Java analysis reports for all modules
+prompt: prompts/collect_java_module_reports_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ModuleAnalysisReports.json
-responseProperty: analysisReports
+responseFormat: results/ModuleAnalysisReportsAll.json
+responseProperty: analysisReportsAll
+active: true
 dependsOn:
   - modules
   - programming_language
   - module_subdirectories
 tags:
-  - module_analysis_reports
-loopOn: /modules/modules
+  - module_analysis_reports_all
 toolWhitelist:
-  - java_generate_module_analysis_report
----
-id: ModuleCyclomaticComplexityEvaluation
-name: Evaluate the measured cyclomatic complexity values of the module
-prompt: prompts/module_cyclomatic_complexity_evaluation.md
-systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: cyclomaticComplexityEvaluation
-dependsOn:
-  - module_analysis_reports
-tags:
-  - module_cyclomatic_complexity_evaluation
-loopOn: /modules/modules
-toolWhitelist:
-  - java_get_cyclomatic_complexity_module_report
+  - java_generate_all_module_analysis_reports
 
 ---
-id: ModuleVisibilityEvaluation
-name: Evaluate the method visibility distribution of the module
-prompt: prompts/module_visibility_evaluation.md
+id: CyclomaticComplexityEvaluationAll
+name: Evaluate cyclomatic complexity for all Java modules
+prompt: prompts/cyclomatic_complexity_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: visibilityEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: cyclomaticComplexityEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_visibility_evaluation
-loopOn: /modules/modules
+  - cyclomatic_complexity_evaluation_all
 toolWhitelist:
-  - java_get_visibility_distribution_report
+  - java_get_all_cyclomatic_complexity_reports
+
 ---
-id: ModuleInheritanceEvaluation
-name: Evaluate the inheritance patterns of the module
-prompt: prompts/module_inheritance_evaluation.md
+id: VisibilityEvaluationAll
+name: Evaluate method visibility for all Java modules
+prompt: prompts/visibility_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: inheritanceEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: visibilityEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_inheritance_evaluation
-loopOn: /modules/modules
+  - visibility_evaluation_all
 toolWhitelist:
-  - java_get_inheritance_report
+  - java_get_all_visibility_distribution_reports
+
 ---
-id: ModuleMethodComplexityEvaluation
-name: Evaluate the method complexity metrics of the module
-prompt: prompts/module_method_complexity_evaluation.md
+id: InheritanceEvaluationAll
+name: Evaluate inheritance for all Java modules
+prompt: prompts/inheritance_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: methodComplexityEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: inheritanceEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_method_complexity_evaluation
-loopOn: /modules/modules
+  - inheritance_evaluation_all
 toolWhitelist:
-  - java_get_method_complexity_report
-  - java_get_cyclomatic_complexity_module_report
+  - java_get_all_inheritance_reports
+
 ---
-id: ModuleNestingDepthEvaluation
-name: Evaluate the method nesting depth of the module
-prompt: prompts/module_nesting_depth_evaluation.md
+id: MethodComplexityEvaluationAll
+name: Evaluate method complexity for all Java modules
+prompt: prompts/method_complexity_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: nestingDepthEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: methodComplexityEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_nesting_depth_evaluation
-loopOn: /modules/modules
+  - method_complexity_evaluation_all
 toolWhitelist:
-  - java_get_method_nesting_depth_report
-  - java_get_cyclomatic_complexity_module_report
+  - java_get_all_method_complexity_reports
+
 ---
-id: ModuleFieldVisibilityEvaluation
-name: Evaluate the field visibility distribution of the module
-prompt: prompts/module_field_visibility_evaluation.md
+id: NestingDepthEvaluationAll
+name: Evaluate method nesting depth for all Java modules
+prompt: prompts/nesting_depth_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: fieldVisibilityEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: nestingDepthEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_field_visibility_evaluation
-loopOn: /modules/modules
+  - nesting_depth_evaluation_all
 toolWhitelist:
-  - java_get_field_visibility_report
+  - java_get_all_method_nesting_depth_reports
+
 ---
-id: ModuleClassCohesionEvaluation
-name: Evaluate the class cohesion metrics of the module
-prompt: prompts/module_class_cohesion_evaluation.md
+id: FieldVisibilityEvaluationAll
+name: Evaluate field visibility for all Java modules
+prompt: prompts/field_visibility_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: classCohesionEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: fieldVisibilityEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_class_cohesion_evaluation
-loopOn: /modules/modules
+  - field_visibility_evaluation_all
 toolWhitelist:
-  - java_get_class_cohesion_report
-  - java_get_field_visibility_report
+  - java_get_all_field_visibility_reports
+
 ---
-id: ModuleCouplingEvaluation
-name: Evaluate the coupling of the module
-prompt: prompts/module_coupling_evaluation.md
+id: ClassCohesionEvaluationAll
+name: Evaluate class cohesion for all Java modules
+prompt: prompts/class_cohesion_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: couplingEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: classCohesionEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_coupling_evaluation
-loopOn: /modules/modules
+  - class_cohesion_evaluation_all
 toolWhitelist:
-  - java_get_coupling_report
+  - java_get_all_class_cohesion_reports
+
 ---
-id: ModuleTestCoverageEvaluation
-name: Evaluate the test coverage of the module
-prompt: prompts/module_test_coverage_evaluation.md
+id: CouplingEvaluationAll
+name: Evaluate coupling for all Java modules
+prompt: prompts/coupling_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: testCoverageEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: couplingEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_test_coverage_evaluation
-loopOn: /modules/modules
+  - coupling_evaluation_all
 toolWhitelist:
-  - java_get_test_coverage_report
+  - java_get_all_coupling_reports
+
 ---
-id: ModuleCircularDependencyEvaluation
-name: Evaluate circular dependencies in the module
-prompt: prompts/module_circular_dependency_evaluation.md
+id: TestCoverageEvaluationAll
+name: Evaluate test coverage for all Java modules
+prompt: prompts/test_coverage_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: circularDependencyEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: testCoverageEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_circular_dependency_evaluation
-loopOn: /modules/modules
+  - test_coverage_evaluation_all
 toolWhitelist:
-  - java_get_circular_dependency_report
+  - java_get_all_test_coverage_reports
+
 ---
-id: ModuleMethodCountEvaluation
-name: Evaluate method count per class
-prompt: prompts/module_method_count_evaluation.md
+id: CircularDependencyEvaluationAll
+name: Evaluate circular dependencies for all Java modules
+prompt: prompts/circular_dependency_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: methodCountEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: circularDependencyEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_method_count_evaluation
-loopOn: /modules/modules
+  - circular_dependency_evaluation_all
 toolWhitelist:
-  - java_get_method_count_report
+  - java_get_all_circular_dependency_reports
+
 ---
-id: ModuleDocumentationRatioEvaluation
-name: Evaluate documentation coverage
-prompt: prompts/module_documentation_ratio_evaluation.md
+id: MethodCountEvaluationAll
+name: Evaluate method count for all Java modules
+prompt: prompts/method_count_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: documentationRatioEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: methodCountEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_documentation_ratio_evaluation
-loopOn: /modules/modules
+  - method_count_evaluation_all
 toolWhitelist:
-  - java_get_documentation_ratio_report
+  - java_get_all_method_count_reports
+
 ---
-id: ModuleDataClassEvaluation
-name: Evaluate data class candidates
-prompt: prompts/module_data_class_evaluation.md
+id: DocumentationRatioEvaluationAll
+name: Evaluate documentation ratio for all Java modules
+prompt: prompts/documentation_ratio_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: dataClassEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: documentationRatioEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_data_class_evaluation
-loopOn: /modules/modules
+  - documentation_ratio_evaluation_all
 toolWhitelist:
-  - java_get_data_class_report
+  - java_get_all_documentation_ratio_reports
+
 ---
-id: ModuleBooleanParameterEvaluation
-name: Evaluate boolean parameter abuse
-prompt: prompts/module_boolean_parameter_evaluation.md
+id: DataClassEvaluationAll
+name: Evaluate data class candidates for all Java modules
+prompt: prompts/data_class_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: booleanParameterEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: dataClassEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_boolean_parameter_evaluation
-loopOn: /modules/modules
+  - data_class_evaluation_all
 toolWhitelist:
-  - java_get_boolean_parameter_report
+  - java_get_all_data_class_reports
+
 ---
-id: ModuleAnnotationEvaluation
-name: Evaluate annotation usage
-prompt: prompts/module_annotation_evaluation.md
+id: BooleanParameterEvaluationAll
+name: Evaluate boolean parameters for all Java modules
+prompt: prompts/boolean_parameter_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: annotationEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: booleanParameterEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_annotation_evaluation
-loopOn: /modules/modules
+  - boolean_parameter_evaluation_all
 toolWhitelist:
-  - java_get_annotation_report
+  - java_get_all_boolean_parameter_reports
+
 ---
-id: ModulePackageTangleEvaluation
-name: Evaluate package-level tangles
-prompt: prompts/module_package_tangle_evaluation.md
+id: AnnotationEvaluationAll
+name: Evaluate annotation usage for all Java modules
+prompt: prompts/annotation_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: packageTangleEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: annotationEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_package_tangle_evaluation
-loopOn: /modules/modules
+  - annotation_evaluation_all
 toolWhitelist:
-  - java_get_package_tangle_report
+  - java_get_all_annotation_reports
+
 ---
-id: ModuleImportDiversityEvaluation
-name: Evaluate import diversity
-prompt: prompts/module_import_diversity_evaluation.md
+id: PackageTangleEvaluationAll
+name: Evaluate package tangles for all Java modules
+prompt: prompts/package_tangle_evaluation_all.md
 systemPrompt: prompts/systemprompt.md
-responseFormat: results/ArchitectureEvaluation.json
-responseProperty: importDiversityEvaluation
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: packageTangleEvaluationAll
+active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
-  - module_import_diversity_evaluation
-loopOn: /modules/modules
+  - package_tangle_evaluation_all
 toolWhitelist:
-  - java_get_import_diversity_report
+  - java_get_all_package_tangle_reports
+
+---
+id: ImportDiversityEvaluationAll
+name: Evaluate import diversity for all Java modules
+prompt: prompts/import_diversity_evaluation_all.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: importDiversityEvaluationAll
+active: true
+dependsOn:
+  - module_analysis_reports_all
+tags:
+  - import_diversity_evaluation_all
+toolWhitelist:
+  - java_get_all_import_diversity_reports
 
 ---
 id: InterModuleDependencyEvaluation
@@ -496,7 +509,7 @@ responseFormat: results/ArchitectureEvaluation.json
 responseProperty: interModuleDependencyEvaluation
 active: true
 dependsOn:
-  - module_analysis_reports
+  - module_analysis_reports_all
 tags:
   - inter_module_dependency_evaluation
 toolWhitelist:

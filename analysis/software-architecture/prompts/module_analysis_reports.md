@@ -16,14 +16,18 @@
 {{#if programmingLanguages.programmingLanguages.length}}
 ## Solution strategy
 
-* If one of the programming languages is 'Java', call the 'java_generate_module_analysis_report' tool.
-* If there is no matching analysis tool for a detected programming language, just skip this language and continue with the next in the list.
-* If no programming language was found to analyze, just return an empty array of reports.
+* If one of the programming languages is 'Java', call the 'java_generate_module_analysis_report' tool with the module name.
+* The tool returns the raw report id. Convert it to one report descriptor:
+  * `programmingLanguage`: `Java`
+  * `reportName`: returned report id
+  * `reasoning`: short note that raw Java report data was generated for this module
+* If there is no matching analysis tool for a detected programming language, skip this language.
+* If no programming language was found to analyze, return an empty `reports` array.
 
 ## Hints
 {{~else~}}
 ## Solution strategy
 
-* Since no programming languages have been found, no analysis is possible. Thus, return an empty array of reports.
+* Since no programming languages have been found, no analysis is possible. Thus, return an empty `reports` array.
 {{/if}}
 {{/with}}

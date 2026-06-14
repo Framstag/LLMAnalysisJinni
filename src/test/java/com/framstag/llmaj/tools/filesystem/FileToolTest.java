@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,7 +46,17 @@ public class FileToolTest {
     void GetAllFilesInDirWithSubdir() throws IOException {
         List<FilesInDirectory> result = filesystemTool.getAllFilesInDirRecursively("src/test/java/com/framstag/llmaj");
 
-        assertEquals(3, result.size());
+        assertEquals(List.of(
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/documentation", List.of("DocumentationTemplateTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/json", List.of("JsonHelperTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/tasks", List.of("SoftwareArchitectureTaskConfigTest.java", "TaskDefinitionTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/filesystem", List.of("FileToolTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/java", List.of("JavaToolTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/sbom", List.of("SBOMToolTest.java"))),
+                result.stream()
+                        .sorted(Comparator.comparing(FilesInDirectory::directory)
+                                .thenComparing(directory -> directory.files().getFirst()))
+                        .toList());
     }
 
     @Test
