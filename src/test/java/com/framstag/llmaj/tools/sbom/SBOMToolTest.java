@@ -11,19 +11,19 @@ import java.util.List;
 
 public class SBOMToolTest {
     private static final List<String> CURRENT_DEPENDENCIES = List.of(
-        "pkg:maven/ch.qos.logback/logback-classic@1.5.32?type=jar",
-        "pkg:maven/com.fasterxml.jackson.dataformat/jackson-dataformat-yaml@2.21.3?type=jar",
-        "pkg:maven/com.fasterxml.jackson.datatype/jackson-datatype-jdk8@2.21.3?type=jar",
-        "pkg:maven/com.fasterxml.jackson.datatype/jackson-datatype-jsr310@2.21.3?type=jar",
-        "pkg:maven/com.github.javaparser/javaparser-symbol-solver-core@3.28.1?type=jar",
-        "pkg:maven/com.github.jknack/handlebars@4.5.1?type=jar",
-        "pkg:maven/com.networknt/json-schema-validator@3.0.2?type=jar",
-        "pkg:maven/de.siegmar/fastcsv@4.2.0?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-local-ai@1.15.0-beta25?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-mcp@1.15.0-beta25?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-ollama@1.15.0?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-open-ai@1.15.0?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j@1.15.0?type=jar",
+        "pkg:maven/ch.qos.logback/logback-classic@1.5.37?type=jar",
+        "pkg:maven/com.fasterxml.jackson.dataformat/jackson-dataformat-yaml@2.22.0?type=jar",
+        "pkg:maven/com.fasterxml.jackson.datatype/jackson-datatype-jdk8@2.22.0?type=jar",
+        "pkg:maven/com.fasterxml.jackson.datatype/jackson-datatype-jsr310@2.22.0?type=jar",
+        "pkg:maven/com.github.javaparser/javaparser-symbol-solver-core@3.28.2?type=jar",
+        "pkg:maven/com.github.jknack/handlebars@4.5.3?type=jar",
+        "pkg:maven/com.networknt/json-schema-validator@3.0.5?type=jar",
+        "pkg:maven/de.siegmar/fastcsv@4.3.1?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j-local-ai@1.17.1-beta27?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j-mcp@1.17.1-beta27?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j-ollama@1.17.1?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j-open-ai@1.17.1?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j@1.17.1?type=jar",
         "pkg:maven/info.picocli/picocli@4.7.7?type=jar",
         "pkg:maven/org.cyclonedx/cyclonedx-core-java@12.2.0?type=jar"
     );
