@@ -9,6 +9,7 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 public class ChatModelFactory {
 
@@ -28,6 +29,10 @@ public class ChatModelFactory {
 
             if (config.isLogRequests() || config.isLogResponses()) {
                 builder.listeners(List.of(new ChatListener()));
+            }
+
+            if (config.getApiKey() != null && !config.getApiKey().isEmpty()) {
+                builder.customHeaders(Map.of("Authorization", "Bearer " + config.getApiKey()));
             }
 
             return builder.build();
