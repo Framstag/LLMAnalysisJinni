@@ -29,6 +29,8 @@ public class Config {
     private boolean nativeJSON;
     private boolean logRequests;
     private boolean logResponses;
+    private boolean executionTrace;
+    private boolean executionTraceSystem;
     private final List<MCPServer> mcpServers;
     private final Map<String,String> properties;
 
@@ -41,6 +43,8 @@ public class Config {
         nativeJSON = false;
         logRequests = false;
         logResponses = false;
+        executionTrace = true;
+        executionTraceSystem = false;
         mcpServers = new LinkedList<>();
         properties = new HashMap<>();
     }
@@ -101,6 +105,22 @@ public class Config {
 
     public void setLogResponses(boolean logResponses) {
         this.logResponses = logResponses;
+    }
+
+    public boolean isExecutionTrace() {
+        return executionTrace;
+    }
+
+    public void setExecutionTrace(boolean executionTrace) {
+        this.executionTrace = executionTrace;
+    }
+
+    public boolean isExecutionTraceSystem() {
+        return executionTraceSystem;
+    }
+
+    public void setExecutionTraceSystem(boolean executionTraceSystem) {
+        this.executionTraceSystem = executionTraceSystem;
     }
 
     public ModelProvider getModelProvider() {
@@ -209,6 +229,8 @@ public class Config {
         logger.info("Timeout:            {} minute(s)", requestTimeout);
         logger.info("Log requests:       {}", logRequests);
         logger.info("Log responses:      {}", logResponses);
+        logger.info("Execution trace:    {}", executionTrace);
+        logger.info("Execution trace sys:{}", executionTraceSystem);
         logger.info("Maximum tokens:     {}", maximumTokens);
         logger.info("Loop parallelism:   {} ", loopParallelism);
         logger.info("Native JSON:        {}", nativeJSON);

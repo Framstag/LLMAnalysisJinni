@@ -14,7 +14,7 @@ public class ChatModelFactory {
 
     public static ChatModel getChatModel(Config config) {
         if (config.getModelProvider() == ModelProvider.OLLAMA) {
-            return OllamaChatModel.builder()
+            var builder = OllamaChatModel.builder()
                     .modelName(config.getModelName())
                     .baseUrl(config.getModelURL().toString())
                     .timeout(Duration.ofMinutes(config.getRequestTimeout()))
@@ -22,14 +22,18 @@ public class ChatModelFactory {
                     .topP(0.9)
                     .think(false)
                     .returnThinking(false)
-                    .listeners(List.of(new ChatListener()))
                     .logRequests(config.isLogRequests())
                     .logResponses(config.isLogResponses())
-                    .numCtx(config.getMaximumTokens())
-                    .build();
+                    .numCtx(config.getMaximumTokens());
+
+            if (config.isLogRequests() || config.isLogResponses()) {
+                builder.listeners(List.of(new ChatListener()));
+            }
+
+            return builder.build();
         }
         else if (config.getModelProvider() == ModelProvider.OPENAI) {
-            return OpenAiChatModel.builder()
+            var builder = OpenAiChatModel.builder()
                     .modelName(config.getModelName())
                     .baseUrl(config.getModelURL().toString())
                     .apiKey(config.getApiKey())
@@ -38,11 +42,15 @@ public class ChatModelFactory {
                     .topP(0.9)
                     .sendThinking(false)
                     .returnThinking(false)
-                    .listeners(List.of(new ChatListener()))
                     .logRequests(config.isLogRequests())
                     .logResponses(config.isLogResponses())
-                    .maxTokens(config.getMaximumTokens())
-                    .build();
+                    .maxTokens(config.getMaximumTokens());
+
+            if (config.isLogRequests() || config.isLogResponses()) {
+                builder.listeners(List.of(new ChatListener()));
+            }
+
+            return builder.build();
         }
         else if (config.getModelProvider() == ModelProvider.LOCALAI) {
             return LocalAiChatModel.builder()

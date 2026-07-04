@@ -62,11 +62,14 @@ public class ChatExecutor {
     private final ToolExecutionErrorHandler executionErrorHandler;
     private final Function<ToolExecutionRequest, ToolExecutionResultMessage> toolHallucinationStrategy;
 
+    private final ChatLogger chatLogger;
+
     public ChatExecutor() {
         executor =  DefaultExecutorProvider.getDefaultExecutorService();
         toolHallucinationStrategy = HallucinatedToolNameStrategy.THROW_EXCEPTION;
         argumentsErrorHandler = DEFAULT_TOOL_ARGUMENTS_ERROR_HANDLER;
         executionErrorHandler = DEFAULT_TOOL_EXECUTION_ERROR_HANDLER;
+        chatLogger = new ChatLogger();
     }
 
     private ToolExecutionResult applyToolHallucinationStrategy(ToolExecutionRequest toolRequest) {
@@ -283,6 +286,11 @@ public class ChatExecutor {
 
         chatMemory.add(messages);
 
+        // Log the initial request messages to console
+        if (config.isExecutionTrace()) {
+            chatLogger.logProgressive(chatMemory.messages(), config.isExecutionTraceSystem());
+        }
+
         // Execute the initial request
 
         ChatRequest request = ChatRequest.builder()
@@ -301,17 +309,39 @@ public class ChatExecutor {
         while (chatResponse.aiMessage().hasToolExecutionRequests()) {
             chatMemory.add(chatResponse.aiMessage());
 
+            // Log tool calls BEFORE execution so tool's own logs come after
+            if (config.isExecutionTrace()) {
+                var am = chatResponse.aiMessage();
+                if (am.text() != null && !am.text().isEmpty()) {
+                    logger.info("< {}", am.text());
+                }
+                if (am.thinking() != null && !am.thinking().isEmpty()) {
+                    logger.info("> Thinking: {}", am.thinking());
+                }
+                for (var req : am.toolExecutionRequests()) {
+                    logger.info("--> Tool {}: {}", req.name(), req.arguments());
+                }
+            }
+
             Map<ToolExecutionRequest, ToolExecutionResult> toolResults = executeConcurrently(chatResponse.aiMessage().toolExecutionRequests(),
                     executionContext.getToolService().toolExecutors(),
                     invocationContext);
 
+            // Log tool results AFTER execution
             for (Map.Entry<ToolExecutionRequest, ToolExecutionResult> entry : toolResults.entrySet()) {
                 ToolExecutionRequest toolRequest = entry.getKey();
                 ToolExecutionResult toolResult = entry.getValue();
                 ToolExecutionResultMessage resultMessage = ToolExecutionResultMessage.from(toolRequest, toolResult.resultText());
 
                 chatMemory.add(resultMessage);
+
+                if (config.isExecutionTrace()) {
+                    logger.info("<-- Tool {}: {}", toolRequest.name(), toolResult.resultText());
+                }
             }
+
+            // Advance ChatLogger past messages already logged inline
+            chatLogger.advanceShownIndexTo(chatMemory.messages().size());
 
             // Initiate a further chat request, which might trigger further tool execution - or not
             ChatRequest chatRequest = ChatRequest.builder()
@@ -337,6 +367,10 @@ public class ChatExecutor {
                             responseSchema))
                     .build();
 
+            if (config.isExecutionTrace()) {
+                chatLogger.logProgressive(chatMemory.messages(), config.isExecutionTraceSystem());
+            }
+
             chatResponse = executionContext.getChatModel().chat(request);
 
             aggregateTokenUsage = TokenUsage.sum(aggregateTokenUsage, chatResponse.metadata().tokenUsage());
@@ -346,6 +380,20 @@ public class ChatExecutor {
                 aggregateTokenUsage.inputTokenCount(),
                 aggregateTokenUsage.outputTokenCount(),
                 aggregateTokenUsage.totalTokenCount());
+
+        // Add final AI response to chat memory so it appears in logs
+        chatMemory.add(chatResponse.aiMessage());
+
+        if (config.isExecutionTrace()) {
+            chatLogger.logProgressive(chatMemory.messages(), config.isExecutionTraceSystem());
+        }
+
+        // Write full conversation to log file
+        chatLogger.writeLogFile(executionContext.getWorkspacePath(),
+                executionContext.getTaskId(),
+                executionContext.getLoopIndex(),
+                chatMemory.messages(),
+                aggregateTokenUsage);
 
         String taskResultString = chatResponse.aiMessage().text();
 

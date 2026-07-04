@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-07-02
+goal: Decouple logging from LangChain4j listener framework. Each ChatExecutor
+  instance owns its console + file logging. Listener removed or reduced to debug
+  flag support.

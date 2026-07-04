@@ -51,6 +51,12 @@ public class AnalyseCmd implements Callable<Integer> {
     @Option(names={"--log-response"}, arity = "1", description = "Activate langchain4j low-level log of chat responses")
     Boolean logResponse = false;
 
+    @Option(names={"--execution-trace"}, arity = "1", defaultValue = "true", description = "Show chat execution trace on console")
+    boolean executionTrace = true;
+
+    @Option(names={"--execution-trace-system"}, arity = "1", defaultValue = "false", description = "Show system messages in console execution trace")
+    boolean executionTraceSystem = false;
+
     @Option(names={"-o","--executeOnly"}, arity = "1..*", description = "A list of task ids, that should only be executed")
     Set<String> executeOnly = new HashSet<>();
 
@@ -111,6 +117,9 @@ public class AnalyseCmd implements Callable<Integer> {
             if (logResponse != null) {
                 config.setLogResponses(logResponse);
             }
+
+            config.setExecutionTrace(executionTrace);
+            config.setExecutionTraceSystem(executionTraceSystem);
 
             config.dumpToLog();
         } catch (IOException e) {
@@ -201,7 +210,10 @@ public class AnalyseCmd implements Callable<Integer> {
                                             model,
                                             toolService,
                                             new ToolFilter(task.getToolWhitelist(), task.getToolBlacklist()),
-                                            mapper);
+                                            mapper,
+                                            task.getId(),
+                                            currentIndex,
+                                            workingDirectory);
 
                             JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
                                     execContext,
@@ -254,7 +266,10 @@ public class AnalyseCmd implements Callable<Integer> {
                                 model,
                                 toolService,
                                 new ToolFilter(task.getToolWhitelist(), task.getToolBlacklist()),
-                                mapper);
+                                mapper,
+                                task.getId(),
+                                null,
+                                workingDirectory);
 
                 JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
                         execContext,

@@ -12,33 +12,33 @@ public class ChatListener implements ChatModelListener {
     private static final Logger logger = LoggerFactory.getLogger(ChatListener.class);
 
     private void logSystemMessage(SystemMessage message) {
-        logger.info("{} {}","##>",message.text());
+        logger.trace("##> {}", message.text());
     }
 
     private void logUserMessage(UserMessage message) {
         if (message.hasSingleText()) {
-            logger.info("{} {}",">",message.singleText());
+            logger.trace("> {}", message.singleText());
         }
         else {
-            logger.info("{} {}",">",message);
+            logger.trace("> {}", message);
         }
     }
 
     private void logAiMessage(AiMessage message) {
         if (message.hasToolExecutionRequests()) {
             for (ToolExecutionRequest request : message.toolExecutionRequests()) {
-                logger.info("--> Tool {}: {}",request.name(),request.arguments());
+                logger.trace("--> Tool {}: {}", request.name(), request.arguments());
             }
         }
 
         if (message.text() != null &&
             !message.text().isEmpty()) {
-            logger.info("{} {}", "<", message.text());
+            logger.trace("< {}", message.text());
         }
     }
 
     private void logToolExecutionResultMessage(ToolExecutionResultMessage message) {
-        logger.info("<-- Tool {}: {}",message.toolName(),message.text());
+        logger.trace("<-- Tool {}: {}", message.toolName(), message.text());
     }
 
     private void logMessage(ChatMessage message) {
@@ -47,13 +47,13 @@ public class ChatListener implements ChatModelListener {
             case UserMessage um -> logUserMessage(um);
             case AiMessage am -> logAiMessage(am);
             case ToolExecutionResultMessage tm -> logToolExecutionResultMessage(tm);
-            default -> logger.info("{} {}","??? ",message);
+            default -> logger.trace("??? {}", message);
         }
     }
 
     @Override
     public void onRequest(ChatModelRequestContext requestContext) {
-        logger.info("REQUEST {} - {} - {}",
+        logger.trace("REQUEST {} - {} - {}",
                 requestContext.chatRequest().modelName(),
                 requestContext.chatRequest().responseFormat() != null ?
                         requestContext.chatRequest().responseFormat().type() : "",
@@ -67,7 +67,7 @@ public class ChatListener implements ChatModelListener {
 
     @Override
     public void onResponse(ChatModelResponseContext responseContext) {
-        logger.info("RESPONSE {} - I/O {}/{} - reason {}",
+        logger.trace("RESPONSE {} - I/O {}/{} - reason {}",
                 responseContext.chatResponse().modelName(),
                 responseContext.chatResponse().tokenUsage().inputTokenCount(),
                 responseContext.chatResponse().tokenUsage().outputTokenCount(),
