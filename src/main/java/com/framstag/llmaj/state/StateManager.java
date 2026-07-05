@@ -121,7 +121,7 @@ public class StateManager {
     }
 
 
-    public void updateLoopState(int index, String path, JsonNode value) {
+    public synchronized void updateLoopState(int index, String path, JsonNode value) {
         ((ObjectNode) loopPos.get(index)).set(path, value);
     }
 
@@ -136,7 +136,7 @@ public class StateManager {
 
     }
 
-    public void updateState(String path, JsonNode value) {
+    public synchronized void updateState(String path, JsonNode value) {
         analysisState.set(path, value);
     }
 

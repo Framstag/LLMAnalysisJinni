@@ -26,6 +26,7 @@ public class Config {
     private int requestTimeout;
     private int maximumTokens;
     private int loopParallelism;
+    private int taskParallelism;
     private boolean nativeJSON;
     private boolean logRequests;
     private boolean logResponses;
@@ -40,6 +41,7 @@ public class Config {
         requestTimeout = 120;
         maximumTokens = 65536;
         loopParallelism = 1;
+        taskParallelism = 2;
         nativeJSON = false;
         logRequests = false;
         logResponses = false;
@@ -47,6 +49,14 @@ public class Config {
         executionTraceSystem = false;
         mcpServers = new LinkedList<>();
         properties = new HashMap<>();
+    }
+
+    public int getTaskParallelism() {
+        return taskParallelism;
+    }
+
+    public void setTaskParallelism(int taskParallelism) {
+        this.taskParallelism = taskParallelism;
     }
 
     public int getLoopParallelism() {
@@ -142,7 +152,7 @@ public class Config {
                 ", nativeJSON=" + nativeJSON +
                 ", logRequests=" + logRequests +
                 ", logResponses=" + logResponses +
-                ", loopParallelism=" + loopParallelism +
+                ", taskParallelism=" + taskParallelism +
                 ", mcpServers=" + mcpServers +
                 ", properties=" + properties +
                 '}';
@@ -232,6 +242,7 @@ public class Config {
         logger.info("Execution trace:    {}", executionTrace);
         logger.info("Execution trace sys:{}", executionTraceSystem);
         logger.info("Maximum tokens:     {}", maximumTokens);
+        logger.info("Task parallelism:   {} ", taskParallelism);
         logger.info("Loop parallelism:   {} ", loopParallelism);
         logger.info("Native JSON:        {}", nativeJSON);
         logger.info("==");

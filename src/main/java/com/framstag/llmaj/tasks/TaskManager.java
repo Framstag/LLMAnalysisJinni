@@ -295,6 +295,26 @@ public class TaskManager {
         return calculateNextTask();
     }
 
+    /**
+     * Return all pending tasks whose dependencies are satisfied.
+     * Used by the parallel scheduler to batch-submit runnable tasks.
+     */
+    public synchronized List<TaskDefinition> getRunnableTasks() {
+        return allTasks.stream()
+                .filter(task -> pendingTaskIds.contains(task.getId()))
+                .filter(task -> task.getDependsOn().stream()
+                        .allMatch(scheduledTags::contains))
+                .toList();
+    }
+
+    /**
+     * Return true if any pending tasks remain (regardless of dependency state).
+     * Used by the parallel scheduler to detect completion.
+     */
+    public synchronized boolean hasAnyPendingTasks() {
+        return !pendingTaskIds.isEmpty();
+    }
+
     public boolean isIndexSuccessful(TaskDefinition task, int index) {
         String taskId = task.getId();
 
@@ -338,11 +358,11 @@ public class TaskManager {
         saveState();
     }
 
-    public void markLoopTaskAsSuccessful(TaskDefinition task) {
+    public synchronized void markLoopTaskAsSuccessful(TaskDefinition task) {
         markTaskAsSuccessful(task);
     }
 
-    public void markTaskAsSuccessful(TaskDefinition task) {
+    public synchronized void markTaskAsSuccessful(TaskDefinition task) {
         String taskId = task.getId();
 
         if (!pendingTaskIds.contains(taskId)) {
@@ -364,7 +384,7 @@ public class TaskManager {
         saveState();
     }
 
-    public void markTaskAsFailed(TaskDefinition task) {
+    public synchronized void markTaskAsFailed(TaskDefinition task) {
         String taskId = task.getId();
 
         if (!pendingTaskIds.contains(taskId)) {
@@ -372,12 +392,16 @@ public class TaskManager {
             return;
         }
 
+        // Preserve any successful loop indices from current state
+        TaskState currentState = taskStateMap.get(taskId);
+        Set<Integer> successfulIndices = currentState != null ? currentState.successfulIndices() : null;
+
         pendingTaskIds.remove(taskId);
 
         taskStateMap.put(taskId,
                 new TaskState(taskId,
                         ZonedDateTime.now(),
-                        null,
+                        successfulIndices,
                         TaskStatus.FAILED));
 
         saveState();

@@ -30,6 +30,7 @@ import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.tool.ToolService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -39,10 +40,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Command(name = "analyse", description = "Analyse the project")
 public class AnalyseCmd implements Callable<Integer> {
@@ -65,6 +64,9 @@ public class AnalyseCmd implements Callable<Integer> {
 
     @Option(names={"--single-step"}, arity = "1", defaultValue = "false", description = "Stop execution after one task")
     boolean singleStep = false;
+
+    @Option(names={"--task-parallelism"}, arity = "1", description = "Number of parallel DAG tasks to execute concurrently")
+    Integer taskParallelism = null;
 
     @Parameters(index = "0",description = "Path to the working directory where result of analysis is stored")
     Path workingDirectory;
@@ -123,6 +125,9 @@ public class AnalyseCmd implements Callable<Integer> {
 
             config.setExecutionTrace(executionTrace);
             config.setExecutionTraceSystem(executionTraceSystem);
+            if (taskParallelism != null) {
+                config.setTaskParallelism(taskParallelism);
+            }
 
             config.dumpToLog();
         } catch (IOException e) {
@@ -179,170 +184,247 @@ public class AnalyseCmd implements Callable<Integer> {
                 taskManager.getAllTasks(), preCompletedTaskIds);
 
         try {
-            while (taskManager.hasPendingTasks()) {
-            TaskDefinition task = taskManager.getNextTask();
-
-            String jsonResponseRawSchema = Files.readString(config.getAnalysisDirectory().resolve(task.getResponseFormat()));
-            JsonNode jsonResponseSchema = mapper.readTree(jsonResponseRawSchema);
-
-            if (task.hasLoopOn()) {
-                if (!stateManager.startLoop(task.getLoopOn())) {
-                    logger.error("Configuration error, aborting!");
-                    return 1;
-                }
-
-                int totalIndices = stateManager.getLoopArraySize();
-                int parallelism = config.getLoopParallelism();
-
-                displayManager.onTaskStart(task.getId(), task.getName());
-                displayManager.setLoopTotal(task.getId(), totalIndices);
-
-                logger.info("Executing task '{}' with {} loop indices, parallelism={}",
-                        task.getId(), totalIndices, parallelism);
-
-                ExecutorService executor = Executors.newFixedThreadPool(parallelism);
-                List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-                for (int index = 0; index < totalIndices; index++) {
-                    if (taskManager.isIndexSuccessful(task, index)) {
-                        logger.info("Loop index {} was already successfully executed, skipping...", index);
-                        continue;
-                    }
-
-                    final int currentIndex = index;
-
-                    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                        try {
-                            stateManager.loopAtIndex(currentIndex);
-
-                            // Inject per-worker loopIndex without touching shared state
-                            Map<String, Object> workerState = new HashMap<>();
-                            // Deep copy for thread safety - each worker gets own snapshot
-                            workerState.putAll(new JsonNodeModelWrapper(stateManager.getAnalysisState().deepCopy()));
-                            workerState.put("loopIndex", currentIndex);
-
-                            logger.info("<===[{}] Task: {} - {}",
-                                    currentIndex,
-                                    task.getId(),
-                                    task.getName());
-
-                            LinkedList<ChatMessage> messages = resolveChatMessages(config,
-                                    templateEngine,
-                                    task,
-                                    workerState);
-
-                            ChatExecutionContext execContext =
-                                    new ChatExecutionContext(config,
-                                            model,
-                                            toolService,
-                                            new ToolFilter(task.getToolWhitelist(), task.getToolBlacklist()),
-                                            mapper,
-                                            task.getId(),
-                                            currentIndex,
-                                            workingDirectory);
-                            execContext.setProgressCallback(displayManager.getCallback());
-
-                            // Update display for this worker
-                            displayManager.getCallback().onWorkerStart(task.getId(), currentIndex, task.getName() + "[" + currentIndex + "]");
-
-                            JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
-                                    execContext,
-                                    messages,
-                                    jsonResponseRawSchema,
-                                    jsonResponseSchema);
-
-                            if (taskResultJson != null) {
-                                logger.info("===>[{}] {}: {}",
-                                        currentIndex,
-                                        JsonHelper.getSchemaName(jsonResponseSchema),
-                                        taskResultJson.toPrettyString());
-                                // Thread-safe: synchronize on stateManager so update + save are atomic
-                                synchronized (stateManager) {
-                                    stateManager.updateLoopState(currentIndex, task.getResponseProperty(), taskResultJson);
-                                    stateManager.saveState();
-                                }
-                                taskManager.markIndexSuccessful(task, currentIndex);
-
-                                // Update display for completed worker
-                                displayManager.getCallback().onWorkerComplete(task.getId(), currentIndex, task.getName() + "[" + currentIndex + "]");
-                            } else {
-                                logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
-                                displayManager.getCallback().onWorkerError(task.getId(), currentIndex, task.getName() + "[" + currentIndex + "]", "No response from chat model");
-                            }
-                        } catch (Exception e) {
-                            logger.error("Error processing loop index {}: {}", currentIndex, e.getMessage(), e);
-                        }
-                    }, executor);
-
-                    futures.add(future);
-                }
-
-                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-
-                executor.shutdown();
-
-                stateManager.endLoop();
-
-                taskManager.markLoopTaskAsSuccessful(task);
-
-                displayManager.onTaskComplete(task.getId(), task.getName());
-            }
-            else {
-                displayManager.onTaskStart(task.getId(), task.getName());
-
-                logger.info("===> Task: {} - {}",
-                        task.getId(),
-                        task.getName());
-
-                LinkedList<ChatMessage> messages = resolveChatMessages(config,
-                        templateEngine,
-                        task,
-                        stateManager.getStateObject());
-
-                ChatExecutionContext execContext =
-                        new ChatExecutionContext(config,
-                                model,
-                                toolService,
-                                new ToolFilter(task.getToolWhitelist(), task.getToolBlacklist()),
-                                mapper,
-                                task.getId(),
-                                null,
-                                workingDirectory);
-                execContext.setProgressCallback(displayManager.getCallback());
-
-                JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
-                        execContext,
-                        messages,
-                        jsonResponseRawSchema,
-                        jsonResponseSchema);
-
-                if (taskResultJson != null) {
-                    logger.info("===> {}: {}", JsonHelper.getSchemaName(jsonResponseSchema), taskResultJson.toPrettyString());
-
-                    stateManager.updateState(task.getResponseProperty(), taskResultJson);
-                    stateManager.saveState();
-                } else {
-                    logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
-                }
-
-                taskManager.markTaskAsSuccessful(task);
-
-                if (taskResultJson != null) {
-                    displayManager.onTaskComplete(task.getId(), task.getName());
-                } else {
-                    displayManager.onTaskError(task.getId(), task.getName(), "No response from chat model");
-                }
-
-            }
+            int taskParallelism = config.getTaskParallelism();
+            ExecutorService dagPool = Executors.newFixedThreadPool(taskParallelism);
+            BlockingQueue<String> completionQueue = new LinkedBlockingQueue<>();
+            Set<String> runningIds = ConcurrentHashMap.newKeySet();
 
             if (singleStep) {
-                break;
-            }
-        }
+                // Single-step: execute exactly one task (including its loops), then stop
+                List<TaskDefinition> runnable = taskManager.getRunnableTasks();
+                if (!runnable.isEmpty()) {
+                    TaskDefinition task = runnable.get(0);
+                    runningIds.add(task.getId());
+                    String schema = Files.readString(config.getAnalysisDirectory().resolve(task.getResponseFormat()));
+                    JsonNode schemaNode = mapper.readTree(schema);
+                    dagPool.submit(buildTaskRunner(config, task, mapper, model, toolService,
+                            templateEngine, stateManager, taskManager, displayManager,
+                            completionQueue, runningIds, workingDirectory, schema, schemaNode));
+                    completionQueue.take();
+                }
+            } else {
+                // Submit all initially runnable tasks
+                for (TaskDefinition task : taskManager.getRunnableTasks()) {
+                    runningIds.add(task.getId());
+                    String schema = Files.readString(config.getAnalysisDirectory().resolve(task.getResponseFormat()));
+                    JsonNode schemaNode = mapper.readTree(schema);
+                    dagPool.submit(buildTaskRunner(config, task, mapper, model, toolService,
+                            templateEngine, stateManager, taskManager, displayManager,
+                            completionQueue, runningIds, workingDirectory, schema, schemaNode));
+                }
 
-        return 0;
+                // Dispatch loop: wait for completions, submit newly unblocked tasks
+                while (taskManager.hasAnyPendingTasks() || !runningIds.isEmpty()) {
+                    if (runningIds.isEmpty() && taskManager.hasAnyPendingTasks()) {
+                        logger.error("No tasks running but pending tasks remain — possible dependency deadlock");
+                        break;
+                    }
+
+                    String completedId = completionQueue.take();
+
+                    // Submit newly unblocked tasks
+                    for (TaskDefinition task : taskManager.getRunnableTasks()) {
+                        if (!runningIds.contains(task.getId())) {
+                            runningIds.add(task.getId());
+                            String schema = Files.readString(config.getAnalysisDirectory().resolve(task.getResponseFormat()));
+                            JsonNode schemaNode = mapper.readTree(schema);
+                            dagPool.submit(buildTaskRunner(config, task, mapper, model, toolService,
+                                    templateEngine, stateManager, taskManager, displayManager,
+                                    completionQueue, runningIds, workingDirectory, schema, schemaNode));
+                        }
+                    }
+                }
+            }
+
+            dagPool.shutdown();
+
+            return 0;
         } finally {
             displayManager.close();
         }
+    }
+
+    private Runnable buildTaskRunner(
+            Config config,
+            TaskDefinition task,
+            ObjectMapper mapper,
+            ChatModel model,
+            ToolService toolService,
+            Handlebars templateEngine,
+            StateManager stateManager,
+            TaskManager taskManager,
+            DisplayManager displayManager,
+            BlockingQueue<String> completionQueue,
+            Set<String> runningIds,
+            Path workingDirectory,
+            String jsonResponseRawSchema,
+            JsonNode jsonResponseSchema
+    ) {
+        return () -> {
+            String taskId = task.getId();
+            String taskName = task.getName();
+
+            // Set MDC context for log attribution
+            MDC.put("taskId", taskId);
+
+            try {
+                if (task.hasLoopOn()) {
+                    // ── Loop task execution ──
+                    synchronized (stateManager) {
+                        if (!stateManager.startLoop(task.getLoopOn())) {
+                            logger.error("Configuration error, aborting task {}!", taskId);
+                            return;
+                        }
+                    }
+
+                    int totalIndices = stateManager.getLoopArraySize();
+                    int parallelism = config.getLoopParallelism();
+
+                    displayManager.onTaskStart(taskId, taskName);
+                    displayManager.setLoopTotal(taskId, totalIndices);
+
+                    logger.info("Executing task '{}' with {} loop indices, parallelism={}",
+                            taskId, totalIndices, parallelism);
+
+                    ExecutorService loopPool = Executors.newFixedThreadPool(parallelism);
+                    List<CompletableFuture<Void>> futures = new ArrayList<>();
+                    AtomicBoolean anyIndexFailed = new AtomicBoolean(false);
+
+                    for (int index = 0; index < totalIndices; index++) {
+                        if (taskManager.isIndexSuccessful(task, index)) {
+                            logger.info("Loop index {} was already successfully executed, skipping...", index);
+                            continue;
+                        }
+
+                        final int currentIndex = index;
+
+                        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                            MDC.put("taskId", taskId);
+                            MDC.put("loopIndex", String.valueOf(currentIndex));
+                            try {
+                                stateManager.loopAtIndex(currentIndex);
+
+                                // Deep copy for thread safety — each worker gets own snapshot
+                                Map<String, Object> workerState = new HashMap<>();
+                                workerState.putAll(new JsonNodeModelWrapper(stateManager.getAnalysisState().deepCopy()));
+                                workerState.put("loopIndex", currentIndex);
+
+                                logger.info("<===[{}] Task: {} - {}",
+                                        currentIndex, taskId, taskName);
+
+                                LinkedList<ChatMessage> messages = resolveChatMessages(config,
+                                        templateEngine, task, workerState);
+
+                                ChatExecutionContext execContext =
+                                        new ChatExecutionContext(config, model, toolService,
+                                                new ToolFilter(task.getToolWhitelist(), task.getToolBlacklist()),
+                                                mapper, taskId, currentIndex, workingDirectory);
+                                execContext.setProgressCallback(displayManager.getCallback());
+
+                                displayManager.getCallback().onWorkerStart(taskId, currentIndex,
+                                        taskName + "[" + currentIndex + "]");
+
+                                JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
+                                        execContext, messages,
+                                        jsonResponseRawSchema, jsonResponseSchema);
+
+                                if (taskResultJson != null) {
+                                    logger.info("===>[{}] {}: {}",
+                                            currentIndex,
+                                            JsonHelper.getSchemaName(jsonResponseSchema),
+                                            taskResultJson.toPrettyString());
+                                    synchronized (stateManager) {
+                                        stateManager.updateLoopState(currentIndex, task.getResponseProperty(), taskResultJson);
+                                        stateManager.saveState();
+                                    }
+                                    taskManager.markIndexSuccessful(task, currentIndex);
+
+                                    displayManager.getCallback().onWorkerComplete(taskId, currentIndex,
+                                            taskName + "[" + currentIndex + "]");
+                                } else {
+                                    logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
+                                    anyIndexFailed.set(true);
+                                    displayManager.getCallback().onWorkerError(taskId, currentIndex,
+                                            taskName + "[" + currentIndex + "]", "No response from chat model");
+                                }
+                            } catch (Exception e) {
+                                logger.error("Error processing loop index {}: {}", currentIndex, e.getMessage(), e);
+                                anyIndexFailed.set(true);
+                            } finally {
+                                MDC.remove("loopIndex");
+                            }
+                        }, loopPool);
+
+                        futures.add(future);
+                    }
+
+                    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+                    loopPool.shutdown();
+                    stateManager.endLoop();
+
+                    if (anyIndexFailed.get()) {
+                        logger.warn("Task '{}' completed with some failed indices — marking as failed for retry", taskId);
+                        synchronized (taskManager) {
+                            taskManager.markTaskAsFailed(task);
+                        }
+                        displayManager.onTaskError(taskId, taskName, "Some loop indices failed");
+                    } else {
+                        synchronized (taskManager) {
+                            taskManager.markLoopTaskAsSuccessful(task);
+                        }
+                        displayManager.onTaskComplete(taskId, taskName);
+                    }
+                } else {
+                    // ── Non-loop task execution ──
+                    displayManager.onTaskStart(taskId, taskName);
+
+                    logger.info("===> Task: {} - {}", taskId, taskName);
+
+                    LinkedList<ChatMessage> messages = resolveChatMessages(config,
+                            templateEngine, task, stateManager.getStateObject());
+
+                    ChatExecutionContext execContext =
+                            new ChatExecutionContext(config, model, toolService,
+                                    new ToolFilter(task.getToolWhitelist(), task.getToolBlacklist()),
+                                    mapper, taskId, null, workingDirectory);
+                    execContext.setProgressCallback(displayManager.getCallback());
+
+                    JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
+                            execContext, messages,
+                            jsonResponseRawSchema, jsonResponseSchema);
+
+                    if (taskResultJson != null) {
+                        logger.info("===> {}: {}",
+                                JsonHelper.getSchemaName(jsonResponseSchema),
+                                taskResultJson.toPrettyString());
+
+                        stateManager.updateState(task.getResponseProperty(), taskResultJson);
+                        stateManager.saveState();
+                    } else {
+                        logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
+                    }
+
+                    synchronized (taskManager) {
+                        taskManager.markTaskAsSuccessful(task);
+                    }
+
+                    if (taskResultJson != null) {
+                        displayManager.onTaskComplete(taskId, taskName);
+                    } else {
+                        displayManager.onTaskError(taskId, taskName, "No response from chat model");
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Error executing task {}: {}", taskId, e.getMessage(), e);
+                synchronized (taskManager) {
+                    taskManager.markTaskAsFailed(task);
+                }
+                displayManager.onTaskError(taskId, taskName, e.getMessage());
+            } finally {
+                runningIds.remove(taskId);
+                completionQueue.offer(taskId);
+                MDC.clear();
+            }
+        };
     }
 }

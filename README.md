@@ -78,12 +78,33 @@ A typical call to analyze a given project would be:
 analyse <workspace directory>
 ```
 
-Note, that you only need to pass the workspace directors, because all other required configuration is aleady stored there. 
+Note, that you only need to pass the workspace directory, because all other required configuration is already stored there.
 
-In this case all active tasks in the configuration file are
-call one after another and an `analysis.json` (containing the analysis result) and a `state.json` (containing tasks execution information) is created in the workspace directory.
+Tasks whose dependencies are satisfied execute in parallel (configurable via `--task-parallelism` or `config.json`). The analysis creates an `analysis.json` (containing the analysis result) and a `state.json` (containing tasks execution information) in the workspace directory.
 
-The given LLM is used by calling the given ollama instance.
+#### CLI Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--task-parallelism` | Number of parallel DAG tasks to execute concurrently | 2 (from `config.json`) |
+| `--single-step` | Stop execution after one task (including its loop indices) | false |
+| `--execution-trace` | Show verbose SLF4J chat execution trace on console (disables TUI) | false |
+| `--execution-trace-system` | Show system messages in console execution trace | false |
+| `--log-request` | Activate langchain4j low-level log of chat requests | false |
+| `--log-response` | Activate langchain4j low-level log of chat responses | false |
+| `-o` / `--executeOnly` | Comma-separated list of task IDs to execute exclusively | (all active) |
+
+#### Display Modes
+
+The tool automatically selects the best display mode:
+
+- **TUI mode** (default): Live-updating terminal UI showing task list, status icons, elapsed time, per-worker interaction timelines, loop progress, and token usage. Requires a TTY.
+- **Simple mode** (non-TTY): Sequential status lines when output is piped or no terminal is available.
+- **Execution-trace mode** (`--execution-trace`): Verbose SLF4J console output with full chat message history. Each log line is tagged with the originating task ID via SLF4J MDC.
+
+#### Retry Behaviour
+
+If a loop task fails on some indices, the task is marked as failed and will be re-executed on the next run. Already successful indices are preserved and skipped on retry.
 
 For generating a documentation of the analysis results, a possible command line could be:
 
@@ -109,6 +130,8 @@ The config.json file has the following attributes:
 | nativeJSON        | Use the native JSON support                                  | false   |
 | logRequests       | Log HTTP request                                             | false   |
 | logResponses      | Log TTP responses                                            | false   |
+| taskParallelism   | Number of parallel DAG tasks to execute concurrently         | 2       |
+| loopParallelism   | Number of parallel workers for loop tasks                    | 1       |
 | mcpServers        | An array of MCP Servers                                      |         |
 | projectDirectory  | Path to the project directory                                |         |
 | analysisDirectory | Path to the analysis files                                   |         |
