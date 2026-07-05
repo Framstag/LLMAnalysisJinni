@@ -7,6 +7,8 @@ import com.framstag.llmaj.AnalysisContext;
 import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.config.ConfigLoader;
 import com.framstag.llmaj.handlebars.HandlebarsFactory;
+import com.framstag.llmaj.display.DisplayManager;
+import com.framstag.llmaj.display.ProgressCallback;
 import com.framstag.llmaj.json.JsonHelper;
 import com.framstag.llmaj.json.JsonNodeModelWrapper;
 import com.framstag.llmaj.json.ObjectMapperFactory;
@@ -32,6 +34,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
+import ch.qos.logback.classic.Level;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -51,8 +54,8 @@ public class AnalyseCmd implements Callable<Integer> {
     @Option(names={"--log-response"}, arity = "1", description = "Activate langchain4j low-level log of chat responses")
     Boolean logResponse = false;
 
-    @Option(names={"--execution-trace"}, arity = "1", defaultValue = "true", description = "Show chat execution trace on console")
-    boolean executionTrace = true;
+    @Option(names={"--execution-trace"}, arity = "1", defaultValue = "false", description = "Show chat execution trace on console (disables TUI)")
+    boolean executionTrace = false;
 
     @Option(names={"--execution-trace-system"}, arity = "1", defaultValue = "false", description = "Show system messages in console execution trace")
     boolean executionTraceSystem = false;
@@ -154,9 +157,29 @@ public class AnalyseCmd implements Callable<Integer> {
 
         ToolService toolService = ToolServiceFactory.getToolService(config,analysisContext);
 
-        taskManager.dump();
+        // Initialize display
+        boolean useTui = !executionTrace && System.console() != null;
 
-        while (taskManager.hasPendingTasks()) {
+        // Suppress SLF4J INFO console output when not in execution-trace mode
+        if (!executionTrace) {
+            ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+            rootLogger.setLevel(Level.WARN);
+        }
+
+        // Build set of pre-completed task IDs for display initialization
+        Set<String> preCompletedTaskIds = new HashSet<>();
+        for (var task : taskManager.getAllTasks()) {
+            if (taskManager.isTaskSuccessful(task.getId())) {
+                preCompletedTaskIds.add(task.getId());
+            }
+        }
+
+        DisplayManager displayManager = new DisplayManager(
+                config, useTui, executionTrace,
+                taskManager.getAllTasks(), preCompletedTaskIds);
+
+        try {
+            while (taskManager.hasPendingTasks()) {
             TaskDefinition task = taskManager.getNextTask();
 
             String jsonResponseRawSchema = Files.readString(config.getAnalysisDirectory().resolve(task.getResponseFormat()));
@@ -170,6 +193,9 @@ public class AnalyseCmd implements Callable<Integer> {
 
                 int totalIndices = stateManager.getLoopArraySize();
                 int parallelism = config.getLoopParallelism();
+
+                displayManager.onTaskStart(task.getId(), task.getName());
+                displayManager.setLoopTotal(task.getId(), totalIndices);
 
                 logger.info("Executing task '{}' with {} loop indices, parallelism={}",
                         task.getId(), totalIndices, parallelism);
@@ -214,6 +240,10 @@ public class AnalyseCmd implements Callable<Integer> {
                                             task.getId(),
                                             currentIndex,
                                             workingDirectory);
+                            execContext.setProgressCallback(displayManager.getCallback());
+
+                            // Update display for this worker
+                            displayManager.getCallback().onWorkerStart(task.getId(), currentIndex, task.getName() + "[" + currentIndex + "]");
 
                             JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
                                     execContext,
@@ -232,8 +262,12 @@ public class AnalyseCmd implements Callable<Integer> {
                                     stateManager.saveState();
                                 }
                                 taskManager.markIndexSuccessful(task, currentIndex);
+
+                                // Update display for completed worker
+                                displayManager.getCallback().onWorkerComplete(task.getId(), currentIndex, task.getName() + "[" + currentIndex + "]");
                             } else {
                                 logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
+                                displayManager.getCallback().onWorkerError(task.getId(), currentIndex, task.getName() + "[" + currentIndex + "]", "No response from chat model");
                             }
                         } catch (Exception e) {
                             logger.error("Error processing loop index {}: {}", currentIndex, e.getMessage(), e);
@@ -250,8 +284,12 @@ public class AnalyseCmd implements Callable<Integer> {
                 stateManager.endLoop();
 
                 taskManager.markLoopTaskAsSuccessful(task);
+
+                displayManager.onTaskComplete(task.getId(), task.getName());
             }
             else {
+                displayManager.onTaskStart(task.getId(), task.getName());
+
                 logger.info("===> Task: {} - {}",
                         task.getId(),
                         task.getName());
@@ -270,6 +308,7 @@ public class AnalyseCmd implements Callable<Integer> {
                                 task.getId(),
                                 null,
                                 workingDirectory);
+                execContext.setProgressCallback(displayManager.getCallback());
 
                 JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
                         execContext,
@@ -288,6 +327,12 @@ public class AnalyseCmd implements Callable<Integer> {
 
                 taskManager.markTaskAsSuccessful(task);
 
+                if (taskResultJson != null) {
+                    displayManager.onTaskComplete(task.getId(), task.getName());
+                } else {
+                    displayManager.onTaskError(task.getId(), task.getName(), "No response from chat model");
+                }
+
             }
 
             if (singleStep) {
@@ -296,5 +341,8 @@ public class AnalyseCmd implements Callable<Integer> {
         }
 
         return 0;
+        } finally {
+            displayManager.close();
+        }
     }
 }

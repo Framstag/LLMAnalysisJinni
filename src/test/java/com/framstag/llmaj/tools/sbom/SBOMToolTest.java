@@ -25,13 +25,16 @@ public class SBOMToolTest {
         "pkg:maven/dev.langchain4j/langchain4j-open-ai@1.17.1?type=jar",
         "pkg:maven/dev.langchain4j/langchain4j@1.17.1?type=jar",
         "pkg:maven/info.picocli/picocli@4.7.7?type=jar",
-        "pkg:maven/org.cyclonedx/cyclonedx-core-java@12.2.0?type=jar"
+        "pkg:maven/org.cyclonedx/cyclonedx-core-java@12.2.0?type=jar",
+        "pkg:maven/org.jline/jline-terminal-ffm@3.29.0?type=jar",
+        "pkg:maven/org.jline/jline-terminal@3.29.0?type=jar"
     );
 
     private static final List<String> CURRENT_LICENSES = List.of(
         "Apache-2.0",
         "BSD-2-Clause",
         "BSD-3-Clause",
+        "BSD-4-Clause",
         "EPL-2.0",
         "GNU Lesser General Public License",
         "GPL v2 with the Classpath exception",

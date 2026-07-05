@@ -7,6 +7,8 @@ import dev.langchain4j.service.tool.ToolService;
 
 import java.nio.file.Path;
 
+import com.framstag.llmaj.display.ProgressCallback;
+
 public class ChatExecutionContext {
     private final Config config;
     private final ChatModel chatModel;
@@ -16,6 +18,7 @@ public class ChatExecutionContext {
     private final String taskId;
     private final Integer loopIndex;
     private final Path workspacePath;
+    private ProgressCallback progressCallback;
 
     public ChatExecutionContext(Config config,
                                 ChatModel chatModel,
@@ -65,5 +68,16 @@ public class ChatExecutionContext {
 
     public Path getWorkspacePath() {
         return workspacePath;
+    }
+
+    public ProgressCallback getProgressCallback() {
+        if (progressCallback == null) {
+            return ProgressCallback.noOp();
+        }
+        return progressCallback;
+    }
+
+    public void setProgressCallback(ProgressCallback progressCallback) {
+        this.progressCallback = progressCallback;
     }
 }

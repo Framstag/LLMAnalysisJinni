@@ -167,6 +167,19 @@
             <version>4.7.7</version>
         </dependency>
 
+        <!-- Terminal UI -->
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline-terminal</artifactId>
+            <version>3.29.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline-terminal-ffm</artifactId>
+            <version>3.29.0</version>
+        </dependency>
+
         <!-- Logging -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
@@ -307,6 +320,19 @@
                                         <exclude>META-INF/*.MF</exclude>
                                         <exclude>META-INF/versions/9/module-info.class</exclude>
                                     </excludes>
+                                </filter>
+                                <!-- Keep all JLine classes (ServiceLoader-loaded, reflection) -->
+                                <filter>
+                                    <artifact>org.jline:jline-terminal</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.jline:jline-terminal-ffm</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
                                 </filter>
                             </filters>
                         </configuration>

@@ -279,6 +279,14 @@ public class TaskManager {
         }
     }
 
+    public List<TaskDefinition> getAllTasks() {
+        return allTasks;
+    }
+
+    public boolean isTaskSuccessful(String taskId) {
+        return successfullyProcessedTaskIds.contains(taskId);
+    }
+
     public boolean hasPendingTasks() {
         return calculateNextTask() != null;
     }

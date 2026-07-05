@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.config.ModelProvider;
+import com.framstag.llmaj.display.ProgressCallback;
 import com.framstag.llmaj.json.JsonHelper;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.ChatMessage;
@@ -274,6 +275,10 @@ public class ChatExecutor {
                                     List<ChatMessage> messages,
                                     String rawResponseSchema,
                                     JsonNode responseSchema) throws IOException {
+        ProgressCallback callback = executionContext.getProgressCallback();
+        String taskId = executionContext.getTaskId();
+        Integer loopIndex = executionContext.getLoopIndex();
+
         ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(config.getChatWindowSize());
 
         InvocationContext invocationContext = InvocationContext.builder()
@@ -292,6 +297,7 @@ public class ChatExecutor {
         }
 
         // Execute the initial request
+        callback.onRequestSent(taskId, loopIndex);
 
         ChatRequest request = ChatRequest.builder()
                 .messages(messages)
@@ -303,7 +309,10 @@ public class ChatExecutor {
 
         ChatResponse chatResponse = executionContext.getChatModel().chat(request);
 
+        callback.onResponseReceived(taskId, loopIndex);
+
         TokenUsage aggregateTokenUsage = chatResponse.metadata().tokenUsage();
+        callback.onTokenUsage(taskId, loopIndex, aggregateTokenUsage);
 
         // While the initial request triggers requests for further tool execution...loop
         while (chatResponse.aiMessage().hasToolExecutionRequests()) {
@@ -320,6 +329,7 @@ public class ChatExecutor {
                 }
                 for (var req : am.toolExecutionRequests()) {
                     logger.info("--> Tool {}: {}", req.name(), req.arguments());
+                    callback.onToolCall(taskId, loopIndex, req.name());
                 }
             }
 
@@ -338,12 +348,15 @@ public class ChatExecutor {
                 if (config.isExecutionTrace()) {
                     logger.info("<-- Tool {}: {}", toolRequest.name(), toolResult.resultText());
                 }
+                callback.onToolResult(taskId, loopIndex, toolRequest.name());
             }
 
             // Advance ChatLogger past messages already logged inline
             chatLogger.advanceShownIndexTo(chatMemory.messages().size());
 
             // Initiate a further chat request, which might trigger further tool execution - or not
+            callback.onRequestSent(taskId, loopIndex);
+
             ChatRequest chatRequest = ChatRequest.builder()
                     .messages(chatMemory.messages())
                     .parameters(createIntermediateChatRequestParameters(config,
@@ -354,7 +367,10 @@ public class ChatExecutor {
 
             chatResponse = executionContext.getChatModel().chat(chatRequest);
 
+            callback.onResponseReceived(taskId, loopIndex);
+
             aggregateTokenUsage = TokenUsage.sum(aggregateTokenUsage, chatResponse.metadata().tokenUsage());
+            callback.onTokenUsage(taskId, loopIndex, aggregateTokenUsage);
         }
 
         if (config.getModelProvider() != ModelProvider.OLLAMA) {
@@ -371,9 +387,14 @@ public class ChatExecutor {
                 chatLogger.logProgressive(chatMemory.messages(), config.isExecutionTraceSystem());
             }
 
+            callback.onRequestSent(taskId, loopIndex);
+
             chatResponse = executionContext.getChatModel().chat(request);
 
+            callback.onResponseReceived(taskId, loopIndex);
+
             aggregateTokenUsage = TokenUsage.sum(aggregateTokenUsage, chatResponse.metadata().tokenUsage());
+            callback.onTokenUsage(taskId, loopIndex, aggregateTokenUsage);
         }
 
         logger.info("Token usage: IN {} OUT {} TOTAL {}",
@@ -394,6 +415,8 @@ public class ChatExecutor {
                 executionContext.getLoopIndex(),
                 chatMemory.messages(),
                 aggregateTokenUsage);
+
+        callback.onComplete(taskId, loopIndex);
 
         String taskResultString = chatResponse.aiMessage().text();
 

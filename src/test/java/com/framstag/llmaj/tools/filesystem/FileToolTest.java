@@ -47,6 +47,7 @@ public class FileToolTest {
         List<FilesInDirectory> result = filesystemTool.getAllFilesInDirRecursively("src/test/java/com/framstag/llmaj");
 
         assertEquals(List.of(
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/display", List.of("TaskRowTest.java", "LoopWorkerRowTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/documentation", List.of("DocumentationTemplateTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/json", List.of("JsonHelperTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/lc4j", List.of("ChatExecutionLoggingTest.java")),
