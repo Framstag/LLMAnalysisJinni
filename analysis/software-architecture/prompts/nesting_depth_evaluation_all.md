@@ -33,3 +33,4 @@ The project has {{length}} build modules:
 * Do not collapse module-specific findings only into the top-level `reasoning` field.
 * Each `evaluations` array must contain at least one finding. If there is no actionable finding, include one `NONE`/`NONE` finding such as "No notable nesting-depth issue".
 * If a finding applies to multiple modules, include the full affected module list in the finding text.
+* Each `evaluations[]` item MUST be a JSON object with fields: `aspect`, `urgency`, `criticality`, `expectation`, `reasoning`, `finding`, `recommendation`. Do NOT use plain strings.

@@ -115,6 +115,26 @@ document workspaces/spring-petclinic
 Again, all other information is loaded from the configuration file in
 the workspace directory.
 
+### Java Analysis Dependencies
+
+For Java source analysis, LLMAnalysisJinni needs access to all compiled dependency JARs to resolve types and class references. Set the property `"javaTool.jarDependenciesDirectory"` in `config.json` to the path containing all required `*.jar` files.
+
+For Maven projects, this directory can be created by running:
+
+```
+mvn dependency:copy-dependencies -DoutputDirectory=libs
+```
+
+Then point the config to this directory:
+
+```json
+{
+  "properties": {
+    "javaTool.jarDependenciesDirectory": "/path/to/project/libs"
+  }
+}
+```
+
 ## Config file documentation
 
 The config.json file has the following attributes:
@@ -135,6 +155,7 @@ The config.json file has the following attributes:
 | mcpServers        | An array of MCP Servers                                      |         |
 | projectDirectory  | Path to the project directory                                |         |
 | analysisDirectory | Path to the analysis files                                   |         |
+| javaTool.jarDependenciesDirectory | Path to directory containing all dependency JARs for Java analysis |         |
 
 For the MCP Server configuration:
 
@@ -158,3 +179,4 @@ The implementation makes use of the following frameworks and libraries:
 * JavParser for parsing Java Files
 * FastCSV for writing CSV files
 * networknt/json-schema-validator for validating JSON schemas and data against JSON schemas
+* JLine 3 for terminal handling (TUI display, ANSI colours, cursor control)

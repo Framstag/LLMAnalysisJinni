@@ -30,3 +30,4 @@ The project has {{length}} build modules:
 * Use the `ModuleBatchEvaluation` response schema.
 * Each `moduleEvaluations[]` entry must include `moduleName`, `reasoning`, and `evaluations`.
 * If a finding applies to multiple modules, include the full affected module list in the finding text.
+* Each `evaluations[]` item MUST be a JSON object with fields: `aspect`, `urgency`, `criticality`, `expectation`, `reasoning`, `finding`, `recommendation`. Do NOT use plain strings.
