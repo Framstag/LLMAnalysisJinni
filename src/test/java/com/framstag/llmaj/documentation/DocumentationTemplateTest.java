@@ -68,15 +68,15 @@ public class DocumentationTemplateTest {
         Path templateDir = Path.of("analysis", "software-architecture", "documentation");
         var handlebars = HandlebarsFactory.create()
                 .with(new FileTemplateLoader(templateDir.toString(), ".hbs"));
-        Template template = handlebars.compile("Documentation.md");
+        Template template = handlebars.compile("Documentation.adoc");
 
         String rendered = template.apply(state);
 
-        assertTrue(rendered.contains("### Analysis of Cyclomatic Complexity per Module"));
-        assertTrue(rendered.contains("#### Module \"core\""));
-        assertTrue(rendered.contains("|Cyclomatic complexity|MEDIUM|MEDIUM|Methods should stay below threshold.|Several methods exceed the threshold.|High complexity methods found.|Extract smaller methods.|"));
-        assertTrue(rendered.contains("### Batch Java Report Collection"));
-        assertTrue(rendered.contains("|core|REUSED|Java|Java_core|Existing raw report reused.|"));
+        assertTrue(rendered.contains("=== Analysis of Cyclomatic Complexity per Module"));
+        assertTrue(rendered.contains("==== Module \"core\""));
+        assertTrue(rendered.contains("|Cyclomatic complexity |MEDIUM |MEDIUM |Methods should stay below threshold. |Several methods exceed the threshold. |High complexity methods found. |Extract smaller methods."));
+        assertTrue(rendered.contains("=== Batch Java Report Collection"));
+        assertTrue(rendered.contains("|core |REUSED |Java |Java_core |Existing raw report reused."));
         assertFalse(rendered.contains("legacy raw report descriptors"));
         assertFalse(rendered.contains("Batch Java Metric Evaluations"));
     }

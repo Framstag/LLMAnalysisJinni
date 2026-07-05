@@ -115,6 +115,13 @@ document workspaces/spring-petclinic
 Again, all other information is loaded from the configuration file in
 the workspace directory.
 
+The documentation is generated as an Asciidoc file (`Documentation.adoc` by default).
+The output format can be changed with the `--document-postfix` option:
+
+```
+document --document-postfix .md workspaces/spring-petclinic
+```
+
 ### Java Analysis Dependencies
 
 For Java source analysis, LLMAnalysisJinni needs access to all compiled dependency JARs to resolve types and class references. Set the property `"javaTool.jarDependenciesDirectory"` in `config.json` to the path containing all required `*.jar` files.

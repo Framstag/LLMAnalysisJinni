@@ -21,7 +21,7 @@ import java.util.concurrent.Callable;
 public class DocumentCmd implements Callable<Integer> {
     private static final Logger logger = LoggerFactory.getLogger(DocumentCmd.class);
 
-    @CommandLine.Option(names={"-p","--document-postfix"}, arity="1", defaultValue = ".md", description = "File postfix of the resulting document (including possible '.')")
+    @CommandLine.Option(names={"-p","--document-postfix"}, arity="1", defaultValue = ".adoc", description = "File postfix of the resulting document (including possible '.')")
     String documentPostfix;
 
     @CommandLine.Parameters(index = "0",description = "Path to the working directory where result of analysis is stored")
@@ -52,7 +52,7 @@ public class DocumentCmd implements Callable<Integer> {
         var handlebars = HandlebarsFactory.create()
                 .with(loader);
 
-        var template = handlebars.compile("Documentation.md");
+        var template = handlebars.compile("Documentation.adoc");
 
         String templateResult = template.apply(stateManager.getStateObject());
 

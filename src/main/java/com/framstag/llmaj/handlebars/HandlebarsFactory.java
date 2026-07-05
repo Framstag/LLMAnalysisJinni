@@ -10,6 +10,6 @@ public class HandlebarsFactory {
 
         return new Handlebars()
                 .registerHelpers(ConditionalHelpers.class)
-                .with(EscapingStrategy.HTML_ENTITY);
+                .with(EscapingStrategy.NOOP);
     }
 }

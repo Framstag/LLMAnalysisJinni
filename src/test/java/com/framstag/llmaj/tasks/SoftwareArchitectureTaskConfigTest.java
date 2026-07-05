@@ -161,11 +161,11 @@ class SoftwareArchitectureTaskConfigTest {
     void documentationUsesPromotedBatchedMetricSections() throws Exception {
         String documentation = Files.readString(ANALYSIS_DIR
                 .resolve("documentation")
-                .resolve("Documentation.md.hbs"));
+                .resolve("Documentation.adoc.hbs"));
 
-        assertTrue(documentation.contains("### Analysis of Cyclomatic Complexity per Module"));
+        assertTrue(documentation.contains("=== Analysis of Cyclomatic Complexity per Module"));
         assertTrue(documentation.contains("{{#if cyclomaticComplexityEvaluationAll.moduleEvaluations}}"));
-        assertTrue(documentation.contains("### Batch Java Report Collection"));
+        assertTrue(documentation.contains("=== Batch Java Report Collection"));
         assertTrue(documentation.contains("{{#if analysisReportsAll.reports}}"));
         assertFalse(documentation.contains("### Batch Java Metric Evaluations"));
         assertFalse(documentation.contains("legacy raw report descriptors"));
