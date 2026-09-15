@@ -1,5 +1,6 @@
 package com.framstag.llmaj.config;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.framstag.llmaj.json.ObjectMapperFactory;
 import com.networknt.schema.*;
@@ -15,7 +16,9 @@ import tools.jackson.core.TokenStreamLocation;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class ConfigLoader {
 
@@ -61,6 +64,25 @@ public class ConfigLoader {
             throw new IOException("File contains structure errors");
         }
 
-        return mapper.readValue(configFileContent, Config.class);
+        Config config = mapper.readValue(configFileContent, Config.class);
+        config.setProvidedProperties(readProvidedPropertyNames(mapper, configFileContent));
+
+        return config;
+    }
+
+    /**
+     * The property names the config file actually contained, so that values coming from the
+     * file can be told apart from {@link Config}'s own built-in defaults.
+     */
+    private static Set<String> readProvidedPropertyNames(ObjectMapper mapper, String configFileContent)
+            throws IOException {
+        JsonNode root = mapper.readTree(configFileContent);
+        Set<String> providedPropertyNames = new HashSet<>();
+
+        if (root != null) {
+            root.properties().forEach(property -> providedPropertyNames.add(property.getKey()));
+        }
+
+        return providedPropertyNames;
     }
 }

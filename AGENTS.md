@@ -125,7 +125,8 @@ mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- state clear <workspa
 # drop selected task states
 mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- state drop <workspace-dir> TaskId
 
-# run selected active tasks only
+# run selected active tasks only (`-o` is a single value: repeat it or use a comma-separated list;
+# the workspace directory may be given before or after the option)
 mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- analyse -o TaskId <workspace-dir>
 ```
 
