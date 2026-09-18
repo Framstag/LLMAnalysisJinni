@@ -1,14 +1,22 @@
 package com.framstag.llmaj.tools.java;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.framstag.llmaj.AnalysisContext;
 import com.framstag.llmaj.json.ObjectMapperFactory;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
 
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -16,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JavaToolTest {
@@ -25,6 +33,66 @@ class JavaToolTest {
 
     @TempDir
     Path tempDir;
+
+    private ListAppender<ILoggingEvent> capturedRecords;
+    private PrintStream originalErrorStream;
+    private ByteArrayOutputStream capturedErrorStream;
+
+    @AfterEach
+    void releaseErrorStream() {
+        if (originalErrorStream != null) {
+            System.setErr(originalErrorStream);
+            originalErrorStream = null;
+        }
+
+        if (capturedRecords != null) {
+            ((Logger) LoggerFactory.getLogger(JavaTool.class)).detachAppender(capturedRecords);
+            capturedRecords.stop();
+            capturedRecords = null;
+        }
+    }
+
+    private void captureDiagnostics() {
+        capturedRecords = new ListAppender<>();
+        capturedRecords.start();
+        ((Logger) LoggerFactory.getLogger(JavaTool.class)).addAppender(capturedRecords);
+
+        originalErrorStream = System.err;
+        capturedErrorStream = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(capturedErrorStream, true, StandardCharsets.UTF_8));
+    }
+
+    /**
+     * A JAR dependency that cannot be read is a diagnostic of the tool, so it has to follow the engine
+     * logging path: a direct write to the error stream would land in the middle of a TUI frame.
+     */
+    @Test
+    void createTypeResolverReportsAnUnreadableJarThroughTheLogger() throws Exception {
+        captureDiagnostics();
+
+        Path jarDirectory = tempDir.resolve("jars");
+        Files.createDirectories(jarDirectory);
+        Files.writeString(jarDirectory.resolve("broken.jar"), "this is not a zip archive");
+
+        JavaTool javaTool = new JavaTool(contextWithModules("core"));
+
+        javaTool.createTypeResolver(tempDir,
+                Map.of(JavaTool.JAVA_TOOL_JAR_DEPENDENCIES_DIRECTORY_PROPERTY, "jars"),
+                List.of());
+
+        assertEquals("", capturedErrorStream.toString(StandardCharsets.UTF_8),
+                "a diagnostic must not be written directly to the error stream, it would land in a frame");
+
+        assertFalse(capturedRecords.list.isEmpty(),
+                "a JAR that cannot be added as a search path must be reported through the logger");
+
+        String reported = capturedRecords.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .reduce("", (a, b) -> a + "\n" + b);
+
+        assertTrue(reported.contains("broken.jar"),
+                "the diagnostic must name the JAR it could not load, got: " + reported);
+    }
 
     @SuppressWarnings("unchecked")
     @Test

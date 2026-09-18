@@ -14,6 +14,8 @@ import com.framstag.llmaj.display.TerminalSupport;
 import com.framstag.llmaj.json.JsonHelper;
 import com.framstag.llmaj.json.JsonNodeModelWrapper;
 import com.framstag.llmaj.json.ObjectMapperFactory;
+import com.framstag.llmaj.logging.EngineLogRouting;
+import com.framstag.llmaj.logging.ForwardingLogLineSink;
 import com.framstag.llmaj.lc4j.ChatExecutionContext;
 import com.framstag.llmaj.lc4j.ChatExecutor;
 import com.framstag.llmaj.lc4j.ChatModelFactory;
@@ -39,7 +41,6 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
-import ch.qos.logback.classic.Level;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -224,11 +225,13 @@ public class AnalyseCmd implements Callable<Integer> {
         DisplayDecision displayDecision = DisplayDecision.decide(config.isExecutionTrace(),
                 terminalSupport.stdoutIsTerminal());
 
-        // Suppress SLF4J INFO console output when the console execution trace is not active
-        if (!config.isExecutionTrace()) {
-            ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
-            rootLogger.setLevel(Level.WARN);
-        }
+        // Engine log output must stay out of the terminal the TUI draws on. The routing is installed
+        // before the display is created, so that no record can reach the terminal once the first frame
+        // is painted. The console appender is detached right after that frame, which keeps a diagnostic
+        // the routing itself produces (an engine log file that cannot be opened) on the console. A run
+        // without the TUI keeps the console as its diagnostic channel.
+        ForwardingLogLineSink logLineSink = EngineLogRouting.installForDisplayMode(
+                displayDecision.useTui(), workingDirectory, config.isExecutionTrace());
 
         // Build set of pre-completed task IDs for display initialization
         Set<String> preCompletedTaskIds = new HashSet<>();
@@ -240,7 +243,11 @@ public class AnalyseCmd implements Callable<Integer> {
 
         DisplayManager displayManager = new DisplayManager(
                 config, displayDecision, terminalSupport,
-                taskManager.getAllTasks(), preCompletedTaskIds);
+                taskManager.getAllTasks(), preCompletedTaskIds, logLineSink);
+
+        // The first frame is on screen and the display is ready to show the records, so the terminal
+        // can be handed over: from here on no log record goes to the console.
+        EngineLogRouting.detachConsoleAfterFirstFrame(displayDecision.useTui());
 
         reportDisplayMode(displayDecision);
 
@@ -326,7 +333,7 @@ public class AnalyseCmd implements Callable<Integer> {
             String taskName = task.getName();
 
             // Set MDC context for log attribution
-            MDC.put("taskId", taskId);
+            MDC.put(EngineLogRouting.TASK_ID_MDC_KEY, taskId);
 
             try {
                 if (task.hasLoopOn()) {
@@ -360,7 +367,7 @@ public class AnalyseCmd implements Callable<Integer> {
                         final int currentIndex = index;
 
                         CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                            MDC.put("taskId", taskId);
+                            MDC.put(EngineLogRouting.TASK_ID_MDC_KEY, taskId);
                             MDC.put("loopIndex", String.valueOf(currentIndex));
                             try {
                                 stateManager.loopAtIndex(currentIndex);

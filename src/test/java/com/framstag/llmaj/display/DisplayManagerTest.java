@@ -1,6 +1,7 @@
 package com.framstag.llmaj.display;
 
 import com.framstag.llmaj.config.Config;
+import com.framstag.llmaj.logging.LogLineSink;
 import com.framstag.llmaj.tasks.TaskDefinition;
 import org.jline.terminal.Size;
 import org.jline.terminal.impl.DumbTerminal;
@@ -87,7 +88,8 @@ public class DisplayManagerTest {
                 DisplayDecision.decide(false, true),
                 TerminalSupport.of(new FixedSizeTerminal(output)),
                 tasks(),
-                Set.of());
+                Set.of(),
+                LogLineSink.forwarding());
 
         try {
             displayManager.onTaskStart("first-task", "First Task");
@@ -110,7 +112,8 @@ public class DisplayManagerTest {
                 DisplayDecision.decide(false, true),
                 TerminalSupport.of(new FixedSizeTerminal(output)),
                 tasks(),
-                Set.of("first-task"));
+                Set.of("first-task"),
+                LogLineSink.forwarding());
 
         try {
             String firstFrame = output.toString(StandardCharsets.UTF_8);
@@ -137,7 +140,8 @@ public class DisplayManagerTest {
                 DisplayDecision.decide(false, true),
                 TerminalSupport.of(new FixedSizeTerminal(output)),
                 tasks(),
-                Set.of());
+                Set.of(),
+                LogLineSink.forwarding());
 
         try {
             displayManager.onTaskStart("first-task", "First Task");

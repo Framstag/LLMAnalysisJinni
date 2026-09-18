@@ -322,7 +322,12 @@ public class JavaTool {
         T get(String moduleName) throws IOException;
     }
 
-    private TypeSolver createTypeResolver(Path rootPath,
+    /**
+     * Builds the type solver for a module, including any configured JAR dependency directory.
+     * <p>
+     * Package private so the routing of the diagnostics it emits can be tested without a run.
+     */
+    TypeSolver createTypeResolver(Path rootPath,
                                           Map<String, String> properties,
                                           List<SpecialSubdirectory> specialSubdirectories) throws IOException {
         CombinedTypeSolver typeSolver = new CombinedTypeSolver(
@@ -345,7 +350,7 @@ public class JavaTool {
                                     logger.warn("Skip adding '{}' as search path, since there were errors adding it", jarPath, e);
                                 }
                             } catch (IOException e) {
-                                System.err.println("Could not load JAR: " + jarPath + " — " + e.getMessage());
+                                logger.error("Could not load JAR: {} — {}", jarPath, e.getMessage());
                             }
                         });
             } else {

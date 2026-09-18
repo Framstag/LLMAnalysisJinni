@@ -1,6 +1,9 @@
 package com.framstag.llmaj.tools.common;
 
 import de.siegmar.fastcsv.writer.CsvWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
@@ -9,6 +12,8 @@ import java.util.List;
 import java.util.Map;
 
 public class CsvReportWriter {
+
+    private static final Logger logger = LoggerFactory.getLogger(CsvReportWriter.class);
 
     public static void writeCsv(Path workingDir, String filename, String[] header, List<String[]> rows) {
         if (rows == null || rows.isEmpty()) return;
@@ -21,7 +26,7 @@ public class CsvReportWriter {
             try {
                 Files.createDirectories(parentDir);
             } catch (IOException e) {
-                System.err.println("Error creating directory for CSV " + filename + ": " + e.getMessage());
+                logger.error("Error creating directory for CSV {}: {}", filename, e.getMessage());
                 return;
             }
         }
@@ -32,7 +37,7 @@ public class CsvReportWriter {
                 csv.writeRecord(row);
             }
         } catch (IOException e) {
-            System.err.println("Error writing CSV " + filename + ": " + e.getMessage());
+            logger.error("Error writing CSV {}: {}", filename, e.getMessage());
         }
     }
 

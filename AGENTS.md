@@ -247,7 +247,11 @@ Workspace:
   config.json     # model, paths, runtime options
   analysis.json   # accumulated analysis results/context
   state.json      # task execution state
+  logs/           # per-task conversation logs; engine.log for the engine's own records while the TUI runs
 ```
+
+While the TUI is the display mode, the engine's own log records go to `logs/engine.log`
+(overwritten per run, one warning or error also shown inside the TUI frame) instead of the terminal.
 
 Task states:
 

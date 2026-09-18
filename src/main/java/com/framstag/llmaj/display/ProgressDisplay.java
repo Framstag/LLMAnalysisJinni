@@ -1,6 +1,8 @@
 package com.framstag.llmaj.display;
 
 import com.framstag.llmaj.config.Config;
+import com.framstag.llmaj.logging.LogLine;
+import com.framstag.llmaj.logging.LogLineSink;
 import dev.langchain4j.model.output.TokenUsage;
 import org.jline.terminal.Terminal;
 import org.slf4j.Logger;
@@ -23,16 +25,23 @@ import java.util.stream.Collectors;
 /**
  * Live terminal UI showing task execution progress.
  * <p>
- * Implements ProgressCallback to receive real-time updates from ChatExecutor.
+ * Implements ProgressCallback to receive real-time updates from ChatExecutor, and LogLineSink to
+ * receive the log records that must not be written into the frame.
  * Renders a full-screen TUI with task list, per-worker interaction timelines,
  * loop progress, timing, and token usage.
  * <p>
  * Thread-safe: all public methods are synchronized. Render reads model under lock.
  */
-public class ProgressDisplay implements ProgressCallback, AutoCloseable {
+public class ProgressDisplay implements ProgressCallback, LogLineSink, AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(ProgressDisplay.class);
 
     private static final int RENDER_INTERVAL_MS = 500;
+    /**
+     * A warning is shown without waiting for the render timer, so a record that arrives in the last
+     * tick before the run ends still reaches the terminal. A burst must not paint a frame per record,
+     * so paints triggered by records are spaced by this interval.
+     */
+    private static final long LOG_LINE_PAINT_DEBOUNCE_MS = 200;
 
     private final Terminal terminal;
     private final PrintWriter terminalWriter;
@@ -70,6 +79,17 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
         return t;
     });
     private volatile boolean closed = false;
+
+    /**
+     * Latest warning or error, painted on the reserved frame line. Written by the logging thread and
+     * read while rendering, both under the display lock.
+     */
+    private LogLine latestLogLine = null;
+
+    /**
+     * Time of the last frame painted because of a log record, for the debounce.
+     */
+    private long lastLogLinePaintMillis = 0;
 
     // Last frame actually painted, so an unchanged frame is not written to the terminal again, and
     // the number of lines it occupied, so a repaint can move the cursor back to exactly that frame.
@@ -134,6 +154,22 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
     @Override
     public synchronized void onWorkerError(String taskId, int index, String label, String error) {
         failLoopWorker(taskId, index, error);
+    }
+
+    @Override
+    public synchronized void onLogLine(LogLine line) {
+        this.latestLogLine = line;
+
+        // Painted here and not only by the render timer: a record that arrives inside the last tick
+        // before the display closes would otherwise never be shown, and a task row that fails at the
+        // same moment would not be shown either. The debounce keeps one record per schema violation
+        // from painting a frame each, and close() paints whatever it held back.
+        long now = System.currentTimeMillis();
+
+        if (now - lastLogLinePaintMillis >= LOG_LINE_PAINT_DEBOUNCE_MS) {
+            lastLogLinePaintMillis = now;
+            render();
+        }
     }
 
     @Override
@@ -408,6 +444,7 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
         try {
             renderHeader(width);
             renderTasks(width, height);
+            renderLogLine(width);
             renderFooter(width);
         } finally {
             writer = terminalWriter;
@@ -463,7 +500,7 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
     }
 
     private void renderTasks(int width, int height) {
-        int maxRows = height - 5; // header(2) + blank(1) + footer(2)
+        int maxRows = height - 6; // header(2) + blank(1) + log line(1) + footer(2)
         int shown = 0;
         boolean overflow = false;
 
@@ -694,6 +731,48 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
         writer.println(sb.toString());
     }
 
+    /**
+     * Paints the reserved line for the latest warning or error. The line is painted even when there
+     * is no record, so the number of lines a frame occupies never depends on the log output.
+     */
+    private void renderLogLine(int width) {
+        LogLine line = latestLogLine;
+
+        if (line == null) {
+            writer.println();
+            return;
+        }
+
+        writer.println(formatLogLine(line, width));
+    }
+
+    private String formatLogLine(LogLine line, int width) {
+        StringBuilder sb = new StringBuilder();
+
+        if (line.taskId() != null && !line.taskId().isBlank()) {
+            sb.append("! [").append(line.taskId()).append("] ");
+        } else {
+            sb.append("! ");
+        }
+
+        String message = line.message() == null ? "" : line.message().replace('\n', ' ').strip();
+        sb.append(message);
+
+        // Truncated before colouring: the escape sequences must neither be cut in half nor count
+        // towards the width.
+        String text = sb.toString();
+
+        if (width > 4 && text.length() > width - 1) {
+            text = text.substring(0, width - 4) + "...";
+        }
+
+        if (ansiSupported) {
+            return Ansi.colour(text, "ERROR".equals(line.level()) ? Ansi.RED : Ansi.YELLOW);
+        }
+
+        return text;
+    }
+
     private void renderFooter(int width) {
         writer.println();
         StringBuilder sb = new StringBuilder();
@@ -726,7 +805,6 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
     @Override
     public synchronized void close() {
         if (closed) return;
-        closed = true;
 
         renderTimer.shutdown();
         try {
@@ -734,6 +812,13 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+
+        // The timer is gone, so this is the last chance to show what changed after the previous frame:
+        // a warning that arrived in the final tick, or a task row that failed at the same moment.
+        // A frame that did not change is not written again.
+        render();
+
+        closed = true;
 
         // Restore cursor
         if (ansiSupported) {

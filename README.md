@@ -80,7 +80,7 @@ analyse <workspace directory>
 
 Note, that you only need to pass the workspace directory, because all other required configuration is already stored there.
 
-Tasks whose dependencies are satisfied execute in parallel (configurable via `--task-parallelism` or `config.json`). The analysis creates an `analysis.json` (containing the analysis result) and a `state.json` (containing tasks execution information) in the workspace directory.
+Tasks whose dependencies are satisfied execute in parallel (configurable via `--task-parallelism` or `config.json`). The analysis creates an `analysis.json` (containing the analysis result) and a `state.json` (containing tasks execution information) in the workspace directory. Chat interactions are logged per task in `logs/<taskId>[_<loopIndex>].log`. While the TUI is the display mode, the engine's own log records go to `logs/engine.log` (overwritten per run) instead of the terminal, and the latest warning or error is also shown inside the frame.
 
 #### Configuration Precedence
 
