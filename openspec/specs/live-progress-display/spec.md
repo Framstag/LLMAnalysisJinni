@@ -1,3 +1,5 @@
+# live-progress-display Specification
+
 ## Purpose
 
 Provide a live-updating terminal UI showing task execution progress during analysis, with per-worker interaction timelines, loop progress, timing, and token usage. Falls back to simple sequential status lines when no TTY is available.
@@ -6,11 +8,16 @@ Provide a live-updating terminal UI showing task execution progress during analy
 
 ### Requirement: Live TUI shows task execution progress
 
-The system SHALL display a live-updating terminal UI showing all tasks in the DAG with their current execution status.
+The system SHALL display a live-updating terminal UI showing all tasks in the DAG with their current execution status. A task that was already successful in an earlier run SHALL be displayed with its successful status from the first frame the TUI paints; no frame SHALL show such a task as pending.
 
 #### Scenario: TUI shows all tasks on start
-- **WHEN** analysis begins
+- **WHEN** analysis begins and at least one task has never been executed successfully
 - **THEN** the TUI SHALL display all tasks from the DAG with their initial status (pending)
+
+#### Scenario: Already successful tasks are correct in the first frame
+- **WHEN** analysis begins and some tasks were already successful in an earlier run
+- **THEN** the first frame the TUI paints SHALL show those tasks as successful
+- **AND** no frame painted by the run SHALL show them as pending
 
 #### Scenario: Task status updates live
 - **WHEN** a task transitions from pending to running
@@ -112,11 +119,21 @@ The system SHALL use colour to convey task status at a glance.
 
 ### Requirement: Non-TTY fallback outputs sequential status lines
 
-When no terminal is available (piped output, CI), the system SHALL fall back to simple sequential status lines without cursor manipulation or colour.
+When stdout is not a terminal (piped output, CI, IDE run configuration, or a launcher that does not attach a console), the system SHALL fall back to simple sequential status lines without cursor manipulation or colour. Detection SHALL be based on whether stdout is a terminal, and SHALL NOT depend on the availability of a JVM console object.
 
 #### Scenario: Non-TTY detects piped output
 - **WHEN** stdout is not a terminal
 - **THEN** the system SHALL NOT attempt TUI rendering
+
+#### Scenario: TUI starts despite an unattached JVM console
+- **WHEN** stdout is a terminal
+- **AND** no JVM console object is available to the process
+- **THEN** the system SHALL start the TUI
+
+#### Scenario: Fallback mode and its reason are reported
+- **WHEN** the system does not start the TUI
+- **THEN** the run SHALL report which display mode is used instead
+- **AND** it SHALL report the reason the TUI was not started
 
 #### Scenario: Non-TTY prints one line per event
 - **WHEN** a task starts
@@ -126,17 +143,34 @@ When no terminal is available (piped output, CI), the system SHALL fall back to 
 
 ### Requirement: `--execution-trace` flag disables TUI
 
-When the `--execution-trace` flag is set, the system SHALL disable the TUI and fall back to the current SLF4J console output behaviour.
+Console execution trace SHALL be the verbose SLF4J output of chat activity. Its effective value SHALL follow the configuration precedence order, and it SHALL default to disabled. Whenever the execution trace is effective, the system SHALL NOT start the TUI and SHALL emit the verbose console output instead. Whenever the execution trace is not effective and stdout is a terminal, the TUI SHALL be the display mode and SLF4J console output SHALL be suppressed.
 
 #### Scenario: execution-trace disables TUI
 - **WHEN** `--execution-trace=true` is passed
 - **THEN** the TUI SHALL NOT be started
-- **AND** SLF4J console output SHALL be active (current verbose behaviour)
+- **AND** SLF4J console output SHALL be active (verbose behaviour)
 
 #### Scenario: execution-trace defaults to false
 - **WHEN** no `--execution-trace` flag is passed
+- **AND** the workspace configuration does not enable the execution trace
 - **THEN** the TUI SHALL be the default display mode
 - **AND** SLF4J console output SHALL be suppressed (log files still written)
+
+#### Scenario: Config enables the execution trace
+- **WHEN** the workspace configuration enables the execution trace
+- **AND** no `--execution-trace` flag is passed
+- **THEN** the TUI SHALL NOT be started
+- **AND** SLF4J console output SHALL be active
+
+#### Scenario: Explicit flag overrides config
+- **WHEN** the workspace configuration enables the execution trace
+- **AND** `--execution-trace=false` is passed
+- **THEN** the TUI SHALL be the display mode when stdout is a terminal
+
+#### Scenario: TUI and console logging are mutually exclusive
+- **WHEN** any execution trace is active
+- **THEN** no TUI rendering SHALL occur
+- **AND** no TUI rendering SHALL be interleaved with SLF4J console output
 
 ### Requirement: Log files always written regardless of display mode
 
@@ -149,3 +183,55 @@ The system SHALL always write full conversation logs to `logs/*.log` regardless 
 #### Scenario: Log files written in execution-trace mode
 - **WHEN** analysis runs with `--execution-trace`
 - **THEN** full conversation logs SHALL still be written to `logs/<taskId>[_<loopIndex>].log`
+
+### Requirement: Terminal control sequences are only emitted for capable terminals
+
+The system SHALL emit cursor movement and screen erase sequences only when the output terminal supports ANSI control sequences. On a terminal without that support, the system SHALL render without cursor manipulation, and it SHALL not move the cursor above lines it did not itself write.
+
+#### Scenario: No escape sequences on a dumb terminal
+- **WHEN** the TUI runs on a terminal that does not support ANSI control sequences
+- **THEN** no cursor movement or screen erase sequence SHALL be written to stdout
+
+#### Scenario: First paint does not disturb existing output
+- **WHEN** the TUI renders its first frame
+- **THEN** the system SHALL NOT move the cursor above content written before the TUI started
+
+#### Scenario: Repaint preserves previous frame position
+- **WHEN** the TUI repaints an updated frame on a capable terminal
+- **THEN** the system SHALL overwrite exactly the region of the frame it previously rendered
+
+### Requirement: A run with nothing to execute is reported
+
+When no task of the analysis can be executed because every task is already successful, the system SHALL state that explicitly, SHALL NOT start the live terminal UI, and SHALL NOT print a completion summary that reports task outcomes as if work had been performed. The run SHALL exit with status 0.
+
+#### Scenario: Nothing to execute is stated
+- **WHEN** `analyse` runs against a workspace in which every task is already successful
+- **THEN** the run SHALL state that no task is runnable
+- **AND** the statement SHALL make clear that all tasks are already successful
+
+#### Scenario: No live TUI for a run without runnable tasks
+- **WHEN** `analyse` runs in an environment whose stdout is a terminal
+- **AND** every task is already successful
+- **THEN** the system SHALL NOT start the TUI
+- **AND** it SHALL NOT paint a frame listing the tasks as pending
+
+#### Scenario: Exit status of a run without runnable tasks
+- **WHEN** `analyse` runs and no task is runnable
+- **THEN** the run SHALL exit with status 0
+
+#### Scenario: A workspace with runnable tasks is unaffected
+- **WHEN** `analyse` runs and at least one task is runnable
+- **THEN** the system SHALL use the display mode it would otherwise use
+- **AND** it SHALL NOT state that no task is runnable
+
+### Requirement: TUI runs without restricted native access warnings
+
+The environment the TUI runs in SHALL grant the terminal implementation the native access it requires, so that starting the TUI emits no restricted-native-access warning and the TUI does not become unavailable on a JVM release that blocks restricted methods. The packaged artefact SHALL declare that access in its own metadata.
+
+#### Scenario: No restricted native access warning from the artefact
+- **WHEN** the packaged artefact is started
+- **THEN** its output SHALL NOT contain a restricted-native-access warning
+
+#### Scenario: Native access declared by the artefact
+- **WHEN** the packaged artefact is inspected
+- **THEN** it SHALL declare native access for the unnamed module in its metadata

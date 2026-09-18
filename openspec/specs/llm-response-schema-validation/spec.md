@@ -1,6 +1,6 @@
 # LLM Response Schema Validation
 
-## Overview
+## Purpose
 
 After the LLM produces a JSON response, validate it against the task's declared JSON schema. Violations are logged as warnings for diagnosis — the response is still accepted to avoid breaking the pipeline.
 
@@ -40,6 +40,16 @@ Validation MUST NOT affect:
 - The response that gets stored in `analysisState`
 - Task execution flow or dependency resolution
 - Retry behavior or task status tracking
+
+#### Scenario: Stored response is unaffected
+- **WHEN** a response violates the declared schema
+- **THEN** the response stored in `analysisState` SHALL be the response the model returned
+
+#### Scenario: Task outcome is unaffected
+- **WHEN** a response violates the declared schema
+- **THEN** the task SHALL be marked successful
+- **AND** the task SHALL NOT be retried because of the violation
+- **AND** dependency resolution SHALL be the same as for a conformant response
 
 ### Requirement: Schema text description always appended
 

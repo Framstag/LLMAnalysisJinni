@@ -1,3 +1,5 @@
+# parallel-task-execution Specification
+
 ## Purpose
 
 Execute independent DAG tasks in parallel while respecting task dependencies, with thread-safe state management and attributable logging.

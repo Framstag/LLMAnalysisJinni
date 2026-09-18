@@ -1,3 +1,5 @@
+# llm-interaction-logger Specification
+
 ## Purpose
 
 Record and expose LLM chat interactions for debugging, audit, and traceability. Console provides progressive real-time per-round message summary. File provides authoritative complete multi-round conversation with thinking traces and token usage.
@@ -73,17 +75,34 @@ Log files SHALL be written for every task execution. No CLI flag controls this.
 - **THEN** a log file SHALL be written to `<workspace>/logs/<taskId>[_<loopIndex>].log`
 - **AND** no CLI option is required to enable this
 
-### Requirement: Console trace toggleable via `--execution-trace`
+### Requirement: Console execution trace follows the configuration precedence order
 
-Console output of progressive chat messages SHALL be controlled by a CLI flag `--execution-trace`. Default: `true`.
+Console output of progressive chat messages SHALL be governed by the effective execution trace setting, which SHALL be resolved as: value explicitly passed as `--execution-trace`, then the workspace configuration, then the built-in default of disabled. An effective execution trace SHALL disable the TUI, and an inactive execution trace SHALL leave chat-message console output off and leave the TUI active when stdout is a terminal.
 
-#### Scenario: Console trace on by default
+#### Scenario: Console trace off by default
 - **WHEN** `analyse` runs without `--execution-trace`
-- **THEN** progressive chat messages SHALL appear on console
+- **AND** the workspace configuration does not enable the execution trace
+- **THEN** no progressive chat messages SHALL appear on console
+- **AND** the TUI SHALL be the display mode when stdout is a terminal
 
-#### Scenario: Console trace disabled
+#### Scenario: Console trace enabled explicitly
+- **WHEN** `analyse` runs with `--execution-trace=true`
+- **THEN** progressive chat messages SHALL appear on console
+- **AND** the TUI SHALL NOT be started
+
+#### Scenario: Console trace disabled explicitly
 - **WHEN** `analyse` runs with `--execution-trace=false`
 - **THEN** no chat messages SHALL appear on console (only task-level logs and errors)
+
+#### Scenario: Console trace enabled through the workspace configuration
+- **WHEN** the workspace configuration enables the execution trace
+- **AND** `analyse` runs without `--execution-trace`
+- **THEN** progressive chat messages SHALL appear on console
+- **AND** the TUI SHALL NOT be started
+
+#### Scenario: Console trace and TUI are mutually exclusive
+- **WHEN** the effective execution trace is active
+- **THEN** no TUI rendering SHALL occur
 
 ### Requirement: Thread safety by instance isolation
 
