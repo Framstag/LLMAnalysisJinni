@@ -85,6 +85,27 @@ public final class Ansi {
     }
 
     /**
+     * Format elapsed milliseconds with whole second precision, for values that change while they
+     * are displayed. Sub-second precision would make the display change on every render tick
+     * without telling the user anything new.
+     */
+    public static String formatElapsedSeconds(long millis) {
+        long seconds = millis / 1000;
+
+        if (seconds < 60) {
+            return seconds + "s";
+        }
+
+        long minutes = seconds / 60;
+
+        if (minutes < 60) {
+            return String.format("%dm%02ds", minutes, seconds % 60);
+        }
+
+        return String.format("%dh%02dm", minutes / 60, minutes % 60);
+    }
+
+    /**
      * Format token count in human-readable form (e.g., "1.2K").
      */
     public static String formatTokenCount(int count) {

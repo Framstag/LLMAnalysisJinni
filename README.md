@@ -82,25 +82,39 @@ Note, that you only need to pass the workspace directory, because all other requ
 
 Tasks whose dependencies are satisfied execute in parallel (configurable via `--task-parallelism` or `config.json`). The analysis creates an `analysis.json` (containing the analysis result) and a `state.json` (containing tasks execution information) in the workspace directory.
 
+#### Configuration Precedence
+
+Command line options only override the workspace configuration when they are actually passed:
+
+1. A value passed on the command line (for example `--log-response true`) wins.
+2. Otherwise the value stored in the workspace `config.json` applies.
+3. Otherwise the built-in default applies.
+
+Leaving an option out therefore never resets a setting that was configured in the workspace. The effective value of every such setting and the source it came from are reported in the run log after the configuration is loaded.
+
 #### CLI Options
+
+The default column below is the built-in default, which only applies when neither the option nor `config.json` supplies a value.
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--task-parallelism` | Number of parallel DAG tasks to execute concurrently | 2 (from `config.json`) |
+| `--task-parallelism` | Number of parallel DAG tasks to execute concurrently | 2 (built-in) |
 | `--single-step` | Stop execution after one task (including its loop indices) | false |
 | `--execution-trace` | Show verbose SLF4J chat execution trace on console (disables TUI) | false |
 | `--execution-trace-system` | Show system messages in console execution trace | false |
 | `--log-request` | Activate langchain4j low-level log of chat requests | false |
 | `--log-response` | Activate langchain4j low-level log of chat responses | false |
-| `-o` / `--executeOnly` | Comma-separated list of task IDs to execute exclusively | (all active) |
+| `-o` / `--executeOnly` | Task ID to execute exclusively. Repeat the option (`-o A -o B`) or use a comma-separated list (`-o A,B`); ids are not accepted as separate arguments. The workspace directory may be given before or after the option. | (all active) |
 
 #### Display Modes
 
-The tool automatically selects the best display mode:
+The tool selects the display mode automatically:
 
-- **TUI mode** (default): Live-updating terminal UI showing task list, status icons, elapsed time, per-worker interaction timelines, loop progress, and token usage. Requires a TTY.
-- **Simple mode** (non-TTY): Sequential status lines when output is piped or no terminal is available.
-- **Execution-trace mode** (`--execution-trace`): Verbose SLF4J console output with full chat message history. Each log line is tagged with the originating task ID via SLF4J MDC.
+- **TUI mode** (default): Live-updating terminal UI showing task list, status icons, elapsed time, per-worker interaction timelines, loop progress, and token usage. Used when stdout is a terminal and the execution trace is not active.
+- **Simple mode** (non-TTY): Sequential status lines when output is piped, when stdout is not a terminal, or when no terminal can be created.
+- **Execution-trace mode**: Verbose SLF4J console output with full chat message history. Each log line is tagged with the originating task ID via SLF4J MDC. Enabled by `--execution-trace=true` or by the execution trace entry in `config.json`, and mutually exclusive with the TUI.
+
+Whenever the TUI is not used, the run reports the display mode it uses instead and the reason the TUI was not started, so a fall back to plain output is always visible.
 
 #### Retry Behaviour
 

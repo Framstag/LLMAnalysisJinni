@@ -180,6 +180,124 @@ class TaskManagerTest {
         assertEquals("ActiveTask", runnable.get(0).getId());
     }
 
+    @Test
+    void markTaskAsFailedDoesNotUnlockDependents() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(taskManager);
+
+        taskManager.markTaskAsFailed(taskById(taskManager, "TaskA"));
+
+        assertFalse(taskManager.isTaskSuccessful("TaskA"), "a failed task must not count as successful");
+        assertFalse(getScheduledTags(taskManager).contains("tag_a"),
+                "a failed task must not publish its tags");
+        assertFalse(getPendingTaskIds(taskManager).contains("TaskA"),
+                "a finished task leaves the pending set");
+        assertTrue(taskManager.getRunnableTasks().stream().noneMatch(task -> task.getId().equals("TaskB")),
+                "the dependent of a failed task must not become runnable");
+    }
+
+    @Test
+    void markTaskAsSuccessfulUnlocksDependents() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(taskManager);
+
+        taskManager.markTaskAsSuccessful(taskById(taskManager, "TaskA"));
+
+        assertTrue(taskManager.isTaskSuccessful("TaskA"));
+        assertTrue(getScheduledTags(taskManager).contains("tag_a"),
+                "a successful task publishes its tags");
+        assertTrue(taskManager.getRunnableTasks().stream().anyMatch(task -> task.getId().equals("TaskB")),
+                "the dependent of a successful task must become runnable");
+    }
+
+    @Test
+    void failedTaskIsRetriedWhenStateIsReloaded() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of("TaskA"));
+        assertNotNull(taskManager);
+
+        taskManager.markTaskAsFailed(taskById(taskManager, "TaskA"));
+
+        assertTrue(Files.exists(workspace.resolve("state.json")), "the outcome must be recorded");
+
+        TaskManager reloaded = TaskManager.initializeTasks(tempDir, workspace, Set.of("TaskA"));
+        assertNotNull(reloaded);
+
+        assertFalse(reloaded.isTaskSuccessful("TaskA"), "a failed task must not be treated as completed");
+        assertTrue(reloaded.getRunnableTasks().stream().anyMatch(task -> task.getId().equals("TaskA")),
+                "a failed task must be executed again on the next run");
+    }
+
+    @Test
+    void successfulTaskIsSkippedWhenStateIsReloaded() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of("TaskA"));
+        assertNotNull(taskManager);
+
+        taskManager.markTaskAsSuccessful(taskById(taskManager, "TaskA"));
+
+        TaskManager reloaded = TaskManager.initializeTasks(tempDir, workspace, Set.of("TaskA"));
+        assertNotNull(reloaded);
+
+        assertTrue(reloaded.isTaskSuccessful("TaskA"));
+        assertTrue(reloaded.getRunnableTasks().stream().noneMatch(task -> task.getId().equals("TaskA")),
+                "a successful task must not be executed again");
+    }
+
+    private Path workspaceDirectory() throws Exception {
+        Path workspace = tempDir.resolve("workspace");
+        Files.createDirectories(workspace);
+
+        return workspace;
+    }
+
+    private TaskDefinition taskById(TaskManager taskManager, String taskId) {
+        return taskManager.getAllTasks().stream()
+                .filter(task -> task.getId().equals(taskId))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private void writeDependencyTasks() throws Exception {
+        Path tasksFile = tempDir.resolve("tasks.yaml");
+        Files.writeString(tasksFile, """
+                ---
+                id: TaskA
+                name: Task A
+                systemPrompt: prompts/system.md
+                responseFormat: results/Response.json
+                responseProperty: result
+                active: true
+                tags:
+                  - tag_a
+                ---
+                id: TaskB
+                name: Task B
+                systemPrompt: prompts/system.md
+                responseFormat: results/Response.json
+                responseProperty: result
+                active: true
+                dependsOn:
+                  - tag_a
+                tags:
+                  - tag_b
+                """);
+    }
+
     @SuppressWarnings("unchecked")
     private Set<String> getScheduledTags(TaskManager taskManager) throws Exception {
         Field scheduledTagsField = TaskManager.class.getDeclaredField("scheduledTags");

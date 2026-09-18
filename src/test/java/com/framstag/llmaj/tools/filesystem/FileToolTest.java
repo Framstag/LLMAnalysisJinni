@@ -47,8 +47,10 @@ public class FileToolTest {
         List<FilesInDirectory> result = filesystemTool.getAllFilesInDirRecursively("src/test/java/com/framstag/llmaj");
 
         assertEquals(List.of(
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/config", List.of("ConfigStorerTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/display", List.of("TaskRowTest.java", "LoopWorkerRowTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/cli", List.of("AnalyseCmdOptionParsingTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/config", List.of("ConfigOverridesTest.java", "ConfigStorerTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/display", List.of("DisplayDecisionTest.java", "DisplayManagerTest.java", "LoopWorkerRowTest.java", "ProgressDisplayTest.java", "TaskRowTest.java")),
+
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/documentation", List.of("DocumentationTemplateTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/json", List.of("JsonHelperTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/lc4j", List.of("ChatExecutionLoggingTest.java")),
@@ -58,8 +60,9 @@ public class FileToolTest {
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/java", List.of("JavaToolTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/sbom", List.of("SBOMToolTest.java"))),
                 result.stream()
-                        .sorted(Comparator.comparing(FilesInDirectory::directory)
-                                .thenComparing(directory -> directory.files().getFirst()))
+                        .sorted(Comparator.comparing(FilesInDirectory::directory))
+                        .map(entry -> new FilesInDirectory(entry.directory(),
+                                entry.files().stream().sorted().toList()))
                         .toList());
     }
 

@@ -24,9 +24,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class ChatExecutionLoggingTest {
 
     @Test
-    void testExecutionTraceDefaultsToTrue() {
+    void testExecutionTraceDefaultsToFalse() {
         Config config = new Config();
-        assertTrue(config.isExecutionTrace(), "Execution trace should default to true");
+        assertFalse(config.isExecutionTrace(),
+                "Execution trace should default to false, the TUI is the default display mode");
     }
 
     @Test

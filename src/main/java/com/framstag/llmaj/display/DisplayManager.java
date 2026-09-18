@@ -21,19 +21,21 @@ public class DisplayManager implements AutoCloseable {
      * Create display manager.
      *
      * @param config               analysis config
-     * @param useTui               true to use TUI ProgressDisplay
-     * @param executionTrace       true for execution-trace mode (no display)
+     * @param decision             which display the run uses, and why
+     * @param terminalSupport      terminal and its capabilities, used when the TUI is chosen
      * @param allTasks             all task definitions (for TUI pre-population)
      * @param preCompletedTaskIds  set of task IDs already completed from previous run
-     * @throws java.io.IOException if TUI terminal creation fails
      */
     public DisplayManager(Config config,
-                          boolean useTui,
-                          boolean executionTrace,
+                          DisplayDecision decision,
+                          TerminalSupport terminalSupport,
                           List<TaskDefinition> allTasks,
-                          Set<String> preCompletedTaskIds) throws java.io.IOException {
-        if (useTui) {
-            var d = new ProgressDisplay(config);
+                          Set<String> preCompletedTaskIds) {
+        if (decision.useTui()) {
+            var d = new ProgressDisplay(config,
+                    terminalSupport.terminal(),
+                    terminalSupport.ansiSupported(),
+                    terminalSupport.unicodeSupported());
             d.addTasks(allTasks);
             for (var task : allTasks) {
                 if (preCompletedTaskIds.contains(task.getId())) {
@@ -43,7 +45,7 @@ public class DisplayManager implements AutoCloseable {
             this.display = d;
             this.callback = d;
             this.simple = null;
-        } else if (!executionTrace) {
+        } else if (decision.mode() == DisplayDecision.Mode.SIMPLE) {
             var s = new SimpleOutput(config);
             this.display = null;
             this.callback = s;
@@ -89,7 +91,7 @@ public class DisplayManager implements AutoCloseable {
      */
     public void onTaskError(String taskId, String taskName, String error) {
         if (display != null) {
-            display.completeTask(taskId);
+            display.failTask(taskId, error);
         } else if (simple != null) {
             simple.failTask(taskId, taskName, error);
         }

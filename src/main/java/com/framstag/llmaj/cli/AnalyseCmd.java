@@ -6,9 +6,11 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.framstag.llmaj.AnalysisContext;
 import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.config.ConfigLoader;
+import com.framstag.llmaj.config.ConfigOverrides;
 import com.framstag.llmaj.handlebars.HandlebarsFactory;
+import com.framstag.llmaj.display.DisplayDecision;
 import com.framstag.llmaj.display.DisplayManager;
-import com.framstag.llmaj.display.ProgressCallback;
+import com.framstag.llmaj.display.TerminalSupport;
 import com.framstag.llmaj.json.JsonHelper;
 import com.framstag.llmaj.json.JsonNodeModelWrapper;
 import com.framstag.llmaj.json.ObjectMapperFactory;
@@ -32,8 +34,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
+import picocli.CommandLine.Spec;
 
 import ch.qos.logback.classic.Level;
 import java.io.IOException;
@@ -48,28 +52,73 @@ public class AnalyseCmd implements Callable<Integer> {
     private static final Logger logger = LoggerFactory.getLogger(AnalyseCmd.class);
 
     @Option(names={"--log-request"}, arity = "1", description = "Activate langchain4j low-level log of chat requests")
-    Boolean logRequest = false;
+    Boolean logRequest;
 
     @Option(names={"--log-response"}, arity = "1", description = "Activate langchain4j low-level log of chat responses")
-    Boolean logResponse = false;
+    Boolean logResponse;
 
-    @Option(names={"--execution-trace"}, arity = "1", defaultValue = "false", description = "Show chat execution trace on console (disables TUI)")
-    boolean executionTrace = false;
+    @Option(names={"--execution-trace"}, arity = "1", description = "Show chat execution trace on console (disables TUI)")
+    Boolean executionTrace;
 
-    @Option(names={"--execution-trace-system"}, arity = "1", defaultValue = "false", description = "Show system messages in console execution trace")
-    boolean executionTraceSystem = false;
+    @Option(names={"--execution-trace-system"}, arity = "1", description = "Show system messages in console execution trace")
+    Boolean executionTraceSystem;
 
-    @Option(names={"-o","--executeOnly"}, arity = "1..*", description = "A list of task ids, that should only be executed")
+    @Option(names={"-o","--executeOnly"}, arity = "1", split = ",", description = "Task id to execute exclusively; repeat the option or separate ids with commas to select several tasks")
     Set<String> executeOnly = new HashSet<>();
 
     @Option(names={"--single-step"}, arity = "1", defaultValue = "false", description = "Stop execution after one task")
     boolean singleStep = false;
 
     @Option(names={"--task-parallelism"}, arity = "1", description = "Number of parallel DAG tasks to execute concurrently")
-    Integer taskParallelism = null;
+    Integer taskParallelism;
+
+    @Spec
+    CommandSpec spec;
 
     @Parameters(index = "0",description = "Path to the working directory where result of analysis is stored")
     Path workingDirectory;
+
+    /**
+     * Collects the option values that were actually passed on the command line.
+     * <p>
+     * An option the user did not pass must not write into the configuration, otherwise the
+     * workspace configuration would never take effect for that setting. Package private so the
+     * "was it passed" behaviour can be tested without running an analysis.
+     */
+    ConfigOverrides readOverrides() {
+        var parseResult = spec.commandLine().getParseResult();
+
+        if (parseResult == null) {
+            return ConfigOverrides.NONE;
+        }
+
+        return new ConfigOverrides(
+                parseResult.hasMatchedOption("--log-request") ? logRequest : null,
+                parseResult.hasMatchedOption("--log-response") ? logResponse : null,
+                parseResult.hasMatchedOption("--execution-trace") ? executionTrace : null,
+                parseResult.hasMatchedOption("--execution-trace-system") ? executionTraceSystem : null,
+                parseResult.hasMatchedOption("--task-parallelism") ? taskParallelism : null);
+    }
+
+    private static void logEffectiveConfiguration(ConfigOverrides overrides, Config config) {
+        for (var resolution : overrides.resolutions(config)) {
+            logger.info("Effective {}: {} (source: {})",
+                    resolution.setting(), resolution.value(), resolution.source());
+        }
+    }
+
+    /**
+     * Reports the display mode and the reason the TUI was not used, so that a silent downgrade to
+     * plain output cannot happen unnoticed. Prints nothing when the TUI is running.
+     */
+    private static void reportDisplayMode(DisplayDecision displayDecision) {
+        if (displayDecision.useTui()) {
+            return;
+        }
+
+        System.out.println("Display mode: " + displayDecision.mode().name().toLowerCase(Locale.ROOT)
+                + " (" + displayDecision.reason() + ")");
+    }
 
     private LinkedList<ChatMessage> resolveChatMessages(Config config,
                                                         Handlebars templateEngine,
@@ -115,21 +164,11 @@ public class AnalyseCmd implements Callable<Integer> {
             logger.info("Loading config from workspace '{}'...", workingDirectory);
             config = ConfigLoader.loadFromWorkingDirectory(workingDirectory);
 
-            if (logRequest != null) {
-                config.setLogRequests(logRequest);
-            }
-
-            if (logResponse != null) {
-                config.setLogResponses(logResponse);
-            }
-
-            config.setExecutionTrace(executionTrace);
-            config.setExecutionTraceSystem(executionTraceSystem);
-            if (taskParallelism != null) {
-                config.setTaskParallelism(taskParallelism);
-            }
+            ConfigOverrides overrides = readOverrides();
+            overrides.applyTo(config);
 
             config.dumpToLog();
+            logEffectiveConfiguration(overrides, config);
         } catch (IOException e) {
             logger.error("Cannot load config file", e);
             return 1;
@@ -162,11 +201,16 @@ public class AnalyseCmd implements Callable<Integer> {
 
         ToolService toolService = ToolServiceFactory.getToolService(config,analysisContext);
 
-        // Initialize display
-        boolean useTui = !executionTrace && System.console() != null;
+        // Initialize display. The execution trace is resolved once, by the config merge above, and
+        // every consumer reads that same value.
+        TerminalSupport terminalSupport = config.isExecutionTrace()
+                ? TerminalSupport.none()
+                : TerminalSupport.detect();
+        DisplayDecision displayDecision = DisplayDecision.decide(config.isExecutionTrace(),
+                terminalSupport.stdoutIsTerminal());
 
-        // Suppress SLF4J INFO console output when not in execution-trace mode
-        if (!executionTrace) {
+        // Suppress SLF4J INFO console output when the console execution trace is not active
+        if (!config.isExecutionTrace()) {
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
             rootLogger.setLevel(Level.WARN);
         }
@@ -180,8 +224,10 @@ public class AnalyseCmd implements Callable<Integer> {
         }
 
         DisplayManager displayManager = new DisplayManager(
-                config, useTui, executionTrace,
+                config, displayDecision, terminalSupport,
                 taskManager.getAllTasks(), preCompletedTaskIds);
+
+        reportDisplayMode(displayDecision);
 
         try {
             int taskParallelism = config.getTaskParallelism();
@@ -400,17 +446,22 @@ public class AnalyseCmd implements Callable<Integer> {
 
                         stateManager.updateState(task.getResponseProperty(), taskResultJson);
                         stateManager.saveState();
-                    } else {
-                        logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
-                    }
 
-                    synchronized (taskManager) {
-                        taskManager.markTaskAsSuccessful(task);
-                    }
+                        synchronized (taskManager) {
+                            taskManager.markTaskAsSuccessful(task);
+                        }
 
-                    if (taskResultJson != null) {
                         displayManager.onTaskComplete(taskId, taskName);
                     } else {
+                        logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
+
+                        // Without a payload there is no result. Recording the task as successful
+                        // would publish its tags, so dependents would run against a response
+                        // property that was never written, and the next run would skip the task.
+                        synchronized (taskManager) {
+                            taskManager.markTaskAsFailed(task);
+                        }
+
                         displayManager.onTaskError(taskId, taskName, "No response from chat model");
                     }
                 }

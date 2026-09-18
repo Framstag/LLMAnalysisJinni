@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class Config {
     private static final Logger logger = LoggerFactory.getLogger(Config.class);
@@ -34,6 +35,7 @@ public class Config {
     private boolean executionTraceSystem;
     private final List<MCPServer> mcpServers;
     private final Map<String,String> properties;
+    private Set<String> providedProperties = Set.of();
 
     public Config() {
         modelProvider = ModelProvider.OLLAMA;
@@ -45,7 +47,7 @@ public class Config {
         nativeJSON = false;
         logRequests = false;
         logResponses = false;
-        executionTrace = true;
+        executionTrace = false;
         executionTraceSystem = false;
         mcpServers = new LinkedList<>();
         properties = new HashMap<>();
@@ -228,6 +230,30 @@ public class Config {
 
     public Map<String, String> getProperties() {
         return properties;
+    }
+
+    /**
+     * Names of the properties that were actually present in the loaded config file.
+     * <p>
+     * Used to distinguish a value that comes from {@code config.json} from one that
+     * only comes from this class' own built-in defaults. Never serialized.
+     */
+    @JsonIgnore
+    public Set<String> getProvidedProperties() {
+        return providedProperties;
+    }
+
+    @JsonIgnore
+    public void setProvidedProperties(Set<String> providedProperties) {
+        this.providedProperties = Set.copyOf(providedProperties);
+    }
+
+    /**
+     * @return true if the loaded config file contained a value for the given property name
+     */
+    @JsonIgnore
+    public boolean isProvidedInConfigFile(String propertyName) {
+        return providedProperties.contains(propertyName);
     }
 
     public void dumpToLog() {

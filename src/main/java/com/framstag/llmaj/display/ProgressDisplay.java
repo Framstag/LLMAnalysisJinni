@@ -3,12 +3,11 @@ package com.framstag.llmaj.display;
 import com.framstag.llmaj.config.Config;
 import dev.langchain4j.model.output.TokenUsage;
 import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -36,7 +35,13 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
     private static final int RENDER_INTERVAL_MS = 500;
 
     private final Terminal terminal;
-    private final PrintWriter writer;
+    private final PrintWriter terminalWriter;
+    /**
+     * Points at the terminal, except while a frame is being rendered, when it points at
+     * {@link #frameBuffer}. The render helpers therefore always write to the current frame.
+     */
+    private PrintWriter writer;
+    private final StringWriter frameBuffer = new StringWriter();
     private final Config config;
     private final boolean ansiSupported;
     private final boolean unicodeSupported;
@@ -66,18 +71,28 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
     });
     private volatile boolean closed = false;
 
-    public ProgressDisplay(Config config) throws IOException {
+    // Last frame actually painted, so an unchanged frame is not written to the terminal again, and
+    // the number of lines it occupied, so a repaint can move the cursor back to exactly that frame.
+    private String lastFrame = null;
+    private int lastRenderedLines = 0;
+
+    /**
+     * @param config            analysis config
+     * @param terminal          terminal to render to, created by the caller so that capability and
+     *                          rendering come from the same terminal
+     * @param ansiSupported     true when the terminal accepts ANSI control sequences
+     * @param unicodeSupported  true when the terminal accepts the Unicode symbols used in the TUI
+     */
+    public ProgressDisplay(Config config,
+                           Terminal terminal,
+                           boolean ansiSupported,
+                           boolean unicodeSupported) {
         this.config = config;
-        this.terminal = TerminalBuilder.builder()
-                .system(true)
-                .build();
-        this.writer = terminal.writer();
-        this.ansiSupported = System.console() != null
-                && terminal.getType() != null
-                && !terminal.getType().equalsIgnoreCase("dumb")
-                && !terminal.getType().equalsIgnoreCase("unknown");
-        this.unicodeSupported = ansiSupported && terminal.encoding() != null
-                && terminal.encoding().name().toUpperCase().contains("UTF");
+        this.terminal = terminal;
+        this.terminalWriter = terminal.writer();
+        this.writer = terminalWriter;
+        this.ansiSupported = ansiSupported;
+        this.unicodeSupported = unicodeSupported;
 
         // Hide cursor
         if (ansiSupported) {
@@ -367,49 +382,66 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
         int height = terminal.getHeight();
         int width = terminal.getWidth();
 
-        // Calculate how many lines we need
-        int totalLines = countLines(width);
-
         // If terminal too small, show minimal output
         if (height < 5 || width < 40) {
+            // The minimal output is a single rewritten line, so no frame is on screen that a later
+            // full frame could move the cursor back over.
+            lastFrame = null;
+            lastRenderedLines = 0;
             renderMinimal(width);
             return;
         }
 
-        // Move cursor to top of display area
-        writer.print(Ansi.cursorUp(totalLines));
-        writer.print(Ansi.ERASE_DISPLAY);
-        writer.print(Ansi.CURSOR_HOME);
+        // Render into a buffer first: a frame that did not change must not reach the terminal.
+        frameBuffer.getBuffer().setLength(0);
+        writer = new PrintWriter(frameBuffer);
 
-        // Render header
-        renderHeader(width);
+        try {
+            renderHeader(width);
+            renderTasks(width, height);
+            renderFooter(width);
+        } finally {
+            writer = terminalWriter;
+        }
 
-        // Render task list
-        renderTasks(width, height);
+        String renderedFrame = frameBuffer.toString();
 
-        // Render footer
-        renderFooter(width);
+        // Nothing changed: writing the same frame again would only make the terminal work.
+        if (renderedFrame.equals(lastFrame)) {
+            return;
+        }
 
+        // Move the cursor back to the start of the frame that is currently on screen. Only a
+        // terminal that understands ANSI may be moved, and the very first frame has nothing to
+        // move back to.
+        if (ansiSupported && lastRenderedLines > 0) {
+            writer.print(Ansi.cursorUp(lastRenderedLines));
+            writer.print(Ansi.ERASE_DISPLAY);
+        }
+
+        writer.print(renderedFrame);
         writer.flush();
+
+        lastFrame = renderedFrame;
+        lastRenderedLines = countLines(renderedFrame);
     }
 
-    private int countLines(int width) {
-        int lines = 2; // header + blank
-        for (var task : taskOrder) {
-            lines++; // task row
-            var workers = workerMap.get(task.getId());
-            if (workers != null && !workers.isEmpty()) {
-                lines += workers.size(); // worker sub-rows
+    private static int countLines(String renderedFrame) {
+        int lines = 0;
+
+        for (int i = 0; i < renderedFrame.length(); i++) {
+            if (renderedFrame.charAt(i) == '\n') {
+                lines++;
             }
         }
-        lines += 2; // blank + footer
+
         return lines;
     }
 
     private void renderHeader(int width) {
         String projectInfo = "LLMAnalysisJinni \u2014 " + config.getAnalysisDirectoryAsString();
         String modelInfo = config.getModelName() + " (" + config.getModelProvider() + ")";
-        String elapsed = "Elapsed: " + Ansi.formatElapsed(Duration.between(startTime, Instant.now()).toMillis());
+        String elapsed = "Elapsed: " + Ansi.formatElapsedSeconds(Duration.between(startTime, Instant.now()).toMillis());
 
         if (ansiSupported) {
             writer.println(Ansi.bold(projectInfo));
@@ -497,7 +529,9 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
                     elapsed = Duration.between(taskStart, Instant.now()).toMillis();
                 }
             }
-            String timeStr = Ansi.formatElapsed(elapsed);
+            // Whole seconds: a running task is redrawn while it runs, and sub-second changes
+            // would redraw it on every render tick without saying anything new.
+            String timeStr = Ansi.formatElapsedSeconds(elapsed);
             if (ansiSupported) {
                 timeStr = Ansi.dim(timeStr);
             }
@@ -609,7 +643,8 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
                 elapsed = System.currentTimeMillis() -
                         workerStartTimes.get(key(worker.getTaskId(), worker.getIndex())).toEpochMilli();
             }
-            String timeStr = Ansi.formatElapsed(elapsed);
+            // Whole seconds, see renderTaskRow.
+            String timeStr = Ansi.formatElapsedSeconds(elapsed);
             if (ansiSupported) {
                 timeStr = Ansi.dim(timeStr);
             }
@@ -671,7 +706,7 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
             if (task != null) {
                 writer.print("\r" + " ".repeat(width - 1) + "\r");
                 writer.print("\u25b6 " + task.getName() + "  "
-                        + Ansi.formatElapsed(Duration.between(startTime, Instant.now()).toMillis()));
+                        + Ansi.formatElapsedSeconds(Duration.between(startTime, Instant.now()).toMillis()));
                 writer.flush();
             }
         }
@@ -699,7 +734,7 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
 
         // Print final summary
         writer.println();
-        writer.println(Ansi.bold("=== Analysis Complete ==="));
+        writer.println(ansiSupported ? Ansi.bold("=== Analysis Complete ===") : "=== Analysis Complete ===");
         for (var task : taskOrder) {
             String icon = switch (task.getStatus()) {
                 case PENDING -> "\u2026";
@@ -714,7 +749,7 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
         writer.println("Token: IN " + Ansi.formatTokenCount(aggregateInputTokens.get())
                 + "  OUT " + Ansi.formatTokenCount(aggregateOutputTokens.get())
                 + "  TOTAL " + Ansi.formatTokenCount(aggregateTotalTokens.get()));
-        writer.println("Total time: " + Ansi.formatElapsed(Duration.between(startTime, Instant.now()).toMillis()));
+        writer.println("Total time: " + Ansi.formatElapsedSeconds(Duration.between(startTime, Instant.now()).toMillis()));
         writer.flush();
     }
 
