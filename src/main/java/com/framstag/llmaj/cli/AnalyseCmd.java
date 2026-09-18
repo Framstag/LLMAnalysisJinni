@@ -410,6 +410,8 @@ public class AnalyseCmd implements Callable<Integer> {
                                     displayManager.getCallback().onWorkerComplete(taskId, currentIndex,
                                             taskName + "[" + currentIndex + "]");
                                 } else {
+                                    // Defensive: the parser raises instead of returning no result, so this
+                                    // branch is not reached by a response without a payload.
                                     logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
                                     anyIndexFailed.set(true);
                                     displayManager.getCallback().onWorkerError(taskId, currentIndex,
@@ -475,6 +477,9 @@ public class AnalyseCmd implements Callable<Integer> {
 
                         displayManager.onTaskComplete(taskId, taskName);
                     } else {
+                        // Defensive: ResponsePayloadParser raises when a response carries no payload, so a
+                        // task without a result is normally reported through the catch below with the real
+                        // cause. This branch only stays for a caller that hands back no result at all.
                         logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
 
                         // Without a payload there is no result. Recording the task as successful

@@ -52,7 +52,7 @@ public class FileToolTest {
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/display", List.of("DisplayDecisionTest.java", "DisplayManagerTest.java", "LoopWorkerRowTest.java", "ProgressDisplayTest.java", "TaskRowTest.java")),
 
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/documentation", List.of("DocumentationTemplateTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/json", List.of("JsonHelperTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/json", List.of("JsonHelperTest.java", "ResponsePayloadParserTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/lc4j", List.of("ChatExecutionLoggingTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/logging", List.of("EngineLogRoutingTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/smoke", List.of("JarSmokeIT.java", "JarSmokeProbe.java")),

@@ -12,6 +12,13 @@ public class JsonHelper
 {
     private static final Logger logger = LoggerFactory.getLogger(JsonHelper.class);
 
+    /**
+     * Parser for the payload of a model response. The mapper is stateless, so one instance serves
+     * every caller.
+     */
+    private static final ResponsePayloadParser PAYLOAD_PARSER =
+            new ResponsePayloadParser(ObjectMapperFactory.getJSONObjectMapperInstance());
+
     private static String getObjectDescription(JsonNode schema) {
         StringBuilder sb = new StringBuilder();
 
@@ -106,15 +113,25 @@ public class JsonHelper
         return "Result";
     }
 
+    /**
+     * Escape the unescaped quotes inside the value of a line that carries a key/value pair.
+     * <p>
+     * The line may have anything in front of the key, so a single-line document works as well as a
+     * pretty-printed one. A quote ends the value when the next non-whitespace character closes the
+     * entry - a comma, a closing brace or a closing bracket - or when the line ends.
+     *
+     * @param line one line of a document
+     * @return the line with the inner quotes of its value escaped
+     */
     public static String fixJsonLine(String line) {
-        // Regex: Gruppiert Prefix bis ": " und Rest ab Value-"
-        Pattern pat = Pattern.compile("^(\\s*\"[^\"]*?\"\\s*:\\s*)\"(.*)$");
+        // Prefix: everything up to and including the colon that follows the key
+        Pattern pat = Pattern.compile("^([^\"]*\"[^\"]*?\"\\s*:\\s*)\"(.*)$");
         Matcher m = pat.matcher(line);
         if (!m.matches()) {
             return line; // Passt nicht → unverändert
         }
 
-        String prefix = m.group(1); // z.B.   "key":
+        String prefix = m.group(1); // z.B.   "key":  oder  {"key":
         String rest = m.group(2);   // z.B.  value with "bad" quotes",
 
         // Inneren String reparieren
@@ -143,24 +160,21 @@ public class JsonHelper
             }
 
             if (ch == '"') {
-                // Heuristik: String-Ende wenn danach Komma, }, Leerraum+Komma oder Zeilenende
+                // Heuristik: String-Ende wenn danach Komma, schließende Klammer oder Zeilenende.
+                // Bei Leerraum entscheidet das erste Nicht-Leerraum-Zeichen danach: nur dann ist
+                // das Zitat ein String-Ende, ein inneres Zitat wird von weiterem Text gefolgt.
                 boolean isStringEnd = false;
-                if (i + 1 < rest.length()) {
-                    char next = rest.charAt(i + 1);
-                    if (next == ',' || next == '}') {
-                        isStringEnd = true;
-                    } else if (next == ' ' || next == '\t') {
-                        // Skip whitespace
-                        for (int j = i + 2; j < rest.length(); j++) {
-                            char afterSpace = rest.charAt(j);
-                            if (afterSpace == ',' || afterSpace == '}') {
-                                isStringEnd = true;
-                                break;
-                            }
-                        }
-                    }
-                } else {
+                int next = i + 1;
+
+                while (next < rest.length() && (rest.charAt(next) == ' ' || rest.charAt(next) == '\t')) {
+                    next++;
+                }
+
+                if (next >= rest.length()) {
                     isStringEnd = true; // Zeilenende
+                } else {
+                    char afterQuote = rest.charAt(next);
+                    isStringEnd = afterQuote == ',' || afterQuote == '}' || afterQuote == ']';
                 }
 
                 if (isStringEnd) {
@@ -179,36 +193,30 @@ public class JsonHelper
         return prefix + '"'+ fixedRest;
     }
 
-    private static String fixJsonDocument(String text) {
-        return java.util.Arrays.stream(text.split("\n"))
+    /**
+     * Escape the unescaped quotes inside the values of a document, line by line. Pure text repair,
+     * used by {@link ResponsePayloadParser} as a fallback for a payload that does not parse.
+     * <p>
+     * A repair is only accepted by that caller when it leaves the brackets of the document alone.
+     */
+    static String fixJsonDocument(String text) {        return java.util.Arrays.stream(text.split("\n"))
                 .map(JsonHelper::fixJsonLine)
                 .reduce((a, b) -> a + "\n" + b)
                 .orElse("");
     }
 
     /**
-     * Remove potential LLM wrapping of the actual JSON context
+     * Locate the payload of a response and return it as text, without parsing it.
+     * <p>
+     * The string-level entry point for callers that do not need a parsed document; callers that do
+     * use {@link ResponsePayloadParser#parse(String)}, which also reports why nothing could be parsed.
      *
      * @param jsonString original string
      *
-     * @return potentially cleaned and modified string to use for further processing
+     * @return the located payload, repaired when it does not parse as it is, or the original string
+     * when no payload can be located
      */
     public static String extractJSON(String jsonString) {
-        String origJsonString = jsonString;
-
-        if (jsonString.startsWith("```json")) {
-            jsonString = jsonString.substring(7);
-        }
-        if (jsonString.endsWith("```")) {
-            jsonString = jsonString.substring(0,jsonString.length()-3);
-        }
-
-        jsonString = fixJsonDocument(jsonString);
-
-        if (!jsonString.equals(origJsonString)) {
-            logger.warn("Corrected JSON String to: {}", jsonString);
-        }
-
-        return jsonString;
+        return PAYLOAD_PARSER.payloadText(jsonString);
     }
 }

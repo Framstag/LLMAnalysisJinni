@@ -1,11 +1,11 @@
 package com.framstag.llmaj.lc4j;
 
-import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.config.ModelProvider;
 import com.framstag.llmaj.display.ProgressCallback;
 import com.framstag.llmaj.json.JsonHelper;
+import com.framstag.llmaj.json.ResponsePayloadParser;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
@@ -420,35 +420,33 @@ public class ChatExecutor {
 
         String taskResultString = chatResponse.aiMessage().text();
 
-        if (taskResultString != null && !taskResultString.isEmpty()) {
-            taskResultString = JsonHelper.extractJSON(taskResultString);
-            try (JsonParser parser = executionContext.getMapper().getFactory().createParser(taskResultString)) {
-                JsonNode result = executionContext.getMapper().readTree(parser);
+        // A response without a locatable payload raises here, so the caller reports the real cause
+        // (a missing or malformed payload) instead of a message about a missing model response.
+        JsonNode result = new ResponsePayloadParser(executionContext.getMapper()).parse(taskResultString);
 
-                // Validate result against the JSON schema
-                if (responseSchema != null) {
-                    try {
-                        SchemaRegistry schemaRegistry = SchemaRegistry.withDialect(
-                                Dialects.getDraft202012(),
-                                builder -> builder.nodeReader(DefaultNodeReader.Builder::locationAware));
-                        String schemaString = executionContext.getMapper().writeValueAsString(responseSchema);
-                        Schema schema = schemaRegistry.getSchema(schemaString, InputFormat.JSON);
-                        java.util.List<com.networknt.schema.Error> errors = schema.validate(taskResultString, InputFormat.JSON);
-                        if (!errors.isEmpty()) {
-                            logger.warn("LLM response does not conform to JSON schema ({} errors):", errors.size());
-                            for (com.networknt.schema.Error error : errors) {
-                                logger.warn("  Schema violation: {}", error.getMessage());
-                            }
-                        }
-                    } catch (Exception e) {
-                        logger.warn("Could not validate response against schema: {}", e.getMessage());
+        // Validate the payload that is about to be stored. The located payload is validated as text,
+        // so what is checked is what the task will publish.
+        if (responseSchema != null) {
+            String payloadString = executionContext.getMapper().writeValueAsString(result);
+
+            try {
+                SchemaRegistry schemaRegistry = SchemaRegistry.withDialect(
+                        Dialects.getDraft202012(),
+                        builder -> builder.nodeReader(DefaultNodeReader.Builder::locationAware));
+                String schemaString = executionContext.getMapper().writeValueAsString(responseSchema);
+                Schema schema = schemaRegistry.getSchema(schemaString, InputFormat.JSON);
+                java.util.List<com.networknt.schema.Error> errors = schema.validate(payloadString, InputFormat.JSON);
+                if (!errors.isEmpty()) {
+                    logger.warn("LLM response does not conform to JSON schema ({} errors):", errors.size());
+                    for (com.networknt.schema.Error error : errors) {
+                        logger.warn("  Schema violation: {}", error.getMessage());
                     }
                 }
-
-                return result;
+            } catch (Exception e) {
+                logger.warn("Could not validate response against schema: {}", e.getMessage());
             }
-        } else {
-            return null;
         }
+
+        return result;
     }
 }
