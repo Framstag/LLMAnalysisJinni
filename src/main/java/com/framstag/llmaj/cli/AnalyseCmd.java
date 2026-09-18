@@ -201,6 +201,21 @@ public class AnalyseCmd implements Callable<Integer> {
 
         ToolService toolService = ToolServiceFactory.getToolService(config,analysisContext);
 
+        // A run in which every task is already successful has nothing to execute. It is reported
+        // here, before any display exists: probing a terminal would load the native terminal
+        // implementation for nothing, and starting the TUI would paint a frame whose rows could
+        // only be wrong, followed by a summary claiming results that this run did not produce.
+        // No runnable task while pending tasks remain is a different case and keeps its error.
+        if (taskManager.getRunnableTasks().isEmpty() && !taskManager.hasAnyPendingTasks()) {
+            int taskCount = taskManager.getAllTasks().size();
+
+            logger.info("No task is runnable, all {} tasks are already successful.", taskCount);
+            System.out.println("Nothing to run: all " + taskCount
+                    + " tasks are already successful. Use 'state clear' or 'state drop' to run them again.");
+
+            return 0;
+        }
+
         // Initialize display. The execution trace is resolved once, by the config merge above, and
         // every consumer reads that same value.
         TerminalSupport terminalSupport = config.isExecutionTrace()

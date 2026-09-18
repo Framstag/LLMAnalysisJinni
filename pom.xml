@@ -231,7 +231,9 @@
                 <version>2.9.3</version>
                 <executions>
                     <execution>
-                        <phase>package</phase>
+                        <!-- Generated before the test phase: the SBOM tests parse target/bom.json,
+                             so generating it in 'package' made 'mvn clean package' fail. -->
+                        <phase>process-classes</phase>
                         <goals>
                             <goal>makeAggregateBom</goal>
                         </goals>
@@ -279,6 +281,10 @@
                         </manifest>
                         <manifestEntries>
                             <Bundle-License>GPL</Bundle-License>
+                            <!-- JLine's terminal uses restricted java.lang.foreign methods. Without
+                                 this the JVM prints native-access warnings and a future release
+                                 blocks them, which degrades the TUI to a dumb terminal. -->
+                            <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
                         </manifestEntries>
                     </archive>
                 </configuration>
@@ -298,7 +304,11 @@
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <finalName>LLMAnalysisJinni-jar-with-dependencies</finalName>
-                            <minimizeJar>true</minimizeJar>
+                            <!-- No minimizeJar: the minimizer keeps only classes reachable from
+                                 compiled bytecode, which silently drops classes that are resolved
+                                 at runtime (logback configurators via Class.forName, XML parser
+                                 implementations via META-INF/services). See openspec change
+                                 fix-shaded-jar-class-stripping. -->
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer" />
@@ -307,6 +317,11 @@
                                 </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>${mainClass}</mainClass>
+                                    <!-- The shaded manifest is rebuilt, so the entry from the
+                                         jar plugin does not survive on its own. -->
+                                    <manifestEntries>
+                                        <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
+                                    </manifestEntries>
                                 </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
                                     <resource>META-INF/LICENSE.TXT</resource>
@@ -322,21 +337,23 @@
                                         <exclude>META-INF/versions/9/module-info.class</exclude>
                                     </excludes>
                                 </filter>
-                                <!-- Keep all JLine classes (ServiceLoader-loaded, reflection) -->
-                                <filter>
-                                    <artifact>org.jline:jline-terminal</artifact>
-                                    <includes>
-                                        <include>**</include>
-                                    </includes>
-                                </filter>
-                                <filter>
-                                    <artifact>org.jline:jline-terminal-ffm</artifact>
-                                    <includes>
-                                        <include>**</include>
-                                    </includes>
-                                </filter>
                             </filters>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Verify the packaged artefact itself: classes that are only resolved at
+                 runtime are invisible to the unit tests, which run on the full classpath. -->
+            <plugin>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.5.4</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

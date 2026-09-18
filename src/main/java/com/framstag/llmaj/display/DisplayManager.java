@@ -36,12 +36,7 @@ public class DisplayManager implements AutoCloseable {
                     terminalSupport.terminal(),
                     terminalSupport.ansiSupported(),
                     terminalSupport.unicodeSupported());
-            d.addTasks(allTasks);
-            for (var task : allTasks) {
-                if (preCompletedTaskIds.contains(task.getId())) {
-                    d.markTaskPreCompleted(task.getId());
-                }
-            }
+            d.addTasks(allTasks, preCompletedTaskIds);
             this.display = d;
             this.callback = d;
             this.simple = null;

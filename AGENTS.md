@@ -74,7 +74,22 @@ mvn verify -DskipTests
 mvn verify
 ```
 
-First run generates SBOM artifacts used by tests.
+The aggregate SBOM of the project is generated in the `process-classes` phase, before the tests run, so `mvn package` and `mvn verify` work in a single run on a clean checkout. The SBOM tests parse `target/bom.json` and fail if the generation is moved back behind the test phase.
+
+`mvn verify` also runs the artefact smoke test (`smoke/JarSmokeIT`) against the packaged
+`target/LLMAnalysisJinni-jar-with-dependencies.jar`. It checks that the jar reports
+diagnostics on the console and that XML parsers can be created from it, because classes
+that are only resolved at runtime (logback configurators, XML parser implementations) are
+invisible to the unit tests, which run on the full classpath. Do not enable
+`minimizeJar` in the shade configuration: it removes exactly those classes. A jar run that
+produces no output at all is a packaging defect, not a silent success.
+
+JLine's terminal calls restricted `java.lang.foreign` methods. The executable jar declares
+`Enable-Native-Access: ALL-UNNAMED` in its manifest, which the JDK honours for `java -jar`.
+When starting the application any other way, for example with `mvn exec:java`, pass the
+equivalent `--enable-native-access=ALL-UNNAMED` (for example through `MAVEN_OPTS`), so that
+no native access warning is printed and the TUI keeps working once the JDK starts blocking
+restricted methods.
 
 ## CLI
 

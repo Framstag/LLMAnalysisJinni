@@ -104,6 +104,33 @@ public class DisplayManagerTest {
     }
 
     @Test
+    public void testAlreadySuccessfulTaskIsSuccessfulInTheFirstFrame() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        DisplayManager displayManager = new DisplayManager(config(),
+                DisplayDecision.decide(false, true),
+                TerminalSupport.of(new FixedSizeTerminal(output)),
+                tasks(),
+                Set.of("first-task"));
+
+        try {
+            String firstFrame = output.toString(StandardCharsets.UTF_8);
+
+            assertTrue(firstFrame.contains("First Task"),
+                    "the first frame must list the tasks, got:\n" + firstFrame);
+            assertTrue(firstFrame.lines().anyMatch(line -> line.contains("First Task") && line.contains("\u2713")),
+                    "a task that was already successful must be successful in the first frame, got:\n"
+                            + firstFrame);
+            assertFalse(firstFrame.lines().anyMatch(line -> line.contains("First Task") && line.contains("\u2026")),
+                    "a task that was already successful must not be pending in the first frame, got:\n"
+                            + firstFrame);
+            assertTrue(firstFrame.lines().anyMatch(line -> line.contains("Second Task") && line.contains("\u2026")),
+                    "a task that was not executed yet must be pending in the first frame, got:\n" + firstFrame);
+        } finally {
+            displayManager.close();
+        }
+    }
+
+    @Test
     public void testSuccessfulTaskIsRenderedWithoutFailureMarker() throws Exception {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         DisplayManager displayManager = new DisplayManager(config(),

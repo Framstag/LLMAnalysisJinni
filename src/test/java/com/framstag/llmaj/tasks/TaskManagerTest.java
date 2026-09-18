@@ -19,6 +19,55 @@ class TaskManagerTest {
     Path tempDir;
 
     @Test
+    void anIdleWorkspaceHasNoRunnableAndNoPendingTasks() throws Exception {
+        Path tasksFile = tempDir.resolve("tasks.yaml");
+        Files.writeString(tasksFile, """
+                ---
+                id: TaskA
+                name: Task A
+                systemPrompt: prompts/system.md
+                responseFormat: results/Response.json
+                responseProperty: result
+                active: true
+                tags:
+                  - tag_a
+                ---
+                id: TaskB
+                name: Task B
+                systemPrompt: prompts/system.md
+                responseFormat: results/Response.json
+                responseProperty: result
+                active: true
+                dependsOn:
+                  - tag_a
+                tags:
+                  - tag_b
+                """);
+
+        writeSharedTaskFiles();
+
+        Path workspace = tempDir.resolve("idle-workspace");
+        Files.createDirectories(workspace);
+
+        TaskManager fresh = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+
+        assertFalse(fresh.getRunnableTasks().isEmpty(), "a fresh workspace has runnable tasks");
+        assertTrue(fresh.hasAnyPendingTasks(), "a fresh workspace has pending tasks");
+
+        for (TaskDefinition task : fresh.getAllTasks()) {
+            fresh.markTaskAsSuccessful(task);
+        }
+
+        // The idle run is decided from the state file, so the reload is the case that matters.
+        TaskManager reloaded = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+
+        assertTrue(reloaded.getRunnableTasks().isEmpty(),
+                "a workspace whose tasks are all successful has no runnable task");
+        assertFalse(reloaded.hasAnyPendingTasks(),
+                "a workspace whose tasks are all successful has no pending task");
+    }
+
+    @Test
     void getRunnableTasksReturnsOnlyTasksWithSatisfiedDeps() throws Exception {
         Path tasksFile = tempDir.resolve("tasks.yaml");
         Files.writeString(tasksFile, """

@@ -36,21 +36,21 @@ For coding agents and developer conventions, see `AGENTS.md` and the files in `g
 
 ## Build
 
-For simpler test setup we use the repository itself for testing.
-
-This requires though, that for the tests to work, you need a successful build, because it creates some artifacts (the SBOM under "target") necessary for testing:
-
-So first build the software without tests:
+For simpler test setup we use the repository itself for testing: some tests parse the aggregate SBOM that the build generates under `target`. That SBOM is created in the `process-classes` phase, before the tests run, so a single command is enough on a clean checkout:
 
 ```
-mvn verify -DskipTests
+mvn clean package
 ```
 
-and then eagain with tests:
+With the artefact smoke test included (see below), use:
 
 ```
 mvn verify
 ```
+
+The build also produces a self-contained artefact, `target/LLMAnalysisJinni-jar-with-dependencies.jar`, which can be started with `java -jar`. The `verify` phase runs an artefact smoke test against it, because the unit tests run on the full classpath and cannot see that a class only resolved at runtime is missing from the packaged jar. That test checks that the jar writes diagnostics to the console and that XML parsers can be created from it. A run started from the jar that produces no output at all is therefore a packaging defect, not a silent success: check the build, not the model configuration.
+
+The terminal UI needs restricted native access for its terminal implementation. The executable jar declares `Enable-Native-Access: ALL-UNNAMED` in its manifest, which the JDK honours for `java -jar`. When starting the application another way, for example with `mvn exec:java`, pass `--enable-native-access=ALL-UNNAMED` yourself (for example through `MAVEN_OPTS`), otherwise the JVM prints native access warnings and a future JDK will block the terminal implementation.
 
 ## Usage
 

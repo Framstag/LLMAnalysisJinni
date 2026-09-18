@@ -245,9 +245,30 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
     // ========== Display model methods ==========
 
     public synchronized void addTasks(List<com.framstag.llmaj.tasks.TaskDefinition> tasks) {
+        addTasks(tasks, Set.of());
+    }
+
+    /**
+     * Adds the tasks of the run and paints the first frame.
+     * <p>
+     * Tasks that were already successful in an earlier run are marked successful while the rows are
+     * built, so the first frame reports their real status. Marking them afterwards would leave the
+     * terminal with a frame that shows them as pending until the next repaint, which never happens
+     * in a run that ends immediately.
+     *
+     * @param tasks              all tasks of the analysis
+     * @param preCompletedTaskIds ids of the tasks that were already successful
+     */
+    public synchronized void addTasks(List<com.framstag.llmaj.tasks.TaskDefinition> tasks,
+                                      Set<String> preCompletedTaskIds) {
         for (var task : tasks) {
             var row = new TaskRow(task.getId(), task.getName());
             row.setHasLoop(task.hasLoopOn());
+
+            if (preCompletedTaskIds.contains(task.getId())) {
+                row.setStatus(TaskRow.Status.SUCCESSFUL);
+            }
+
             taskMap.put(task.getId(), row);
             taskOrder.add(row);
         }
@@ -278,18 +299,6 @@ public class ProgressDisplay implements ProgressCallback, AutoCloseable {
             if (taskStart != null) {
                 task.setElapsedMillis(Duration.between(taskStart, Instant.now()).toMillis());
             }
-        }
-    }
-
-    /**
-     * Mark a task as successful without setting elapsed time.
-     * Used for tasks already completed in a previous run.
-     */
-    public synchronized void markTaskPreCompleted(String taskId) {
-        var task = taskMap.get(taskId);
-        if (task != null) {
-            task.setStatus(TaskRow.Status.SUCCESSFUL);
-            // No elapsed time — task was done before this run
         }
     }
 
