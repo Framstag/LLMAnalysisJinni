@@ -29,6 +29,11 @@
       "type": "integer",
       "minimum": 1
     },
+    "retries": {
+      "type": "integer",
+      "description": "Maximum number of attempts of one task step",
+      "minimum": 1
+    },
     "nativeJSON": {
       "type": "boolean"
     },

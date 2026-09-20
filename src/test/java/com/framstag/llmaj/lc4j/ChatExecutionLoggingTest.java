@@ -60,17 +60,31 @@ class ChatExecutionLoggingTest {
 
     @Test
     void testLogFileHasDeterministicPath() {
-        // The log file path follows <workspace>/logs/<taskId>[_<loopIndex>].log
+        // The log file path follows <workspace>/logs/<taskId>[_<loopIndex>][.attempt<N>].log
         // Non-loop: <taskId>.log
         // Loop:     <taskId>_<loopIndex>.log
+        // A further attempt of the same step adds its attempt number.
         String taskId = "ArchitectureAnalysis";
         Integer loopIndex = null;
-        String nonLoopName = loopIndex != null ? taskId + "_" + loopIndex + ".log" : taskId + ".log";
-        assertEquals("ArchitectureAnalysis.log", nonLoopName);
+        String firstAttempt = stepName(taskId, loopIndex, 1);
+        assertEquals("ArchitectureAnalysis.log", firstAttempt);
 
         loopIndex = 3;
-        String loopName = loopIndex != null ? taskId + "_" + loopIndex + ".log" : taskId + ".log";
+        String loopName = stepName(taskId, loopIndex, 1);
         assertEquals("ArchitectureAnalysis_3.log", loopName);
+
+        assertEquals("ArchitectureAnalysis.attempt2.log", stepName(taskId, null, 2));
+        assertEquals("ArchitectureAnalysis_3.attempt3.log", stepName(taskId, 3, 3));
+    }
+
+    /**
+     * The naming rule the log file name follows, mirrored here so a change to either side fails
+     * this test.
+     */
+    private static String stepName(String taskId, Integer loopIndex, int attempt) {
+        String step = loopIndex != null ? taskId + "_" + loopIndex : taskId;
+
+        return attempt > 1 ? step + ".attempt" + attempt + ".log" : step + ".log";
     }
 
     @Test
@@ -207,7 +221,7 @@ class ChatExecutionLoggingTest {
         TokenUsage tokenUsage = new TokenUsage(100, 50, 150);
 
         // When: writing log file
-        chatLogger.writeLogFile(tempDir, "TestTask", null, messages, tokenUsage);
+        chatLogger.writeLogFile(tempDir, "TestTask", null, 1, messages, tokenUsage);
 
         // Then: file exists at expected path
         Path logFile = tempDir.resolve("logs").resolve("TestTask.log");
@@ -242,7 +256,7 @@ class ChatExecutionLoggingTest {
         TokenUsage tokenUsage = new TokenUsage(50, 30, 80);
 
         // When: writing log file
-        chatLogger.writeLogFile(tempDir, "ThinkingTask", null, messages, tokenUsage);
+        chatLogger.writeLogFile(tempDir, "ThinkingTask", null, 1, messages, tokenUsage);
 
         // Then: file contains thinking trace
         Path logFile = tempDir.resolve("logs").resolve("ThinkingTask.log");
@@ -259,7 +273,7 @@ class ChatExecutionLoggingTest {
         TokenUsage tokenUsage = new TokenUsage(10, 5, 15);
 
         // When: writing log file with loop index
-        chatLogger.writeLogFile(tempDir, "LoopTask", 3, messages, tokenUsage);
+        chatLogger.writeLogFile(tempDir, "LoopTask", 3, 1, messages, tokenUsage);
 
         // Then: file name includes loop index
         Path logFile = tempDir.resolve("logs").resolve("LoopTask_3.log");
@@ -282,12 +296,69 @@ class ChatExecutionLoggingTest {
         TokenUsage tokenUsage = new TokenUsage(1, 1, 2);
 
         // When: writing log file again
-        chatLogger.writeLogFile(tempDir, "OverwriteTask", null, messages, tokenUsage);
+        chatLogger.writeLogFile(tempDir, "OverwriteTask", null, 1, messages, tokenUsage);
 
         // Then: file is overwritten, not appended
         String content = Files.readString(logsDir.resolve("OverwriteTask.log"));
         assertFalse(content.contains("old content"), "Old content should be overwritten");
         assertTrue(content.contains("new content"), "New content should appear");
+    }
+
+    @Test
+    void testRetryAttemptWritesItsOwnLogFile(@TempDir Path tempDir) throws IOException {
+        ChatLogger chatLogger = new ChatLogger();
+        TokenUsage tokenUsage = new TokenUsage(10, 5, 15);
+
+        // When: the same step is attempted twice
+        chatLogger.writeLogFile(tempDir, "RetryTask", null, 1,
+                List.of(UserMessage.from("first attempt")), tokenUsage);
+        chatLogger.writeLogFile(tempDir, "RetryTask", null, 2,
+                List.of(UserMessage.from("second attempt")), tokenUsage);
+
+        Path logsDir = tempDir.resolve("logs");
+        Path firstAttempt = logsDir.resolve("RetryTask.log");
+        Path secondAttempt = logsDir.resolve("RetryTask.attempt2.log");
+
+        assertTrue(Files.exists(firstAttempt), "the first attempt keeps the plain name");
+        assertTrue(Files.exists(secondAttempt), "a further attempt carries its attempt number");
+        assertTrue(Files.readString(firstAttempt).contains("first attempt"),
+                "the transcript of the rejected attempt must survive the next one");
+        assertFalse(Files.readString(secondAttempt).contains("first attempt"),
+                "an attempt must not append to the log of another attempt");
+        assertTrue(Files.readString(secondAttempt).contains("attempt 2"),
+                "the file must name the attempt it holds");
+    }
+
+    @Test
+    void testLoopIndexWithRetryAttempt(@TempDir Path tempDir) throws IOException {
+        ChatLogger chatLogger = new ChatLogger();
+        TokenUsage tokenUsage = new TokenUsage(10, 5, 15);
+
+        chatLogger.writeLogFile(tempDir, "LoopTask", 3, 3,
+                List.of(UserMessage.from("third attempt")), tokenUsage);
+
+        Path logFile = tempDir.resolve("logs").resolve("LoopTask_3.attempt3.log");
+
+        assertTrue(Files.exists(logFile), "a loop index and an attempt number must both appear");
+        assertTrue(Files.readString(logFile).contains("LoopTask_3"),
+                "the header must name the step");
+    }
+
+    @Test
+    void testRerunOverwritesTheAttemptFile(@TempDir Path tempDir) throws IOException {
+        ChatLogger chatLogger = new ChatLogger();
+        TokenUsage tokenUsage = new TokenUsage(10, 5, 15);
+
+        chatLogger.writeLogFile(tempDir, "RerunTask", null, 2,
+                List.of(UserMessage.from("old second attempt")), tokenUsage);
+        chatLogger.writeLogFile(tempDir, "RerunTask", null, 2,
+                List.of(UserMessage.from("new second attempt")), tokenUsage);
+
+        String content = Files.readString(tempDir.resolve("logs").resolve("RerunTask.attempt2.log"));
+
+        assertFalse(content.contains("old second attempt"),
+                "a later run must overwrite the attempt file instead of appending to it");
+        assertTrue(content.contains("new second attempt"));
     }
 
     @Test

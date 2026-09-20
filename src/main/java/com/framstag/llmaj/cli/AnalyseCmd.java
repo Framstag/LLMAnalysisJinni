@@ -19,6 +19,8 @@ import com.framstag.llmaj.logging.ForwardingLogLineSink;
 import com.framstag.llmaj.lc4j.ChatExecutionContext;
 import com.framstag.llmaj.lc4j.ChatExecutor;
 import com.framstag.llmaj.lc4j.ChatModelFactory;
+import com.framstag.llmaj.lc4j.TaskStepOutcome;
+import com.framstag.llmaj.lc4j.TaskStepRetrier;
 import com.framstag.llmaj.lc4j.ToolFilter;
 import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
@@ -312,6 +314,43 @@ public class AnalyseCmd implements Callable<Integer> {
         }
     }
 
+    /**
+     * Runs the attempts of one step and returns its outcome.
+     * <p>
+     * Every attempt is a fresh conversation: the executor rewrites the last user message of the
+     * messages it is given, so each attempt receives its own copy of the messages of this step.
+     *
+     * @param config          effective configuration, carrying the attempt budget
+     * @param execContext     execution context of the step, shared by all its attempts
+     * @param baseMessages    the messages of the step, before the schema description is patched in
+     * @param rawResponseSchema the response schema as text
+     * @param responseSchema  the response schema as structure
+     * @param taskId          the task the step belongs to
+     * @param loopIndex       the loop index of the step, or null for a non-loop task
+     * @return the accepted outcome, or the failure of the last attempt
+     */
+    private TaskStepOutcome runStepWithRetries(Config config,
+                                               ChatExecutionContext execContext,
+                                               List<ChatMessage> baseMessages,
+                                               String rawResponseSchema,
+                                               JsonNode responseSchema,
+                                               String taskId,
+                                               Integer loopIndex) throws IOException {
+        TaskStepRetrier retrier = new TaskStepRetrier(config.getRetries(),
+                execContext.getProgressCallback(), taskId, loopIndex);
+
+        return retrier.run((attempt, repairHint) -> {
+            execContext.setAttemptNumber(attempt);
+            execContext.setRepairHint(repairHint);
+
+            return new ChatExecutor().executeMessages(config,
+                    execContext,
+                    new LinkedList<>(baseMessages),
+                    rawResponseSchema,
+                    responseSchema);
+        });
+    }
+
     private Runnable buildTaskRunner(
             Config config,
             TaskDefinition task,
@@ -392,11 +431,14 @@ public class AnalyseCmd implements Callable<Integer> {
                                 displayManager.getCallback().onWorkerStart(taskId, currentIndex,
                                         taskName + "[" + currentIndex + "]");
 
-                                JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
+                                TaskStepOutcome stepOutcome = runStepWithRetries(config,
                                         execContext, messages,
-                                        jsonResponseRawSchema, jsonResponseSchema);
+                                        jsonResponseRawSchema, jsonResponseSchema,
+                                        taskId, currentIndex);
 
-                                if (taskResultJson != null) {
+                                if (stepOutcome.isAccepted()) {
+                                    JsonNode taskResultJson = stepOutcome.payload();
+
                                     logger.info("===>[{}] {}: {}",
                                             currentIndex,
                                             JsonHelper.getSchemaName(jsonResponseSchema),
@@ -410,12 +452,13 @@ public class AnalyseCmd implements Callable<Integer> {
                                     displayManager.getCallback().onWorkerComplete(taskId, currentIndex,
                                             taskName + "[" + currentIndex + "]");
                                 } else {
-                                    // Defensive: the parser raises instead of returning no result, so this
-                                    // branch is not reached by a response without a payload.
-                                    logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
+                                    String failure = stepOutcome.failure().displayMessage();
+
+                                    logger.error("Task '{}' [index {}] was rejected in every attempt: {}",
+                                            taskId, currentIndex, failure);
                                     anyIndexFailed.set(true);
                                     displayManager.getCallback().onWorkerError(taskId, currentIndex,
-                                            taskName + "[" + currentIndex + "]", "No response from chat model");
+                                            taskName + "[" + currentIndex + "]", failure);
                                 }
                             } catch (Exception e) {
                                 logger.error("Error processing loop index {}: {}", currentIndex, e.getMessage(), e);
@@ -459,11 +502,14 @@ public class AnalyseCmd implements Callable<Integer> {
                                     mapper, taskId, null, workingDirectory);
                     execContext.setProgressCallback(displayManager.getCallback());
 
-                    JsonNode taskResultJson = new ChatExecutor().executeMessages(config,
+                    TaskStepOutcome stepOutcome = runStepWithRetries(config,
                             execContext, messages,
-                            jsonResponseRawSchema, jsonResponseSchema);
+                            jsonResponseRawSchema, jsonResponseSchema,
+                            taskId, null);
 
-                    if (taskResultJson != null) {
+                    if (stepOutcome.isAccepted()) {
+                        JsonNode taskResultJson = stepOutcome.payload();
+
                         logger.info("===> {}: {}",
                                 JsonHelper.getSchemaName(jsonResponseSchema),
                                 taskResultJson.toPrettyString());
@@ -477,19 +523,18 @@ public class AnalyseCmd implements Callable<Integer> {
 
                         displayManager.onTaskComplete(taskId, taskName);
                     } else {
-                        // Defensive: ResponsePayloadParser raises when a response carries no payload, so a
-                        // task without a result is normally reported through the catch below with the real
-                        // cause. This branch only stays for a caller that hands back no result at all.
-                        logger.error("No response from chat model, possibly json response was requested but is not supported by model?");
+                        String failure = stepOutcome.failure().displayMessage();
 
-                        // Without a payload there is no result. Recording the task as successful
-                        // would publish its tags, so dependents would run against a response
-                        // property that was never written, and the next run would skip the task.
+                        logger.error("Task '{}' was rejected in every attempt: {}", taskId, failure);
+
+                        // Nothing was accepted, so there is no result to publish. Recording the task
+                        // as successful would publish its tags, so dependents would run against a
+                        // response property that was never written, and the next run would skip it.
                         synchronized (taskManager) {
                             taskManager.markTaskAsFailed(task);
                         }
 
-                        displayManager.onTaskError(taskId, taskName, "No response from chat model");
+                        displayManager.onTaskError(taskId, taskName, failure);
                     }
                 }
             } catch (Exception e) {

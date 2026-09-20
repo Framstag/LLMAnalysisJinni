@@ -94,4 +94,22 @@ public class LoopWorkerRowTest {
         assertEquals("w1", row1.getLabel());
         assertEquals("w2", row2.getLabel());
     }
+
+    @Test
+    public void testAttemptStartsAtOne() {
+        LoopWorkerRow row = new LoopWorkerRow("t1", 0, "w1");
+
+        assertEquals(1, row.getAttempt(), "an index that is not retried reports its first attempt");
+        assertEquals(1, row.getMaxAttempts());
+    }
+
+    @Test
+    public void testAttemptRunningIsRecorded() {
+        LoopWorkerRow row = new LoopWorkerRow("t1", 0, "w1");
+
+        row.setAttemptRunning(3, 3);
+
+        assertEquals(3, row.getAttempt());
+        assertEquals(3, row.getMaxAttempts());
+    }
 }

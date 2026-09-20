@@ -20,6 +20,16 @@ public class ChatExecutionContext {
     private final Path workspacePath;
     private ProgressCallback progressCallback;
 
+    /**
+     * Which attempt of this step is running, starting at 1. Used for the chat log file name.
+     */
+    private int attemptNumber = 1;
+
+    /**
+     * The text appended to the user message of a further attempt, or null for the first one.
+     */
+    private String repairHint;
+
     public ChatExecutionContext(Config config,
                                 ChatModel chatModel,
                                 ToolService toolService,
@@ -79,5 +89,21 @@ public class ChatExecutionContext {
 
     public void setProgressCallback(ProgressCallback progressCallback) {
         this.progressCallback = progressCallback;
+    }
+
+    public int getAttemptNumber() {
+        return attemptNumber;
+    }
+
+    public void setAttemptNumber(int attemptNumber) {
+        this.attemptNumber = attemptNumber;
+    }
+
+    public String getRepairHint() {
+        return repairHint;
+    }
+
+    public void setRepairHint(String repairHint) {
+        this.repairHint = repairHint;
     }
 }

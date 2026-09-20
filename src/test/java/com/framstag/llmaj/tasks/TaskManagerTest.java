@@ -268,6 +268,51 @@ class TaskManagerTest {
     }
 
     @Test
+    void theDumpDistinguishesAFailedTaskFromAPendingOne() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(taskManager);
+
+        TaskDefinition taskA = taskById(taskManager, "TaskA");
+        TaskDefinition taskB = taskById(taskManager, "TaskB");
+
+        assertEquals(" ", taskManager.getTaskStatus(taskA),
+                "a task that was not executed yet is pending");
+
+        taskManager.markTaskAsFailed(taskA);
+
+        assertEquals("!", taskManager.getTaskStatus(taskA),
+                "a failed task must not be reported like a task the run never reached");
+        assertEquals(" ", taskManager.getTaskStatus(taskB),
+                "a dependent that is still pending keeps its own marker");
+
+        taskManager.markTaskAsSuccessful(taskB);
+
+        assertEquals("x", taskManager.getTaskStatus(taskB), "a successful task is reported as successful");
+    }
+
+    @Test
+    void aReloadedFailedTaskIsReportedAsFailedInTheDump() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(taskManager);
+
+        taskManager.markTaskAsFailed(taskById(taskManager, "TaskA"));
+
+        TaskManager reloaded = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(reloaded);
+
+        assertEquals("!", reloaded.getTaskStatus(taskById(reloaded, "TaskA")),
+                "the recorded failure must survive the reload, which is what state dump reads");
+    }
+
+    @Test
     void failedTaskIsRetriedWhenStateIsReloaded() throws Exception {
         writeDependencyTasks();
         writeSharedTaskFiles();

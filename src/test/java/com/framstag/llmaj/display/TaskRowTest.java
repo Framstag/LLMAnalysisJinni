@@ -94,4 +94,22 @@ public class TaskRowTest {
         row.addStep(LoopWorkerRow.InteractionStep.TOOL_RESULT);
         assertEquals(4, row.getSteps().size());
     }
+
+    @Test
+    public void testAttemptStartsAtOne() {
+        TaskRow row = new TaskRow("t1", "Task 1");
+
+        assertEquals(1, row.getAttempt(), "a task that is not retried reports its first attempt");
+        assertEquals(1, row.getMaxAttempts());
+    }
+
+    @Test
+    public void testAttemptRunningIsRecorded() {
+        TaskRow row = new TaskRow("t1", "Task 1");
+
+        row.setAttemptRunning(2, 3);
+
+        assertEquals(2, row.getAttempt());
+        assertEquals(3, row.getMaxAttempts());
+    }
 }

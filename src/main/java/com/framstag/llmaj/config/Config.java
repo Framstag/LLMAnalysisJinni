@@ -28,6 +28,7 @@ public class Config {
     private int maximumTokens;
     private int loopParallelism;
     private int taskParallelism;
+    private int retries;
     private boolean nativeJSON;
     private boolean logRequests;
     private boolean logResponses;
@@ -44,6 +45,7 @@ public class Config {
         maximumTokens = 65536;
         loopParallelism = 1;
         taskParallelism = 2;
+        retries = 3;
         nativeJSON = false;
         logRequests = false;
         logResponses = false;
@@ -59,6 +61,19 @@ public class Config {
 
     public void setTaskParallelism(int taskParallelism) {
         this.taskParallelism = taskParallelism;
+    }
+
+    /**
+     * Maximum number of attempts of one task step. A step is one non-loop task execution or one
+     * loop index worker. The value counts attempts, so 3 allows one initial attempt and two
+     * retries.
+     */
+    public int getRetries() {
+        return retries;
+    }
+
+    public void setRetries(int retries) {
+        this.retries = retries;
     }
 
     public int getLoopParallelism() {
@@ -155,6 +170,7 @@ public class Config {
                 ", logRequests=" + logRequests +
                 ", logResponses=" + logResponses +
                 ", taskParallelism=" + taskParallelism +
+                ", retries=" + retries +
                 ", mcpServers=" + mcpServers +
                 ", properties=" + properties +
                 '}';
@@ -270,6 +286,7 @@ public class Config {
         logger.info("Maximum tokens:     {}", maximumTokens);
         logger.info("Task parallelism:   {} ", taskParallelism);
         logger.info("Loop parallelism:   {} ", loopParallelism);
+        logger.info("Retries:            {} attempt(s) per task step", retries);
         logger.info("Native JSON:        {}", nativeJSON);
         logger.info("==");
         logger.info("AnalysisDirectory: '{}'", analysisDirectory);

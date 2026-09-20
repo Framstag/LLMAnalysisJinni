@@ -5,6 +5,7 @@ import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.config.ModelProvider;
 import com.framstag.llmaj.display.ProgressCallback;
 import com.framstag.llmaj.json.JsonHelper;
+import com.framstag.llmaj.json.ResponsePayloadException;
 import com.framstag.llmaj.json.ResponsePayloadParser;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.ChatMessage;
@@ -154,12 +155,22 @@ public class ChatExecutor {
         return results;
     }
 
-    private UserMessage patchUserMessageWithSchema(UserMessage um, JsonNode responseSchema)
+    private UserMessage patchUserMessage(UserMessage um,
+                                         JsonNode responseSchema,
+                                         String repairHint)
     {
-        return UserMessage.from(
-                um.singleText()
-                        + ANSWER_ONLY_WITH_THE_FOLLOWING_JSON
-                        + JsonHelper.createTypeDescription(responseSchema));
+        String patched = um.singleText()
+                + ANSWER_ONLY_WITH_THE_FOLLOWING_JSON
+                + JsonHelper.createTypeDescription(responseSchema);
+
+        // A further attempt is told what was wrong with the rejected one. The hint follows the
+        // schema description, because it refers to it. The rejected answer itself is deliberately
+        // not echoed back: every attempt is a fresh conversation.
+        if (repairHint != null && !repairHint.isBlank()) {
+            patched = patched + repairHint;
+        }
+
+        return UserMessage.from(patched);
     }
 
     private ChatRequestParameters createInitialChatRequestParameters(Config config,
@@ -261,20 +272,24 @@ public class ChatExecutor {
      * OLLAMA and OpenAI executions models have different flexibility. OLLAMA can handle mixed tool and Response Schema
      * calls. OpenAI can either have tool or response schema requests - not both at the same time. The code tries
      * to handle both approaches.
+     * </p>
+     * A response the engine cannot use is reported as a rejected outcome instead of an exception, so
+     * the caller can attempt the step again. Only a genuine engine failure, such as a chat log that
+     * cannot be written, is thrown.
      *
      * @param config the LLMModel configuration
      * @param executionContext further parameter required for chat execution
      * @param messages the list of messages, normally a system prompt and a user prompt
      * @param rawResponseSchema the JSON schema fo the response as string
      * @param responseSchema  the JSON schema fo the response as JSON structure
-     * @return a JSON structure following the schema or null
+     * @return the accepted payload, or the reason the attempt was rejected
      * @throws IOException in case of errors
      */
-    public JsonNode executeMessages(Config config,
-                                    ChatExecutionContext executionContext,
-                                    List<ChatMessage> messages,
-                                    String rawResponseSchema,
-                                    JsonNode responseSchema) throws IOException {
+    public TaskStepOutcome executeMessages(Config config,
+                                           ChatExecutionContext executionContext,
+                                           List<ChatMessage> messages,
+                                           String rawResponseSchema,
+                                           JsonNode responseSchema) throws IOException {
         ProgressCallback callback = executionContext.getProgressCallback();
         String taskId = executionContext.getTaskId();
         Integer loopIndex = executionContext.getLoopIndex();
@@ -286,7 +301,7 @@ public class ChatExecutor {
 
         if (!messages.isEmpty() && messages.getLast() instanceof UserMessage) {
             UserMessage um = (UserMessage) messages.removeLast();
-            messages.addLast(patchUserMessageWithSchema(um, responseSchema));
+            messages.addLast(patchUserMessage(um, responseSchema, executionContext.getRepairHint()));
         }
 
         chatMemory.add(messages);
@@ -409,44 +424,97 @@ public class ChatExecutor {
             chatLogger.logProgressive(chatMemory.messages(), config.isExecutionTraceSystem());
         }
 
-        // Write full conversation to log file
+        // Write full conversation to log file. This happens for every attempt, so the transcript of
+        // a rejected attempt is not lost when the step is attempted again.
         chatLogger.writeLogFile(executionContext.getWorkspacePath(),
                 executionContext.getTaskId(),
                 executionContext.getLoopIndex(),
+                executionContext.getAttemptNumber(),
                 chatMemory.messages(),
                 aggregateTokenUsage);
 
-        callback.onComplete(taskId, loopIndex);
+        return evaluateResponse(executionContext, chatResponse, responseSchema);
+    }
 
+    /**
+     * Turns the final model answer of one attempt into an outcome: the accepted payload when it
+     * parses and conforms, otherwise the reason it was rejected.
+     */
+    private TaskStepOutcome evaluateResponse(ChatExecutionContext executionContext,
+                                             ChatResponse chatResponse,
+                                             JsonNode responseSchema) {
         String taskResultString = chatResponse.aiMessage().text();
 
-        // A response without a locatable payload raises here, so the caller reports the real cause
-        // (a missing or malformed payload) instead of a message about a missing model response.
-        JsonNode result = new ResponsePayloadParser(executionContext.getMapper()).parse(taskResultString);
+        if (taskResultString == null || taskResultString.isBlank()) {
+            logger.warn("The model returned no response text for task '{}'", executionContext.getTaskId());
 
-        // Validate the payload that is about to be stored. The located payload is validated as text,
-        // so what is checked is what the task will publish.
-        if (responseSchema != null) {
-            String payloadString = executionContext.getMapper().writeValueAsString(result);
-
-            try {
-                SchemaRegistry schemaRegistry = SchemaRegistry.withDialect(
-                        Dialects.getDraft202012(),
-                        builder -> builder.nodeReader(DefaultNodeReader.Builder::locationAware));
-                String schemaString = executionContext.getMapper().writeValueAsString(responseSchema);
-                Schema schema = schemaRegistry.getSchema(schemaString, InputFormat.JSON);
-                java.util.List<com.networknt.schema.Error> errors = schema.validate(payloadString, InputFormat.JSON);
-                if (!errors.isEmpty()) {
-                    logger.warn("LLM response does not conform to JSON schema ({} errors):", errors.size());
-                    for (com.networknt.schema.Error error : errors) {
-                        logger.warn("  Schema violation: {}", error.getMessage());
-                    }
-                }
-            } catch (Exception e) {
-                logger.warn("Could not validate response against schema: {}", e.getMessage());
-            }
+            return TaskStepOutcome.rejected(TaskStepFailure.of(StepFailureReason.NO_RESPONSE,
+                    "the model returned no response text"));
         }
 
-        return result;
+        JsonNode result;
+
+        try {
+            result = new ResponsePayloadParser(executionContext.getMapper()).parse(taskResultString);
+        } catch (ResponsePayloadException e) {
+            // The parser tells a response that never had a payload from one whose payload is
+            // malformed, so the two are reported differently. Its message and its bounded excerpt
+            // are what a further attempt is told.
+            StepFailureReason reason =
+                    e.getCondition() == ResponsePayloadException.Condition.NO_PAYLOAD_LOCATED
+                            ? StepFailureReason.NO_PAYLOAD
+                            : StepFailureReason.PAYLOAD_NOT_PARSEABLE;
+
+            logger.warn("The response of task '{}' cannot be used: {}",
+                    executionContext.getTaskId(), e.getMessage());
+
+            return TaskStepOutcome.rejected(TaskStepFailure.of(reason, e.getMessage(), e.getExcerpt()));
+        }
+
+        List<String> violations = validateAgainstSchema(executionContext, result, responseSchema);
+
+        if (!violations.isEmpty()) {
+            logger.warn("LLM response does not conform to JSON schema ({} errors):", violations.size());
+            for (String violation : violations) {
+                logger.warn("  Schema violation: {}", violation);
+            }
+
+            return TaskStepOutcome.rejected(TaskStepFailure.schemaViolation(violations));
+        }
+
+        return TaskStepOutcome.accepted(result);
+    }
+
+    /**
+     * Validates the payload that is about to be published against the declared response schema and
+     * returns the violation messages, or an empty list when the payload conforms or the validator
+     * itself cannot run.
+     */
+    private List<String> validateAgainstSchema(ChatExecutionContext executionContext,
+                                               JsonNode result,
+                                               JsonNode responseSchema) {
+        if (responseSchema == null) {
+            return List.of();
+        }
+
+        try {
+            String payloadString = executionContext.getMapper().writeValueAsString(result);
+
+            SchemaRegistry schemaRegistry = SchemaRegistry.withDialect(
+                    Dialects.getDraft202012(),
+                    builder -> builder.nodeReader(DefaultNodeReader.Builder::locationAware));
+            String schemaString = executionContext.getMapper().writeValueAsString(responseSchema);
+            Schema schema = schemaRegistry.getSchema(schemaString, InputFormat.JSON);
+
+            return schema.validate(payloadString, InputFormat.JSON).stream()
+                    .map(com.networknt.schema.Error::getMessage)
+                    .toList();
+        } catch (Exception e) {
+            // The validator could not run, which says nothing about the payload, so the payload is
+            // accepted with a diagnostic instead of failing a step the engine cannot judge.
+            logger.warn("Could not validate response against schema: {}", e.getMessage());
+
+            return List.of();
+        }
     }
 }

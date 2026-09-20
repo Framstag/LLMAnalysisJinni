@@ -29,6 +29,11 @@ public class LoopWorkerRow {
     private final List<InteractionStep> steps;
     private int roundCount;
     private String errorMessage;
+    /**
+     * The attempt of this step that is running, and how many it may use. 1 means no retry yet.
+     */
+    private int attempt;
+    private int maxAttempts;
 
     public LoopWorkerRow(String taskId, int index, String label) {
         this.taskId = taskId;
@@ -39,6 +44,8 @@ public class LoopWorkerRow {
         this.steps = new ArrayList<>();
         this.roundCount = 0;
         this.errorMessage = null;
+        this.attempt = 1;
+        this.maxAttempts = 1;
     }
 
     public String getTaskId() { return taskId; }
@@ -49,10 +56,23 @@ public class LoopWorkerRow {
     public List<InteractionStep> getSteps() { return steps; }
     public int getRoundCount() { return roundCount; }
     public String getErrorMessage() { return errorMessage; }
+    public int getAttempt() { return attempt; }
+    public int getMaxAttempts() { return maxAttempts; }
 
     public void setStatus(Status status) { this.status = status; }
     public void setElapsedMillis(long elapsedMillis) { this.elapsedMillis = elapsedMillis; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+
+    /**
+     * Records that a further attempt of this step is running.
+     *
+     * @param attempt     the attempt now running, counting from 1
+     * @param maxAttempts how many attempts the step may use in total
+     */
+    public void setAttemptRunning(int attempt, int maxAttempts) {
+        this.attempt = attempt;
+        this.maxAttempts = maxAttempts;
+    }
 
     public void addStep(InteractionStep step) {
         steps.add(step);

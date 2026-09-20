@@ -78,24 +78,23 @@ public class ChatLogger {
     }
 
     /**
-     * Write the full conversation to a log file.
-     * Always includes all messages, thinking traces, and token usage.
+     * Write the full conversation to a log file. Always includes all messages, thinking traces,
+     * and token usage.
      *
      * @param workspacePath  root workspace directory (logs/ subdirectory created here)
      * @param taskId         task identifier for filename
      * @param loopIndex      loop index for filename (null for non-loop tasks)
+     * @param attempt        which attempt of this step is being logged, starting at 1. The first
+     *                       attempt keeps the historic file name, a further attempt adds its attempt
+     *                       number, so the transcript of a rejected attempt survives the next one.
      * @param messages       complete list of chat messages
      * @param tokenUsage     aggregate token usage
      * @throws IOException if file writing fails
      */
-    public void writeLogFile(Path workspacePath, String taskId, Integer loopIndex,
+    public void writeLogFile(Path workspacePath, String taskId, Integer loopIndex, int attempt,
                              List<ChatMessage> messages, TokenUsage tokenUsage) throws IOException {
-        String filename;
-        if (loopIndex != null) {
-            filename = taskId + "_" + loopIndex + ".log";
-        } else {
-            filename = taskId + ".log";
-        }
+        String stepName = loopIndex != null ? taskId + "_" + loopIndex : taskId;
+        String filename = attempt > 1 ? stepName + ".attempt" + attempt + ".log" : stepName + ".log";
 
         Path logsDir = workspacePath.resolve("logs");
         Files.createDirectories(logsDir);
@@ -104,10 +103,8 @@ public class ChatLogger {
 
         StringBuilder sb = new StringBuilder();
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-        sb.append("=== Execution: ").append(taskId);
-        if (loopIndex != null) {
-            sb.append("_").append(loopIndex);
-        }
+        sb.append("=== Execution: ").append(stepName)
+                .append(" (attempt ").append(attempt).append(")");
         sb.append(" (").append(timestamp).append(") ===\n\n");
 
         for (int i = 0; i < messages.size(); i++) {

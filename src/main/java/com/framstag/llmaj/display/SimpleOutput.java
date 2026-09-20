@@ -109,6 +109,15 @@ public class SimpleOutput implements ProgressCallback, AutoCloseable {
         }
     }
 
+    @Override
+    public void onRetry(String taskId, Integer loopIndex, int attempt, int maxAttempts, String reason) {
+        // One line per retry, so a step that is attempted again is visible in piped output too.
+        String step = loopIndex != null ? taskId + "[" + loopIndex + "]" : taskId;
+
+        writer.println("  " + "!" + " " + step + ": attempt " + attempt + "/" + maxAttempts
+                + " failed (" + reason + "), retrying");
+    }
+
     public void startTask(String taskId, String taskName) {
         taskStatus.put(taskId, "RUNNING");
         writer.println("\u25b6" + " " + taskName);

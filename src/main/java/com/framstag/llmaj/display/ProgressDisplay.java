@@ -278,6 +278,27 @@ public class ProgressDisplay implements ProgressCallback, LogLineSink, AutoClose
         }
     }
 
+    @Override
+    public synchronized void onRetry(String taskId, Integer loopIndex, int attempt, int maxAttempts, String reason) {
+        // The attempt that just failed is over and the next one is running, so the row returns to
+        // RUNNING and carries the attempt it is now on.
+        int runningAttempt = attempt + 1;
+
+        if (loopIndex != null) {
+            var worker = findWorker(taskId, loopIndex);
+            if (worker != null) {
+                worker.setStatus(LoopWorkerRow.Status.RUNNING);
+                worker.setAttemptRunning(runningAttempt, maxAttempts);
+            }
+        } else {
+            var task = taskMap.get(taskId);
+            if (task != null) {
+                task.setStatus(TaskRow.Status.RUNNING);
+                task.setAttemptRunning(runningAttempt, maxAttempts);
+            }
+        }
+    }
+
     // ========== Display model methods ==========
 
     public synchronized void addTasks(List<com.framstag.llmaj.tasks.TaskDefinition> tasks) {
@@ -584,6 +605,15 @@ public class ProgressDisplay implements ProgressCallback, LogLineSink, AutoClose
             sb.append("  ").append(timeStr);
         }
 
+        // Attempt of this step, shown once the step is being retried
+        if (task.getAttempt() > 1) {
+            String attemptStr = "attempt " + task.getAttempt() + "/" + task.getMaxAttempts();
+            if (ansiSupported) {
+                attemptStr = Ansi.colour(attemptStr, Ansi.YELLOW);
+            }
+            sb.append("  ").append(attemptStr);
+        }
+
         // Interaction timeline (non-loop tasks)
         if (!task.hasLoop() && !task.getSteps().isEmpty()) {
             sb.append("  [");
@@ -695,6 +725,15 @@ public class ProgressDisplay implements ProgressCallback, LogLineSink, AutoClose
                 timeStr = Ansi.dim(timeStr);
             }
             sb.append("  ").append(timeStr);
+        }
+
+        // Attempt of this step, shown once the step is being retried
+        if (worker.getAttempt() > 1) {
+            String attemptStr = "attempt " + worker.getAttempt() + "/" + worker.getMaxAttempts();
+            if (ansiSupported) {
+                attemptStr = Ansi.colour(attemptStr, Ansi.YELLOW);
+            }
+            sb.append("  ").append(attemptStr);
         }
 
         // Interaction timeline
