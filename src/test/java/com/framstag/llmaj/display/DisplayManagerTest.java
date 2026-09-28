@@ -12,6 +12,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -156,5 +157,74 @@ public class DisplayManagerTest {
 
         assertTrue(rendered.contains("\u2713"), "a successful task must be rendered as successful");
         assertFalse(rendered.contains("\u2717"), "a successful task must not be rendered as failed");
+    }
+
+    @Test
+    public void testRetryReachesTheTuiInTuiMode() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        DisplayManager displayManager = new DisplayManager(config(),
+                DisplayDecision.decide(false, true),
+                TerminalSupport.of(new FixedSizeTerminal(output)),
+                tasks(),
+                Set.of(),
+                LogLineSink.forwarding());
+
+        try {
+            displayManager.onTaskStart("first-task", "First Task");
+            displayManager.getCallback().onRetry("first-task", null, 1, 3, "no JSON payload in the response");
+
+            awaitOutput(output, "attempt 2/3", 3000);
+        } finally {
+            displayManager.close();
+        }
+    }
+
+    @Test
+    public void testRetryReachesThePipedOutputInSimpleMode() {
+        PrintStream originalOut = System.out;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(captured, true, StandardCharsets.UTF_8));
+
+        DisplayManager displayManager = new DisplayManager(config(),
+                DisplayDecision.decide(false, false),
+                TerminalSupport.none(),
+                List.of(),
+                Set.of(),
+                LogLineSink.forwarding());
+
+        try {
+            displayManager.getCallback().onRetry("first-task", null, 1, 3,
+                    "schema violation: $.answer is not a string");
+        } finally {
+            displayManager.close();
+            System.setOut(originalOut);
+        }
+
+        assertTrue(captured.toString(StandardCharsets.UTF_8).contains("attempt 1/3"),
+                "the piped output must print the retry, got: " + captured);
+    }
+
+    @Test
+    public void testRetryIsSilentInExecutionTraceMode() {
+        PrintStream originalOut = System.out;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(captured, true, StandardCharsets.UTF_8));
+
+        DisplayManager displayManager = new DisplayManager(config(),
+                DisplayDecision.decide(true, true),
+                TerminalSupport.none(),
+                List.of(),
+                Set.of(),
+                LogLineSink.forwarding());
+
+        try {
+            displayManager.getCallback().onRetry("first-task", null, 1, 3, "no response text");
+        } finally {
+            displayManager.close();
+            System.setOut(originalOut);
+        }
+
+        assertTrue(captured.toString(StandardCharsets.UTF_8).isEmpty(),
+                "the execution trace owns the console, the display must add nothing, got: " + captured);
     }
 }

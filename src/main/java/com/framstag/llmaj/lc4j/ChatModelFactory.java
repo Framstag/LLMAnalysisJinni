@@ -13,12 +13,21 @@ import java.util.Map;
 
 public class ChatModelFactory {
 
+    /**
+     * The model clients retry a failing call on their own, and their retries would multiply the
+     * attempt budget of a task step without appearing in the engine's reporting. The engine is the
+     * single retry authority, so the client's own retrying is switched off (0 further tries) and
+     * every attempt is exactly one call to the model.
+     */
+    private static final int CLIENT_RETRIES_PER_ATTEMPT = 0;
+
     public static ChatModel getChatModel(Config config) {
         if (config.getModelProvider() == ModelProvider.OLLAMA) {
             var builder = OllamaChatModel.builder()
                     .modelName(config.getModelName())
                     .baseUrl(config.getModelURL().toString())
                     .timeout(Duration.ofMinutes(config.getRequestTimeout()))
+                    .maxRetries(CLIENT_RETRIES_PER_ATTEMPT)
                     .temperature(0.0)
                     .topP(0.9)
                     .think(false)
@@ -43,6 +52,7 @@ public class ChatModelFactory {
                     .baseUrl(config.getModelURL().toString())
                     .apiKey(config.getApiKey())
                     .timeout(Duration.ofMinutes(config.getRequestTimeout()))
+                    .maxRetries(CLIENT_RETRIES_PER_ATTEMPT)
                     .temperature(0.0)
                     .topP(0.9)
                     .sendThinking(false)
@@ -62,6 +72,7 @@ public class ChatModelFactory {
                     .modelName(config.getModelName())
                     .baseUrl(config.getModelURL().toString())
                     .timeout(Duration.ofMinutes(config.getRequestTimeout()))
+                    .maxRetries(CLIENT_RETRIES_PER_ATTEMPT)
                     .temperature(0.0)
                     .topP(0.9)
                     //.sendThinking(false)

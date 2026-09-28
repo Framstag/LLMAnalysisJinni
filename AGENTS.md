@@ -219,9 +219,12 @@ Runtime:
 - Ollama can use native JSON when `-j=true`
 - OpenAI uses tool calls first, then final JSON-only call
 - JSON is extracted, parsed with Jackson, then schema-validated
-- schema violations currently log warnings and do not stop execution
+- a rejected response (no response text, no JSON payload, unparseable payload, schema violation) is attempted again, up to the `retries` attempt budget of the workspace config (default 3, `1` disables)
+- every attempt is a fresh conversation; from the second attempt on the user message carries a repair hint naming the reason and the schema violations
+- only a conformant response is stored; a step whose attempts are all rejected is marked failed and writes no response property
+- retriable model errors (timeout, rate limit, server error) are attempted again; non-retriable ones (authentication, unknown model, invalid request), tool errors and IO failures fail the step immediately
 
-Do not assume invalid JSON aborts a run.
+Do not assume invalid JSON aborts a run. It is reported as a rejected attempt and retried.
 
 ## MCP tools
 
@@ -261,6 +264,14 @@ Task states:
 - `FAILED`
 
 Successful task tags unlock dependents. Loop tasks remember successful indices and skip them on rerun.
+
+A task step (a non-loop task, or one loop index) is attempted up to `retries` times before it is marked
+failed. A failed task is executed again on the next run. Each attempt leaves its own chat log, and every
+retry is reported in the TUI, the piped output and the engine log.
+
+`state dump` marks a task as `x` when it was successful, `!` when it failed, ` ` when it is pending, `/`
+when it is inactive, and `-` otherwise. A failed task is not marked `x`, so the next run executes it
+again.
 
 ## Add analysis domain
 
@@ -309,7 +320,8 @@ Workflow: propose → apply → verify → archive. Keep specs small and testabl
 - Use tags in `dependsOn`, not task IDs.
 - Every task needs `responseFormat`.
 - `active: false` tasks do not run by default.
-- JSON schema validation only warns today.
+- A schema violation is a failure, not a warning: the step is retried and then marked failed.
+- Each attempt writes its own chat log (`logs/<TaskId>.log`, `logs/<TaskId>.attempt2.log`, ...).
 - Use `state clear`/`state drop` for task reruns; do not delete `analysis.json` unless intended.
 - Avoid broad tool wildcards.
 - Do not change Java parser behavior without tests.

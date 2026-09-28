@@ -25,6 +25,11 @@ public class TaskRow {
     private int loopCompleted;
     private int loopTotal;
     private boolean hasLoop;
+    /**
+     * The attempt of this step that is running, and how many it may use. 1 means no retry yet.
+     */
+    private int attempt;
+    private int maxAttempts;
     private final List<LoopWorkerRow.InteractionStep> steps;
 
     public TaskRow(String id, String name) {
@@ -37,6 +42,8 @@ public class TaskRow {
         this.loopCompleted = 0;
         this.loopTotal = 0;
         this.hasLoop = false;
+        this.attempt = 1;
+        this.maxAttempts = 1;
         this.steps = new ArrayList<>();
     }
 
@@ -49,6 +56,8 @@ public class TaskRow {
     public int getLoopCompleted() { return loopCompleted; }
     public int getLoopTotal() { return loopTotal; }
     public boolean hasLoop() { return hasLoop; }
+    public int getAttempt() { return attempt; }
+    public int getMaxAttempts() { return maxAttempts; }
     public List<LoopWorkerRow.InteractionStep> getSteps() { return steps; }
 
     public void setStatus(Status status) { this.status = status; }
@@ -58,6 +67,17 @@ public class TaskRow {
     public void setLoopCompleted(int loopCompleted) { this.loopCompleted = loopCompleted; }
     public void setLoopTotal(int loopTotal) { this.loopTotal = loopTotal; }
     public void setHasLoop(boolean hasLoop) { this.hasLoop = hasLoop; }
+
+    /**
+     * Records that a further attempt of this step is running.
+     *
+     * @param attempt     the attempt now running, counting from 1
+     * @param maxAttempts how many attempts the step may use in total
+     */
+    public void setAttemptRunning(int attempt, int maxAttempts) {
+        this.attempt = attempt;
+        this.maxAttempts = maxAttempts;
+    }
 
     public void incrementLoopCompleted() {
         this.loopCompleted++;

@@ -47,6 +47,17 @@ public interface ProgressCallback {
     void onError(String taskId, Integer loopIndex, String errorMessage);
 
     /**
+     * Called when a task/worker is attempted again after a rejected attempt.
+     *
+     * @param taskId      the task being attempted
+     * @param loopIndex   the loop index of the step, or null for a non-loop task
+     * @param attempt     the attempt that just failed, counting from 1
+     * @param maxAttempts how many attempts the step may use in total
+     * @param reason      the bounded reason the attempt was rejected
+     */
+    default void onRetry(String taskId, Integer loopIndex, int attempt, int maxAttempts, String reason) {}
+
+    /**
      * Called when a task starts execution.
      */
     default void onTaskStart(String taskId, String taskName) {}

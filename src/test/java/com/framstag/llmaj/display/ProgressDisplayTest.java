@@ -323,6 +323,73 @@ public class ProgressDisplayTest {
     }
 
     @Test
+    public void testRetriedTaskShowsItsAttempt() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ProgressDisplay display = new ProgressDisplay(config(), new FixedSizeTerminal(output), true, true);
+
+        try {
+            display.addTasks(tasks("First Task"));
+            display.onTaskStart("first-task", "First Task");
+
+            output.reset();
+            display.onRetry("first-task", null, 1, 3, "schema violation: $.answer is not a string");
+
+            awaitOutputGrowth(output, 0, 3000);
+
+            String frame = output.toString(StandardCharsets.UTF_8);
+
+            assertTrue(frame.contains("attempt 2/3"),
+                    "a retried task must show which attempt is running, got:\n" + frame);
+        } finally {
+            display.close();
+        }
+    }
+
+    @Test
+    public void testRetriedLoopWorkerShowsItsAttempt() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ProgressDisplay display = new ProgressDisplay(config(), new FixedSizeTerminal(output), true, true);
+
+        try {
+            display.addTasks(tasks("First Task"));
+            display.onTaskStart("first-task", "First Task");
+            display.onWorkerStart("first-task", 4, "First Task[4]");
+
+            output.reset();
+            display.onRetry("first-task", 4, 2, 3, "the located JSON payload does not parse");
+
+            awaitOutputGrowth(output, 0, 3000);
+
+            String frame = output.toString(StandardCharsets.UTF_8);
+
+            assertTrue(frame.contains("First Task[4]"),
+                    "the worker row must still be shown, got:\n" + frame);
+            assertTrue(frame.contains("attempt 3/3"),
+                    "a retried loop index must show which attempt is running, got:\n" + frame);
+        } finally {
+            display.close();
+        }
+    }
+
+    @Test
+    public void testTaskWithoutARetryShowsNoAttempt() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ProgressDisplay display = new ProgressDisplay(config(), new FixedSizeTerminal(output), true, true);
+
+        try {
+            display.addTasks(tasks("First Task"));
+            display.onTaskStart("first-task", "First Task");
+
+            String frame = output.toString(StandardCharsets.UTF_8);
+
+            assertFalse(frame.contains("attempt "),
+                    "a task that was not retried must not claim an attempt, got:\n" + frame);
+        } finally {
+            display.close();
+        }
+    }
+
+    @Test
     public void testTerminalWithoutAnsiSupportGetsNoEscapeSequences() throws Exception {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         TerminalSupport terminalSupport = TerminalSupport.of(new FixedSizeTerminal(output));

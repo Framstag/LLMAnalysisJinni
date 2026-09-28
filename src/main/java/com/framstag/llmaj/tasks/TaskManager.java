@@ -212,19 +212,37 @@ public class TaskManager {
         return !errorsFound;
     }
 
-    private String getTaskStatus(TaskDefinition task, boolean pending, boolean successful) {
+    /**
+     * The status marker of one task in the state dump.
+     * <p>
+     * A failed task is reported as failed and not as pending: the next run executes it again either
+     * way, but a reader of the dump has to be able to tell an outcome the run did not accept from a
+     * task the run never reached.
+     * <p>
+     * Package private so the markers can be verified without capturing the log output.
+     */
+    String getTaskStatus(TaskDefinition task) {
         if (!task.isActive()) {
             return "/";
         }
-        else if (successful) {
+        else if (successfullyProcessedTaskIds.contains(task.getId())) {
             return "x";
         }
-        else if (pending) {
+        else if (isFailed(task)) {
+            return "!";
+        }
+        else if (pendingTaskIds.contains(task.getId())) {
             return " ";
         }
         else {
             return "-";
         }
+    }
+
+    private boolean isFailed(TaskDefinition task) {
+        TaskState state = taskStateMap.get(task.getId());
+
+        return state != null && state.isFailed();
     }
 
     private static Path getStateFilePath(Path workingDirectory) {
@@ -271,9 +289,7 @@ public class TaskManager {
     public void dump() {
         for (TaskDefinition task : this.allTasks) {
             logger.info("Task: [{}] {} - {}",
-                    getTaskStatus(task,
-                            pendingTaskIds.contains(task.getId()),
-                            successfullyProcessedTaskIds.contains(task.getId())),
+                    getTaskStatus(task),
                     task.getId(),
                     task.getName());
         }
