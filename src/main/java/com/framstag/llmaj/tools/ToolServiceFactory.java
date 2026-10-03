@@ -10,6 +10,8 @@ import dev.langchain4j.mcp.client.McpClient;
 import dev.langchain4j.mcp.client.transport.McpTransport;
 import dev.langchain4j.mcp.client.transport.http.StreamableHttpMcpTransport;
 import dev.langchain4j.mcp.client.transport.stdio.StdioMcpTransport;
+import dev.langchain4j.service.tool.ToolArgumentsErrorHandler;
+import dev.langchain4j.service.tool.ToolExecutionErrorHandler;
 import dev.langchain4j.service.tool.ToolExecutor;
 import dev.langchain4j.service.tool.ToolService;
 import org.slf4j.Logger;
@@ -66,6 +68,19 @@ public class ToolServiceFactory {
         }
 
         ToolService toolService = new ToolService();
+
+        // A tool call the framework cannot carry out is answered instead of ending the step: an
+        // argument error and an execution error both go back to the model as the tool result, so
+        // the model can correct the call and continue. This is the framework's own recommendation
+        // for argument errors, and it makes the two error paths behave alike.
+        toolService.argumentsErrorHandler(ToolArgumentsErrorHandler.sendExceptionMessageToLlm());
+        toolService.executionErrorHandler(ToolExecutionErrorHandler.sendExceptionMessageToLlm());
+
+        // The engine's own tool loop enforces this bound and reads it back from the service, so the
+        // configured value and the enforced value cannot diverge. The service's hallucinated tool
+        // name strategy stays at its default: the engine's loop answers an unknown tool name itself.
+        toolService.maxToolCallingRoundTrips(config.getMaxToolRoundTrips());
+
         toolService.tools(ToolFactory.getToolInstanceList(analysisContext));
         toolService.tools(mcpServersDefinitions);
 

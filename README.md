@@ -174,6 +174,7 @@ The config.json file has the following attributes:
 | taskParallelism   | Number of parallel DAG tasks to execute concurrently         | 2       |
 | loopParallelism   | Number of parallel workers for loop tasks                    | 1       |
 | retries           | Maximum attempts of one task step (1 = no retry)             | 3       |
+| maxToolRoundTrips | Maximum tool-call rounds the model may use within one step attempt | 10   |
 | mcpServers        | An array of MCP Servers                                      |         |
 | projectDirectory  | Path to the project directory                                |         |
 | analysisDirectory | Path to the analysis files                                   |         |
