@@ -48,12 +48,12 @@ public class FileToolTest {
 
         assertEquals(List.of(
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/cli", List.of("AnalyseCmdOptionParsingTest.java", "AnalyseCmdRetryTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/config", List.of("ConfigOverridesTest.java", "ConfigRetriesTest.java", "ConfigStorerTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/config", List.of("ConfigMaxToolRoundTripsTest.java", "ConfigOverridesTest.java", "ConfigRetriesTest.java", "ConfigStorerTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/display", List.of("DisplayDecisionTest.java", "DisplayManagerTest.java", "LoopWorkerRowTest.java", "ProgressDisplayTest.java", "SimpleOutputTest.java", "TaskRowTest.java")),
 
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/documentation", List.of("DocumentationTemplateTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/json", List.of("JsonHelperTest.java", "ResponsePayloadParserTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/lc4j", List.of("ChatExecutionLoggingTest.java", "ChatExecutorOutcomeTest.java", "TaskStepFailureTest.java", "TaskStepOutcomeTest.java", "TaskStepRetrierTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/lc4j", List.of("ChatExecutionLoggingTest.java", "ChatExecutorOutcomeTest.java", "ChatExecutorToolErrorTest.java", "ChatExecutorToolRoundBoundTest.java", "TaskStepFailureTest.java", "TaskStepOutcomeTest.java", "TaskStepRetrierTest.java", "ToolArgumentsErrorHandlerTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/logging", List.of("EngineLogRoutingTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/smoke", List.of("JarSmokeIT.java", "JarSmokeProbe.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tasks", List.of("SoftwareArchitectureTaskConfigTest.java", "TaskDefinitionTest.java", "TaskManagerTest.java")),

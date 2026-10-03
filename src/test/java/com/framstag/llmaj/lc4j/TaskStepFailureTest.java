@@ -102,4 +102,22 @@ public class TaskStepFailureTest {
         assertTrue(hint.length() <= TaskStepFailure.MAX_HINT_LENGTH,
                 "a hint is injected into a prompt and must stay bounded, was " + hint.length());
     }
+
+    @Test
+    void toolRoundBoundRejectionNamesTheBound() {
+        TaskStepFailure failure = TaskStepFailure.of(StepFailureReason.TOOL_ROUND_TRIPS_EXCEEDED,
+                "the model requested more than 10 tool rounds in one attempt");
+
+        String display = failure.displayMessage();
+        String hint = failure.repairHint();
+
+        assertTrue(display.contains("tool round bound exceeded"),
+                "the display must name the reason, got: " + display);
+        assertTrue(display.contains("more than 10 tool rounds"),
+                "the display must name the bound, got: " + display);
+        assertTrue(hint.contains("tool round bound exceeded"),
+                "the next attempt must be told the reason, got: " + hint);
+        assertTrue(hint.contains("more than 10 tool rounds"),
+                "the next attempt must be told the bound, got: " + hint);
+    }
 }
