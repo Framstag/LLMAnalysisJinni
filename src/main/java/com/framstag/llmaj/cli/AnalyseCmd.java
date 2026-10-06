@@ -22,6 +22,7 @@ import com.framstag.llmaj.lc4j.ChatModelFactory;
 import com.framstag.llmaj.lc4j.TaskStepOutcome;
 import com.framstag.llmaj.lc4j.TaskStepRetrier;
 import com.framstag.llmaj.lc4j.ToolFilter;
+import com.framstag.llmaj.state.LoopCursor;
 import com.framstag.llmaj.state.StateManager;
 import com.framstag.llmaj.tasks.TaskDefinition;
 import com.framstag.llmaj.tasks.TaskManager;
@@ -258,12 +259,18 @@ public class AnalyseCmd implements Callable<Integer> {
             ExecutorService dagPool = Executors.newFixedThreadPool(taskParallelism);
             BlockingQueue<String> completionQueue = new LinkedBlockingQueue<>();
             Set<String> runningIds = ConcurrentHashMap.newKeySet();
+            // Tasks already dispatched in this run. A task execution either changes the task's status,
+            // which removes it from the pending set, or it does not, in which case the task must not be
+            // dispatched again: re-submitting it is what turned an aborted start into a spin loop that
+            // wrote millions of records.
+            Set<String> dispatchedIds = ConcurrentHashMap.newKeySet();
 
             if (singleStep) {
                 // Single-step: execute exactly one task (including its loops), then stop
                 List<TaskDefinition> runnable = taskManager.getRunnableTasks();
                 if (!runnable.isEmpty()) {
                     TaskDefinition task = runnable.get(0);
+                    dispatchedIds.add(task.getId());
                     runningIds.add(task.getId());
                     String schema = Files.readString(config.getAnalysisDirectory().resolve(task.getResponseFormat()));
                     JsonNode schemaNode = mapper.readTree(schema);
@@ -275,6 +282,10 @@ public class AnalyseCmd implements Callable<Integer> {
             } else {
                 // Submit all initially runnable tasks
                 for (TaskDefinition task : taskManager.getRunnableTasks()) {
+                    if (!dispatchedIds.add(task.getId())) {
+                        continue;
+                    }
+
                     runningIds.add(task.getId());
                     String schema = Files.readString(config.getAnalysisDirectory().resolve(task.getResponseFormat()));
                     JsonNode schemaNode = mapper.readTree(schema);
@@ -286,22 +297,35 @@ public class AnalyseCmd implements Callable<Integer> {
                 // Dispatch loop: wait for completions, submit newly unblocked tasks
                 while (taskManager.hasAnyPendingTasks() || !runningIds.isEmpty()) {
                     if (runningIds.isEmpty() && taskManager.hasAnyPendingTasks()) {
-                        logger.error("No tasks running but pending tasks remain — possible dependency deadlock");
+                        // Nothing is in flight, so no completion can unblock the rest. The pending tasks
+                        // are either waiting for a dependency that will not arrive or were left without
+                        // a status change by an execution; naming them is what a reader needs.
+                        logger.error("No tasks running but pending tasks remain — not dispatched: {}",
+                                taskManager.getPendingTaskIds());
                         break;
                     }
 
                     String completedId = completionQueue.take();
 
-                    // Submit newly unblocked tasks
+                    if (taskManager.hasPendingTask(completedId)) {
+                        logger.error("Task '{}' ended without changing its status; it is not dispatched"
+                                + " again in this run", completedId);
+                    }
+
+                    // Submit newly unblocked tasks. A task is dispatched at most once per run: a task
+                    // that is still pending after its execution left no status change is not submitted
+                    // again, so it cannot keep the run alive by reporting itself.
                     for (TaskDefinition task : taskManager.getRunnableTasks()) {
-                        if (!runningIds.contains(task.getId())) {
-                            runningIds.add(task.getId());
-                            String schema = Files.readString(config.getAnalysisDirectory().resolve(task.getResponseFormat()));
-                            JsonNode schemaNode = mapper.readTree(schema);
-                            dagPool.submit(buildTaskRunner(config, task, mapper, model, toolService,
-                                    templateEngine, stateManager, taskManager, displayManager,
-                                    completionQueue, runningIds, workingDirectory, schema, schemaNode));
+                        if (!dispatchedIds.add(task.getId())) {
+                            continue;
                         }
+
+                        runningIds.add(task.getId());
+                        String schema = Files.readString(config.getAnalysisDirectory().resolve(task.getResponseFormat()));
+                        JsonNode schemaNode = mapper.readTree(schema);
+                        dagPool.submit(buildTaskRunner(config, task, mapper, model, toolService,
+                                templateEngine, stateManager, taskManager, displayManager,
+                                completionQueue, runningIds, workingDirectory, schema, schemaNode));
                     }
                 }
             }
@@ -377,14 +401,26 @@ public class AnalyseCmd implements Callable<Integer> {
             try {
                 if (task.hasLoopOn()) {
                     // ── Loop task execution ──
-                    synchronized (stateManager) {
-                        if (!stateManager.startLoop(task.getLoopOn())) {
-                            logger.error("Configuration error, aborting task {}!", taskId);
-                            return;
+                    // The cursor belongs to this execution only, so several loop tasks can execute at
+                    // the same time. A target that cannot be iterated fails this task and no other.
+                    LoopCursor cursor = stateManager.startLoop(task.getLoopOn());
+
+                    if (cursor == null) {
+                        String failure = "The loop target '" + task.getLoopOn()
+                                + "' cannot be iterated; the engine log names the reason.";
+
+                        logger.error("Configuration error, aborting task {}!", taskId);
+
+                        synchronized (taskManager) {
+                            taskManager.markTaskAsFailed(task);
                         }
+
+                        displayManager.onTaskError(taskId, taskName, failure);
+
+                        return;
                     }
 
-                    int totalIndices = stateManager.getLoopArraySize();
+                    int totalIndices = cursor.size();
                     int parallelism = config.getLoopParallelism();
 
                     displayManager.onTaskStart(taskId, taskName);
@@ -409,8 +445,6 @@ public class AnalyseCmd implements Callable<Integer> {
                             MDC.put(EngineLogRouting.TASK_ID_MDC_KEY, taskId);
                             MDC.put("loopIndex", String.valueOf(currentIndex));
                             try {
-                                stateManager.loopAtIndex(currentIndex);
-
                                 // Deep copy for thread safety — each worker gets own snapshot
                                 Map<String, Object> workerState = new HashMap<>();
                                 workerState.putAll(new JsonNodeModelWrapper(stateManager.getAnalysisState().deepCopy()));
@@ -444,7 +478,7 @@ public class AnalyseCmd implements Callable<Integer> {
                                             JsonHelper.getSchemaName(jsonResponseSchema),
                                             taskResultJson.toPrettyString());
                                     synchronized (stateManager) {
-                                        stateManager.updateLoopState(currentIndex, task.getResponseProperty(), taskResultJson);
+                                        stateManager.updateLoopState(cursor, currentIndex, task.getResponseProperty(), taskResultJson);
                                         stateManager.saveState();
                                     }
                                     taskManager.markIndexSuccessful(task, currentIndex);
@@ -473,7 +507,6 @@ public class AnalyseCmd implements Callable<Integer> {
 
                     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
                     loopPool.shutdown();
-                    stateManager.endLoop();
 
                     if (anyIndexFailed.get()) {
                         logger.warn("Task '{}' completed with some failed indices — marking as failed for retry", taskId);

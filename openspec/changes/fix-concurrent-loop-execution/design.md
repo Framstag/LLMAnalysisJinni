@@ -99,7 +99,15 @@ The engine log appender becomes a rolling appender with a maximum file size and 
 size of the engine log files in the workspace, keeping the newest records. The bound is a constant in
 `EngineLogRouting`, applied whenever the TUI owns the terminal, and needs no configuration. The run
 keeps its promise of "the records of the last run are in `<workspace>/logs/engine.log`" for a run
-within the bound; older records move to the rolled file names.
+within the bound; older records move to the rolled file names. The engine log files of an earlier run
+are removed when the routing is installed, so a workspace always shows the engine log of the run that
+is being watched, and a bound that an earlier run reached cannot misreport a later one.
+
+logback checks the size of the file at most once per interval (`checkIncrement`, a rate limit that
+protects against a `stat` per record) and that interval is set to zero here: a burst is exactly the
+case the bound exists for, and with the default interval a burst would roll nothing at all and write
+one file far beyond its bound. With a check per record the overshoot is at most the record that
+crosses the bound.
 
 Alternative considered: leave the file unbounded and rely on the fixes above. Rejected: a single
 misbehaving component must not be able to fill the disk of a user who leaves a run unattended; the
@@ -134,6 +142,10 @@ them from any future consumer; the display is where "do not paint the same thing
   to fail at once. The status rules of `task-failure-handling` are unchanged.
 - **Rolled engine log files are new files in `logs/`.** A workspace gains one or two extra files, with
   a stable name pattern, and `logs/engine.log` keeps meaning "the newest engine records".
+- **An identical record is not repainted, but the display keeps painting for other reasons.** The
+  reserved line skips a record that repeats what it shows; the render timer still paints when the frame
+  changes for another reason (the elapsed time). The repeated-record rule is therefore a check at the
+  repaint decision, not a limit on the number of frames a run may paint.
 
 ## Migration Plan
 

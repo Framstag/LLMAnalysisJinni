@@ -174,13 +174,24 @@ public class SBOMTool {
     public String loadSBOM(@P("SBOM filename") String filename) {
         logger.info("## LoadSBOMFromFile('{}')", filename);
 
+        if (filename == null || filename.isBlank()) {
+            // A project without an SBOM reaches this call with an empty path, because that is the path the
+            // location task stored. A bare error would leave the model guessing what to do next, so the
+            // result names the missing input and what follows from it.
+            logger.info("## LoadSBOMFromFile() => no filename was given, nothing to load");
+
+            return "No SBOM file to load: the path of the SBOM file is empty, so no SBOM was located in"
+                    + " this project. Continue without dependency data and state that no SBOM was found.";
+        }
+
         Path absoluteFilename = context.getProjectRoot().resolve(filename);
         File file = absoluteFilename.toFile();
 
         if (!file.exists()) {
             logger.error("## LoadSBOMFromFile() => File '{}' does not exist", absoluteFilename);
 
-            return "Error";
+            return "No SBOM file to load: '" + filename + "' does not exist in the project. Continue"
+                    + " without dependency data and state that the file was not found.";
         }
 
         try {
@@ -192,7 +203,8 @@ public class SBOMTool {
         } catch (Exception e) {
             logger.error("=> Failed to parse SBOM file '{}'", filename, e);
 
-            return "Error";
+            return "The SBOM file '" + filename + "' could not be parsed (" + e.getMessage()
+                    + "), so no dependency data is available.";
         }
 
         logger.info("## => 'OK'");

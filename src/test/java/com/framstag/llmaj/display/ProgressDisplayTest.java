@@ -415,4 +415,56 @@ public class ProgressDisplayTest {
         assertFalse(rendered.contains(ESCAPE),
                 "no escape sequence may be written to a terminal without ANSI support");
     }
+
+    /**
+     * A condition that repeats itself must not keep the display busy: the Maven run emitted the same
+     * two messages 34 million times and every record reached the reserved line. The decision that
+     * controls the repaint is verified here; the frame itself is only written when its text changed.
+     */
+    @Test
+    public void testTheReservedLineComparesLevelTaskAndMessage() {
+        LogLine shown = new LogLine("WARN", "test.logger", "first-task", "the same text");
+
+        assertTrue(ProgressDisplay.showsSameText(shown,
+                        new LogLine("WARN", "test.logger", "first-task", "the same text")),
+                "the same rendered line is a repetition and must not repaint the frame");
+        assertTrue(ProgressDisplay.showsSameText(shown,
+                        new LogLine("WARN", "another.logger", "first-task", "the same text")),
+                "the rendered line is the level, the task and the message, not the logger");
+        assertFalse(ProgressDisplay.showsSameText(shown,
+                        new LogLine("WARN", "test.logger", "second-task", "the same text")),
+                "a record of another task renders a different line and must be shown");
+        assertFalse(ProgressDisplay.showsSameText(shown,
+                        new LogLine("ERROR", "test.logger", "first-task", "the same text")),
+                "a record of another level renders a different line and must be shown");
+        assertFalse(ProgressDisplay.showsSameText(shown,
+                        new LogLine("WARN", "test.logger", "first-task", "another text")),
+                "another message renders a different line and must be shown");
+        assertFalse(ProgressDisplay.showsSameText(null, shown),
+                "the first record of a run must be shown");
+    }
+
+    @Test
+    public void testRepeatedRecordStillShowsOnTheLine() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ProgressDisplay display = new ProgressDisplay(config(), new FixedSizeTerminal(output), true, true);
+
+        try {
+            display.addTasks(tasks("First Task"));
+
+            display.onLogLine(warn("the repeating warning"));
+            awaitOutputGrowth(output, 0, 3000);
+
+            display.onLogLine(warn("the repeating warning"));
+            display.close();
+
+            String rendered = output.toString(StandardCharsets.UTF_8);
+
+            assertTrue(rendered.contains("! [first-task] the repeating warning"),
+                    "a repeated record is still the newest record, so the line must show it, got:\n"
+                            + rendered);
+        } finally {
+            display.close();
+        }
+    }
 }

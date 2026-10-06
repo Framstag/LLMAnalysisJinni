@@ -35,7 +35,13 @@ public class ClassFileParser {
         }
     }
 
-    public static void parseClassFile(Path classFile,
+    /**
+     * Parses one class file into the module manager.
+     *
+     * @return true when the class file contributed a type to the module, false when it could not be read,
+     * so the caller can count the files a module did not analyse
+     */
+    public static boolean parseClassFile(Path classFile,
                                        List<SpecialSubdirectory> specialSubdirectories,
                                        ModuleManager moduleManager) {
         try {
@@ -145,8 +151,14 @@ public class ClassFileParser {
         }
         
         catch (Exception e) {
-            logger.error("Error during class file parsing",e);
+            // The class file is left out of the module report; the caller reports the count per module
+            // and the detail stays at DEBUG.
+            logger.debug("Cannot parse the class file '{}'", classFile, e);
+
+            return false;
         }
+
+        return true;
     }
 
     private static List<String> getClassModelImports(ClassModel classModel) {

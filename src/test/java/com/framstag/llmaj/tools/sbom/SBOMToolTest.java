@@ -66,7 +66,24 @@ public class SBOMToolTest {
     void returnErrorOnLoadingNonExistantSBOM() {
         String result = sbomTool.loadSBOM("nonexisting.json");
 
-        Assertions.assertEquals("Error", result);
+        Assertions.assertTrue(result.contains("nonexisting.json"),
+                "the tool result must name the file it could not load, got: " + result);
+        Assertions.assertTrue(result.contains("does not exist"),
+                "the tool result must name the condition, got: " + result);
+    }
+
+    /**
+     * A project without an SBOM reaches the tool with the empty path the location task stored. The
+     * model has to be told what that means instead of having to guess from a bare error.
+     */
+    @Test
+    void emptyFilenameNamesTheMissingInput() {
+        String result = sbomTool.loadSBOM("");
+
+        Assertions.assertTrue(result.contains("No SBOM file to load"),
+                "the tool result must name the missing input, got: " + result);
+        Assertions.assertTrue(result.contains("no SBOM was located"),
+                "the tool result must say what the empty path means, got: " + result);
     }
 
     @Test

@@ -13,6 +13,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * We are using our own repository root for tests
@@ -47,18 +48,20 @@ public class FileToolTest {
         List<FilesInDirectory> result = filesystemTool.getAllFilesInDirRecursively("src/test/java/com/framstag/llmaj");
 
         assertEquals(List.of(
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/cli", List.of("AnalyseCmdOptionParsingTest.java", "AnalyseCmdRetryTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/cli", List.of("AnalyseCmdLoopTaskTest.java", "AnalyseCmdOptionParsingTest.java", "AnalyseCmdRetryTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/config", List.of("ConfigMaxToolRoundTripsTest.java", "ConfigOverridesTest.java", "ConfigRetriesTest.java", "ConfigStorerTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/display", List.of("DisplayDecisionTest.java", "DisplayManagerTest.java", "LoopWorkerRowTest.java", "ProgressDisplayTest.java", "SimpleOutputTest.java", "TaskRowTest.java")),
 
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/documentation", List.of("DocumentationTemplateTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/json", List.of("JsonHelperTest.java", "ResponsePayloadParserTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/lc4j", List.of("ChatExecutionLoggingTest.java", "ChatExecutorOutcomeTest.java", "ChatExecutorToolErrorTest.java", "ChatExecutorToolRoundBoundTest.java", "TaskStepFailureTest.java", "TaskStepOutcomeTest.java", "TaskStepRetrierTest.java", "ToolArgumentsErrorHandlerTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/json", List.of("JsonHelperSchemaDescriptionTest.java", "JsonHelperTest.java", "ResponsePayloadParserTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/lc4j", List.of("ChatExecutionLoggingTest.java", "ChatExecutorOutcomeTest.java", "ChatExecutorToolErrorTest.java", "ChatExecutorToolRoundBoundTest.java", "SchemaViolationReportTest.java", "TaskStepFailureTest.java", "TaskStepOutcomeTest.java", "TaskStepRetrierTest.java", "ToolArgumentsErrorHandlerTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/logging", List.of("EngineLogRoutingTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/smoke", List.of("JarSmokeIT.java", "JarSmokeProbe.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/tasks", List.of("SoftwareArchitectureTaskConfigTest.java", "TaskDefinitionTest.java", "TaskManagerTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/state", List.of("StateManagerLoopCursorTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/tasks", List.of("AnalysisResponseSchemaTest.java", "SoftwareArchitectureTaskConfigTest.java", "TaskDefinitionTest.java", "TaskManagerTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools", List.of("ToolServiceFactoryTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/common", List.of("CsvReportWriterTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/file", List.of("FileIOToolTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/filesystem", List.of("FileToolTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/java", List.of("JavaToolTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/sbom", List.of("SBOMToolTest.java"))),
@@ -127,14 +130,21 @@ public class FileToolTest {
     @Test
     void readNonExistingFile() {
         String fileContent = fileIOTool.readFile("pommes.xml");
-        assertEquals("ERROR: java.nio.file.NoSuchFileException",fileContent);
+
+        assertTrue(fileContent.contains("pommes.xml"),
+                "the tool result must name the file it could not read, got: " + fileContent);
+        assertTrue(fileContent.contains("cannot be read"),
+                "the tool result must name the condition, got: " + fileContent);
     }
 
     @Test
     void readFileOutsideRoot() throws IOException {
         String fileContent = fileIOTool.readFile("../pom.xml");
 
-        assertEquals("ERROR",fileContent);
+        assertTrue(fileContent.contains("../pom.xml"),
+                "the tool result must name the path it refused, got: " + fileContent);
+        assertTrue(fileContent.contains("not inside the project root"),
+                "the tool result must name the condition, got: " + fileContent);
     }
 
     @Test

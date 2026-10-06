@@ -7,6 +7,11 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.ConsoleAppender;
 import ch.qos.logback.core.FileAppender;
+import ch.qos.logback.core.rolling.FixedWindowRollingPolicy;
+import ch.qos.logback.core.rolling.RollingFileAppender;
+import ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy;
+import ch.qos.logback.core.util.Duration;
+import ch.qos.logback.core.util.FileSize;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Routes engine log output so that it fits the display mode of the run.
@@ -45,6 +51,32 @@ public final class EngineLogRouting {
     private static final String LOG_LINE_APPENDER_NAME = "TUI_LOG_LINE";
     private static final String LOG_FILE_APPENDER_NAME = "ENGINE_LOG_FILE";
 
+    /**
+     * How often the rolling appender may check the size of the engine log file. logback checks the
+     * size at most once per interval by default, which would let a burst of records - the case this
+     * bound exists for - grow one file far beyond its bound before the first check. Zero means every
+     * record is checked, which is one file length per record.
+     */
+    private static final Duration LOG_SIZE_CHECK_INTERVAL = Duration.buildByMilliseconds(0);
+
+    /**
+     * Bound of the engine log of one workspace: no run may grow it beyond
+     * {@code maxFileSize * (maxRolledFiles + 1)}, whatever the code logs. The value has to hold the
+     * records a diagnosis needs (a run that failed, plus the records before it) without letting a
+     * component that repeats a record fill the disk.
+     */
+    static final EngineLogBounds DEFAULT_LOG_BOUNDS =
+            new EngineLogBounds(FileSize.valueOf("32MB"), 2);
+
+    /**
+     * Size bound of the engine log files of a workspace.
+     *
+     * @param maxFileSize    maximum size of one engine log file
+     * @param maxRolledFiles number of rolled files kept beside the current one
+     */
+    record EngineLogBounds(FileSize maxFileSize, int maxRolledFiles) {
+    }
+
     private EngineLogRouting() {
     }
 
@@ -63,10 +95,21 @@ public final class EngineLogRouting {
      * console keeps the log output
      */
     public static ForwardingLogLineSink installForDisplayMode(boolean useTui, Path workspace, boolean executionTrace) {
+        return installForDisplayMode(useTui, workspace, executionTrace, DEFAULT_LOG_BOUNDS);
+    }
+
+    /**
+     * Installs the routing with an explicit engine log bound. Package private for the tests that have
+     * to exhaust a bound without writing the production amount of log data.
+     */
+    static ForwardingLogLineSink installForDisplayMode(boolean useTui,
+                                                       Path workspace,
+                                                       boolean executionTrace,
+                                                       EngineLogBounds bounds) {
         ForwardingLogLineSink logLineSink = LogLineSink.forwarding();
 
         if (useTui) {
-            divertToEngineLogFile(workspace, logLineSink);
+            divertToEngineLogFile(workspace, logLineSink, bounds);
         } else if (!executionTrace) {
             // The console keeps warnings and errors; the progress of the run is reported by the
             // plain status lines of the simple display.
@@ -98,7 +141,7 @@ public final class EngineLogRouting {
         return workspace.resolve(LOG_DIRECTORY).resolve(ENGINE_LOG_FILE_NAME);
     }
 
-    private static void divertToEngineLogFile(Path workspace, LogLineSink sink) {
+    private static void divertToEngineLogFile(Path workspace, LogLineSink sink, EngineLogBounds bounds) {
         LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
         ch.qos.logback.classic.Logger root = rootLogger();
 
@@ -116,7 +159,7 @@ public final class EngineLogRouting {
         logLineAppender.start();
         root.addAppender(logLineAppender);
 
-        FileAppender<ILoggingEvent> fileAppender = createFileAppender(context, workspace);
+        FileAppender<ILoggingEvent> fileAppender = createFileAppender(context, workspace, bounds);
 
         if (fileAppender != null) {
             root.addAppender(fileAppender);
@@ -125,9 +168,13 @@ public final class EngineLogRouting {
 
     /**
      * Creates the appender for the engine log file. Returns null when the file cannot be used, so
-     * that a workspace the run may not write to does not fail the run.
+     * that a workspace the run may not write to does not fail the run. The appender rolls the file at
+     * its size bound and keeps a fixed number of rolled files, so the engine log files of a workspace
+     * stay within the bound of the run.
      */
-    private static FileAppender<ILoggingEvent> createFileAppender(LoggerContext context, Path workspace) {
+    private static FileAppender<ILoggingEvent> createFileAppender(LoggerContext context,
+                                                                  Path workspace,
+                                                                  EngineLogBounds bounds) {
         Path logFile = engineLogFile(workspace);
 
         try {
@@ -138,17 +185,36 @@ public final class EngineLogRouting {
             return null;
         }
 
+        deleteEngineLogFiles(logFile);
+
         PatternLayoutEncoder encoder = new PatternLayoutEncoder();
         encoder.setContext(context);
         encoder.setPattern(LOG_PATTERN);
         encoder.start();
 
-        FileAppender<ILoggingEvent> fileAppender = new FileAppender<>();
+        RollingFileAppender<ILoggingEvent> fileAppender = new RollingFileAppender<>();
         fileAppender.setName(LOG_FILE_APPENDER_NAME);
         fileAppender.setContext(context);
         fileAppender.setFile(logFile.toString());
         fileAppender.setAppend(false);
         fileAppender.setEncoder(encoder);
+
+        FixedWindowRollingPolicy rollingPolicy = new FixedWindowRollingPolicy();
+        rollingPolicy.setContext(context);
+        rollingPolicy.setParent(fileAppender);
+        rollingPolicy.setFileNamePattern(logFile + ".%i");
+        rollingPolicy.setMinIndex(1);
+        rollingPolicy.setMaxIndex(bounds.maxRolledFiles());
+        rollingPolicy.start();
+
+        SizeBasedTriggeringPolicy<ILoggingEvent> triggeringPolicy = new SizeBasedTriggeringPolicy<>();
+        triggeringPolicy.setContext(context);
+        triggeringPolicy.setMaxFileSize(bounds.maxFileSize());
+        triggeringPolicy.setCheckIncrement(LOG_SIZE_CHECK_INTERVAL);
+        triggeringPolicy.start();
+
+        fileAppender.setRollingPolicy(rollingPolicy);
+        fileAppender.setTriggeringPolicy(triggeringPolicy);
         fileAppender.start();
 
         if (!fileAppender.isStarted()) {
@@ -157,6 +223,32 @@ public final class EngineLogRouting {
         }
 
         return fileAppender;
+    }
+
+    /**
+     * Removes the engine log files of an earlier run, so that this run writes its own engine log: the
+     * current file is recreated and the rolled files of an earlier run cannot make this run's bound
+     * report something the run did not write.
+     */
+    private static void deleteEngineLogFiles(Path logFile) {
+        Path directory = logFile.getParent();
+        String prefix = logFile.getFileName() + ".";
+
+        try (Stream<Path> files = Files.list(directory)) {
+            for (Path file : files.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().equals(logFile.getFileName().toString())
+                            || path.getFileName().toString().startsWith(prefix))
+                    .toList()) {
+                try {
+                    Files.deleteIfExists(file);
+                } catch (IOException e) {
+                    logger.warn("Cannot remove the engine log file '{}' of an earlier run ({})",
+                            file, e.getMessage());
+                }
+            }
+        } catch (IOException e) {
+            logger.warn("Cannot list the engine log directory '{}' ({})", directory, e.getMessage());
+        }
     }
 
     private static void detachConsoleAppenders(ch.qos.logback.classic.Logger root) {

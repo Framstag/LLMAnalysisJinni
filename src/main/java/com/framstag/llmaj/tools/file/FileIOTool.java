@@ -10,11 +10,20 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class FileIOTool {
     private static final Logger logger = LoggerFactory.getLogger(FileIOTool.class);
 
     private final AnalysisContext context;
+
+    /**
+     * Conditions already reported for this run. The model can ask for a path that does not exist, and
+     * it can ask again; one record per repetition would fill the log with a condition that needs one
+     * line.
+     */
+    private final Set<String> reportedConditions = ConcurrentHashMap.newKeySet();
 
     public FileIOTool(AnalysisContext context) {
         this.context = context;
@@ -33,7 +42,10 @@ public class FileIOTool {
         Path filePath = Path.of(file);
 
         if (!FileHelper.accessAllowed(root, filePath)) {
-            return "ERROR";
+            // A path outside the project is something the model can correct, so the result names it.
+            reportCondition("outside the project root", file, null);
+
+            return "ERROR: the path '" + file + "' is not inside the project root and cannot be read.";
         }
 
         String fileContent;
@@ -46,11 +58,28 @@ public class FileIOTool {
             return fileContent;
         }
         catch (IOException e) {
-            logger.error("Error while reading file",e);
+            // A file the model asked for that does not exist is a condition the model can act on: the
+            // error reaches it as the tool result, and the log keeps one line for it instead of a stack
+            // trace per call. The Maven run of 2026-10-06 logged such a call at ERROR with a stack trace
+            // for a file the model guessed.
+            reportCondition("cannot be read", file, e);
 
-            String errorText="ERROR: "+e.getClass().getName();
+            String errorText = "ERROR: the file '" + file + "' cannot be read (" + e.getMessage() + ")";
             logger.info("## ReadFile() => '{}'", errorText);
+
             return errorText;
+        }
+    }
+
+    /**
+     * Reports a condition the model can act on at most once per run above DEBUG, without a stack trace.
+     */
+    private void reportCondition(String condition, String file, IOException cause) {
+        if (reportedConditions.add(condition + " " + file)) {
+            logger.warn("The file '{}' {}; the condition is returned to the model as the tool result",
+                    file, condition);
+        } else {
+            logger.debug("The file '{}' {}, reported before in this run", file, condition, cause);
         }
     }
 }

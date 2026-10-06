@@ -303,6 +303,22 @@ public class TaskManager {
         return successfullyProcessedTaskIds.contains(taskId);
     }
 
+    /**
+     * True while the task has not reached a status in this run. A completion for a task that is still
+     * pending means its execution ended without changing the status.
+     */
+    public synchronized boolean hasPendingTask(String taskId) {
+        return pendingTaskIds.contains(taskId);
+    }
+
+    /**
+     * The ids of the tasks that have not reached a status in this run, sorted so a report of a run
+     * that could not dispatch them is stable.
+     */
+    public synchronized List<String> getPendingTaskIds() {
+        return pendingTaskIds.stream().sorted().toList();
+    }
+
     public boolean hasPendingTasks() {
         return calculateNextTask() != null;
     }

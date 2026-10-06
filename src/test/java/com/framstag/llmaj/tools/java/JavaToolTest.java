@@ -1,5 +1,6 @@
 package com.framstag.llmaj.tools.java;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -92,6 +93,55 @@ class JavaToolTest {
 
         assertTrue(reported.contains("broken.jar"),
                 "the diagnostic must name the JAR it could not load, got: " + reported);
+    }
+
+    /**
+     * A module whose tree holds files that carry no type or cannot be parsed is reported once for the
+     * module. The Maven run of 2026-10-06 logged 2,920 source and 210 class file parse failures as an
+     * ERROR with a stack trace each, which buried every other diagnostic of the run.
+     */
+    @Test
+    void unparsableFilesAreReportedPerModule() throws Exception {
+        captureDiagnostics();
+
+        Files.createDirectories(tempDir.resolve("core/src/main/java/demo"));
+        Files.writeString(tempDir.resolve("core/src/main/java/demo/Fine.java"),
+                "package demo; public class Fine {}");
+        Files.writeString(tempDir.resolve("core/src/main/java/demo/Broken.java"),
+                "package demo; public class Broken {");
+        Files.writeString(tempDir.resolve("core/src/main/java/demo/package-info.java"),
+                "package demo;");
+
+        JavaTool javaTool = new JavaTool(contextWithModulePaths(Map.of("core", "core")));
+
+        javaTool.generateModuleAnalysisReport("core");
+
+        List<String> moduleRecords = capturedRecords.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .filter(message -> message.startsWith("Module 'core'"))
+                .toList();
+
+        assertEquals(1, moduleRecords.size(),
+                "the unparsable files of a module are reported once, got: " + moduleRecords);
+        assertTrue(moduleRecords.getFirst().contains("2 of 3 source file(s)"),
+                "the record must name the count of files that were not analysed, got: "
+                        + moduleRecords.getFirst());
+
+        assertTrue(capturedRecords.list.stream()
+                        .filter(record -> record.getLevel().isGreaterOrEqual(Level.ERROR))
+                        .noneMatch(record -> record.getThrowableProxy() != null),
+                "an unparsable file must not be logged as an error with a stack trace, got: "
+                        + capturedRecords.list.stream()
+                        .filter(record -> record.getLevel().isGreaterOrEqual(Level.ERROR))
+                        .map(ILoggingEvent::getFormattedMessage)
+                        .toList());
+
+        String report = Files.readString(tempDir.resolve("Java/Java_core.json"));
+
+        assertTrue(report.contains("demo.Fine"),
+                "the file that could be parsed must be part of the module report");
+        assertFalse(report.contains("Broken"),
+                "a file that could not be parsed must stay out of the module report");
     }
 
     @SuppressWarnings("unchecked")

@@ -19,8 +19,6 @@ public class StateManager {
     final Path         workingDirectory;
     final ObjectNode   analysisState;
 
-    JsonNode           loopPos;
-
     static {
         mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
     }
@@ -83,57 +81,36 @@ public class StateManager {
         return new JsonNodeModelWrapper(analysisState);
     }
 
-    public int getLoopArraySize() {
-        if (loopPos == null) {
-            return 0;
-        }
-
-        return loopPos.size();
-    }
-
-    public JsonNode loopAtIndex(int index) {
-        return loopPos.get(index);
-    }
-
-    public boolean startLoop(String loopOn) {
-        if (loopPos != null) {
-            logger.error("Loop already started");
-            return false;
-        }
-
-        loopPos = analysisState.at(loopOn);
+    /**
+     * Creates the loop cursor of one loop task execution, or returns null when the requested loop
+     * target cannot be iterated. The cursor belongs to the caller's execution only: the state manager
+     * keeps no loop state, so a failure here affects that one task and no other.
+     *
+     * @param loopOn JSON path of the array to iterate
+     * @return the cursor of the execution, or null when the target does not exist or is not an array
+     */
+    public synchronized LoopCursor startLoop(String loopOn) {
+        JsonNode loopPos = analysisState.at(loopOn);
 
         if (loopPos.isNull()) {
             logger.error("Cannot loop on '{}', target does not exist", loopOn);
-            loopPos = null;
-            return false;
+            return null;
         }
 
         if (!loopPos.isArray()) {
             logger.error("Cannot loop on '{}', since it is not an array", loopOn);
-            loopPos = null;
-            return false;
+            return null;
         }
 
-        // No sequential iteration state needed (parallel loop execution)
-
-        return true;
+        return new LoopCursor(loopOn, loopPos);
     }
 
-
-    public synchronized void updateLoopState(int index, String path, JsonNode value) {
-        ((ObjectNode) loopPos.get(index)).set(path, value);
-    }
-
-    public void endLoop() {
-        if (loopPos == null) {
-            logger.error("Not in loop");
-            return;
-        }
-
-        loopPos = null;
-        analysisState.remove("loopIndex");
-
+    /**
+     * Stores a result in the entry the cursor points at. Serialized against every other state
+     * mutation, because two loop tasks can write different properties of the same entry.
+     */
+    public synchronized void updateLoopState(LoopCursor cursor, int index, String path, JsonNode value) {
+        ((ObjectNode) cursor.at(index)).set(path, value);
     }
 
     public synchronized void updateState(String path, JsonNode value) {

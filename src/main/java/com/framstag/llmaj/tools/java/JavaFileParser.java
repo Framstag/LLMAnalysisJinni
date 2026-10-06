@@ -28,7 +28,13 @@ import static com.github.javaparser.ast.expr.BinaryExpr.Operator.OR;
 public class JavaFileParser {
     private static final Logger logger = LoggerFactory.getLogger(JavaFileParser.class);
 
-    public static void parseJavaFile(Path srcFile,
+    /**
+     * Parses one source file into the module manager.
+     *
+     * @return true when the file contributed a type to the module, false when it could not be parsed or
+     * carries no type, so the caller can count the files a module did not analyse
+     */
+    public static boolean parseJavaFile(Path srcFile,
                                       List<SpecialSubdirectory> specialSubdirectories,
                                       ModuleManager moduleManager,
                                       TypeSolver typeSolver) {
@@ -44,8 +50,8 @@ public class JavaFileParser {
             Optional<PackageDeclaration> packageDecl = cu.getPackageDeclaration();
 
             if (packageDecl.isEmpty()) {
-                logger.error("Cannot parse package information from file '{}'", srcFile);
-                return;
+                logger.debug("Cannot parse package information from file '{}'", srcFile);
+                return false;
             }
 
             String packageName = packageDecl.get().getNameAsString();
@@ -53,13 +59,15 @@ public class JavaFileParser {
             PackageManager pck = moduleManager.getOrAddPackageByName(packageName);
 
             if (cu.getPrimaryType().isEmpty()) {
-                logger.error("Cannot extract primary type from  file '{}'", srcFile);
-                return;
+                // A package-info.java or a file without a class belongs here: it is not a defect of the
+                // run, and the count of such files is reported for the module by the caller.
+                logger.debug("Cannot extract primary type from file '{}'", srcFile);
+                return false;
             }
 
             if (cu.getPrimaryType().get().getFullyQualifiedName().isEmpty()) {
-                logger.error("Cannot extract primary type name from  file '{}'", srcFile);
-                return;
+                logger.debug("Cannot extract primary type name from file '{}'", srcFile);
+                return false;
             }
 
             BuildUnitManager buildUnit = pck.getOrAddBuildUnitByName(cu.getPrimaryType().get().getFullyQualifiedName().get());
@@ -268,8 +276,14 @@ public class JavaFileParser {
                     }
                 }
             }
+            return true;
         } catch (Exception e) {
-            logger.error("Error during src file parsing", e);
+            // The file is left out of the module report. One record per file would repeat the same
+            // condition thousands of times in a scanned tree, so the caller reports the count per module
+            // and the detail stays at DEBUG.
+            logger.debug("Cannot parse the source file '{}'", srcFile, e);
+
+            return false;
         }
     }
 

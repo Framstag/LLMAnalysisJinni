@@ -33,7 +33,8 @@ and the reason it stores SHALL name the absence.
 - **WHEN** the SBOM location task reported that no SBOM was found
 - **THEN** the load task's stored result SHALL state that no SBOM was loaded
 - **AND** the stored result SHALL NOT claim dependency data
-- **AND** the tag the dependent tasks wait for SHALL be produced only by a run that has an SBOM
+- **AND** the tasks that depend on the SBOM SHALL still run and answer with an explicitly empty result
+  and a reason that names the missing dependency data
 
 #### Scenario: A tool call without an input names the input
 - **WHEN** an SBOM tool is called without a file to load

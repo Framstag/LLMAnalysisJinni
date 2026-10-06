@@ -34,8 +34,9 @@ most once per run above `DEBUG`.
 
 A source or class file that the Java parser cannot parse SHALL NOT produce one `ERROR` record with a
 stack trace per file. The files a module could not parse SHALL be counted and reported at most once per
-module at a level below `ERROR`, the detail per file SHALL be available at `DEBUG`, and the module
-report SHALL keep the information that those files could not be parsed.
+module at a level below `ERROR`, the detail per file SHALL be available at `DEBUG`, and the count SHALL
+be visible so that a reader can see that a module was analysed without some of its files. Which files a
+module report contains SHALL NOT change because of how the failures are reported.
 
 #### Scenario: A tree with many unparsable files
 - **WHEN** a scanned module contains many files that cannot be parsed
@@ -45,8 +46,9 @@ report SHALL keep the information that those files could not be parsed.
 
 #### Scenario: The parser results are unchanged
 - **WHEN** a file inside a module cannot be parsed
-- **THEN** the module's report SHALL record that file as unparsable as it does today
+- **THEN** the file SHALL stay out of the module's report, as it does today
 - **AND** the metrics of the module SHALL be computed from the files that could be parsed
+- **AND** the contents of a module report whose files could all be parsed SHALL NOT change
 
 #### Scenario: The count remains visible to a reader
 - **WHEN** a module's report is produced with unparsable files

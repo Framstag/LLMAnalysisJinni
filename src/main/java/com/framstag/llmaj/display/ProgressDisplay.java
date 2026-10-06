@@ -158,7 +158,14 @@ public class ProgressDisplay implements ProgressCallback, LogLineSink, AutoClose
 
     @Override
     public synchronized void onLogLine(LogLine line) {
+        boolean sameText = showsSameText(latestLogLine, line);
         this.latestLogLine = line;
+
+        if (sameText) {
+            // The reserved line already shows this text, so a repaint would paint what is on screen
+            // anyway. A condition that repeats itself must not keep the display busy.
+            return;
+        }
 
         // Painted here and not only by the render timer: a record that arrives inside the last tick
         // before the display closes would otherwise never be shown, and a task row that fails at the
@@ -170,6 +177,21 @@ public class ProgressDisplay implements ProgressCallback, LogLineSink, AutoClose
             lastLogLinePaintMillis = now;
             render();
         }
+    }
+
+    /**
+     * True when the reserved line shows the same text for both records. The rendered line is the
+     * level, the task and the message, so a record of another task is not the same text even when its
+     * message repeats.
+     */
+    static boolean showsSameText(LogLine shown, LogLine incoming) {
+        if (shown == null || incoming == null) {
+            return false;
+        }
+
+        return Objects.equals(shown.level(), incoming.level())
+                && Objects.equals(shown.taskId(), incoming.taskId())
+                && Objects.equals(shown.message(), incoming.message());
     }
 
     @Override

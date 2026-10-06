@@ -58,7 +58,8 @@ public record TaskStepFailure(StepFailureReason reason,
 
     /**
      * The text a further attempt is given, appended to its user message after the schema
-     * description. Names the reason and, when they exist, the violations and the payload excerpt.
+     * description. Names the reason and, when they exist, the violations and the payload excerpt. When
+     * the hint carries less than every violation, it also names how many there were in total.
      */
     public String repairHint() {
         StringBuilder hint = new StringBuilder();
@@ -68,7 +69,15 @@ public record TaskStepFailure(StepFailureReason reason,
                 .append(" (").append(message).append(").\n");
 
         if (!violationMessages.isEmpty()) {
-            hint.append("The violations were:\n");
+            hint.append("The violations were");
+
+            // The total is what tells the model whether one field or the whole shape has to change.
+            if (violationMessages.size() > MAX_HINT_VIOLATIONS) {
+                hint.append(" (").append(violationMessages.size()).append(" in total, ")
+                        .append(MAX_HINT_VIOLATIONS).append(" shown)");
+            }
+
+            hint.append(":\n");
 
             for (int i = 0; i < Math.min(violationMessages.size(), MAX_HINT_VIOLATIONS); i++) {
                 hint.append("- ").append(violationMessages.get(i)).append('\n');

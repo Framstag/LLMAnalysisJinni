@@ -6,7 +6,11 @@
     "properties": {
         "result": {
             "type": "string",
-            "description": "Holds the word 'SUCCESS' in case of success, else 'ERROR'"
+            "description": "Holds the word 'SUCCESS' in case of success, else 'ERROR'. 'ERROR' also covers a task whose input does not exist in the project, for example an SBOM that was not found"
+        },
+        "reason": {
+            "type": "string",
+            "description": "Reason for the result, in particular why an input could not be used"
         }
     },
     "required": [

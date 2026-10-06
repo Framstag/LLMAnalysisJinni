@@ -550,9 +550,11 @@ public class ChatExecutor {
             String schemaString = executionContext.getMapper().writeValueAsString(responseSchema);
             Schema schema = schemaRegistry.getSchema(schemaString, InputFormat.JSON);
 
-            return schema.validate(payloadString, InputFormat.JSON).stream()
-                    .map(com.networknt.schema.Error::getMessage)
-                    .toList();
+            List<com.networknt.schema.Error> errors = schema.validate(payloadString, InputFormat.JSON);
+
+            // Report on the parts of an error the engine can name itself: the validator's message is
+            // written in the language of this machine and does not say where or what was wrong.
+            return SchemaViolationReport.of(errors);
         } catch (Exception e) {
             // The validator could not run, which says nothing about the payload, so the payload is
             // accepted with a diagnostic instead of failing a step the engine cannot judge.
