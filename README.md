@@ -138,6 +138,38 @@ The output format can be changed with the `--document-postfix` option:
 document --document-postfix .md workspaces/spring-petclinic
 ```
 
+#### Previewing the generated documentation
+
+The document contains the dependency diagrams as diagram source: a `[plantuml]` listing block holding a `@startuml` ... `@enduml` script. The engine emits that source and never a picture, and it writes no image file, so the block is drawn by whatever preview toolchain you read the document with. A preview that shows the script as text is therefore expected behaviour, not a defect of the document.
+
+| Preview toolchain | Diagram blocks |
+|-------------------|----------------|
+| VS Code `AsciiDoc` extension (`asciidoctor.asciidoctor-vscode`) | Drawn once diagram rendering is enabled; it is off by default |
+| IntelliJ AsciiDoc plugin with a diagram renderer, for example the PlantUML integration plugin | Drawn |
+| Plain Asciidoctor without `asciidoctor-diagram` | Printed as literal code, no error |
+| Asciidoctor.js without a diagram extension | Printed as literal code, no error |
+| Pandoc | Printed as literal code, no error |
+
+The VS Code extension renders diagrams through Kroki. Enable it in the settings:
+
+```json
+{
+  "asciidoc.extensions.enableKroki": true
+}
+```
+
+Older builds of the extension use `asciidoc.use_kroki` instead of `asciidoc.extensions.enableKroki`. The extension reads the setting when it starts, so the preview only picks up the change after the editor window is reloaded.
+
+Rendering sends the diagram source to the configured server. The default is the public `kroki.io` service, which receives the class and package names of the analysed project. To keep that on your own machine, run a local Kroki instance - the gateway container serves PlantUML on its own:
+
+```
+docker run -d -p 8000:8000 yuzutech/kroki
+```
+
+Then point the reader at it, either with `asciidoc.extensions.kroki.serverUrl` in the VS Code settings, with the `kroki-server-url` attribute in the document header, or with an `.asciidoctorconfig` file.
+
+Each diagram costs its own rendering request, so a preview of a large report makes one request per diagram - `workspaces/maven/Documentation.adoc` contains 172 diagrams, for example. The public instance is community-run and shared and carries no availability guarantee, so preview a report of that size against a local server.
+
 ### Java Analysis Dependencies
 
 For Java source analysis, LLMAnalysisJinni needs access to all compiled dependency JARs to resolve types and class references. Set the property `"javaTool.jarDependenciesDirectory"` in `config.json` to the path containing all required `*.jar` files.

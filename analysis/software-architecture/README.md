@@ -51,14 +51,12 @@ Tasks execute in dependency order, roughly: **project-wide information** → **m
 | 30 | Evaluate documentation ratio | `ModuleDocumentationRatioEvaluation` | Java, per-module | ⚡ Beta |
 | 31 | Detect data class candidates | `ModuleDataClassEvaluation` | Java, per-module | ⚡ Beta |
 | 32 | Detect boolean parameter abuse | `ModuleBooleanParameterEvaluation` | Java, per-module | ⚡ Beta |
-
 | 33 | Evaluate annotation usage | `ModuleAnnotationEvaluation` | Java, per-module | ⚡ beta |
-
 | 34 | Detect package-level tangles | `ModulePackageTangleEvaluation` | Java, per-module | ⚡ beta |
-
 | 35 | Evaluate import diversity | `ModuleImportDiversityEvaluation` | Java, per-module | ⚡ beta |
-
 | 36 | Evaluate inter-module dependencies | `InterModuleDependencyEvaluation` | General, cross-module | ⚡ beta |
+| 37 | Evaluate the class reference structure and propose module splits; the diagrams it stores are drawn by the reader's preview toolchain, see [Previewing the generated documentation](../../README.md#previewing-the-generated-documentation) | `ClassDependencyGraphEvaluationAll` | Java, all modules | ⚡ Experimental |
+| 38 | Evaluate god class candidates | `GodClassEvaluationAll` | Java, all modules | ⚡ Experimental |
 
 ### Quality Key
 
@@ -67,6 +65,80 @@ Tasks execute in dependency order, roughly: **project-wide information** → **m
 | ✅ Stable | Well-tested, used in production analysis runs |
 | ⚡ Beta | Recently added, basic coverage, may have edge cases |
 | ⏳ Experimental | New, limited testing |
+
+## Dependency Diagrams
+
+`ClassDependencyGraphEvaluationAll` builds the class reference graph of the Java modules and stores PlantUML source for it. The engine does not draw the diagrams and writes no image file; the preview toolchain of the reader draws them, see [Previewing the generated documentation](../../README.md#previewing-the-generated-documentation).
+
+The source is derived from the parsed reports, so it is identical on every run and carries no model-generated content. The evaluation text next to a picture does not touch the picture: the model interprets the structure, it never authors or alters the diagram.
+
+### Two levels per module
+
+| Level | Nodes | Emitted |
+|-------|-------|---------|
+| Package overview | one per package | whenever the module has production classes and stays within `diagram.maxOverviewNodes` |
+| Class detail | the classes of one group | once per group that holds at least two classes and stays within `diagram.maxNodes` |
+
+The package overview draws one node per package and one edge between two packages whose weight is the aggregated weight of the class references between them.
+
+The class detail diagrams show the groups of the cheapest separation of the class reference graph, which is the split at the lowest total coupling. A module whose production classes are already separate has no such separation, and its packages are drawn as the groups instead. A group of a single class is skipped, because a diagram of one class shows no structure and would only use up the diagram budget.
+
+A class detail diagram draws its own group as classes and every other group as one collapsed rectangle, weighted with the total coupling to that group. At most the eight heaviest of those collapsed groups are drawn, so a group coupled to many others does not push its own classes out of the picture. Every inheritance or implemented interface relation is drawn whenever both of its endpoints are in the diagram, whatever the weight cutoff says.
+
+Group labels are derived from group composition, not from the model: the dominant package of the group plus the count of members that do not belong to it.
+
+### Omissions are stated in the caption
+
+Nothing is dropped silently:
+
+- The caption of a diagram names how many classes it shows out of the total, how many edges were omitted below `diagram.minEdgeWeight`, how many structural relations it draws regardless of the cutoff, and how many other groups it shows collapsed.
+- A group above the node budget, and a group that arrives after the detail diagram budget is used up, is listed under "Not drawn" with the budget it exceeded.
+- A module above the package budget gets no overview, and a module whose class name cannot be written into the PlantUML source gets no diagram at all. Both cases are reported with their reason instead of leaving a hole in the document.
+
+### Configuration
+
+The budgets are seeded into the `config.json` of every workspace, so a run can be reproduced from the configuration it was produced with:
+
+| Property | Default | Bounds |
+|----------|---------|--------|
+| `diagram.maxNodes` | 80 | classes in one class detail diagram |
+| `diagram.maxOverviewNodes` | 250 | packages in the package overview |
+| `diagram.minEdgeWeight` | 2 | reference weight below which a reference is not drawn |
+| `diagram.maxEdgesPerNode` | 8 | edges drawn per class; the edges dropped this way count as omitted |
+| `diagram.maxGroupDiagrams` | 12 | class detail diagrams emitted per module |
+| `diagram.minCutNodeLimit` | 400 | class count above which the exact minimum-cut figure of a separation is skipped; the ladder the diagrams' groups come from is derived without it |
+
+The behaviour behind these numbers is specified in `dependency-diagram`.
+
+## God Class Ranking
+
+`GodClassEvaluationAll` ranks the production classes of every Java module by how far each stands out from its peers, and interprets the ranking per module.
+
+### What the ranking does and does not say
+
+Every factor is a percentile within the module. No absolute threshold decides the outcome and no class is classified as a god class - a rank of 1 of 214 says that the class stands out among its peers in that module, not that it is bad. Because the percentiles are relative, the same class ranked in a smaller or simpler module gets different values. The result names the factor that drove a class's score, so the weighting can be disputed instead of trusted.
+
+### Factors
+
+| Factor | Meaning |
+|--------|---------|
+| `WMC` | sum of the cyclomatic complexity of the class's methods |
+| `cohesion (TCC-like)` | share of method pairs that both work on the state of the class - an approximation, not the exact metric |
+| `foreign data accesses` | accesses to fields declared outside the class |
+| `maximum nesting depth` | greatest nesting depth among the class's methods |
+| `maximum method lines` | longest method of the class |
+| `module coupling` | afferent and efferent coupling of the class within the module |
+
+The score is the mean of the factor percentiles that count as badness. Cohesion is the one factor where a low value is the problem, so it is read inverted. Size and cohesion together are what make this a god class ranking rather than a large class ranking: a large class whose methods work on its own state scores high on cohesion and is correctly not flagged, while a class whose methods each touch their own corner of the state loses that protection.
+
+### Configuration
+
+| Property | Default | Bounds |
+|----------|---------|--------|
+| `godClass.rankingLimit` | 15 | ranked classes reported for one module |
+| `godClass.batchRankingLimit` | 5 | ranked classes reported per module when all modules are ranked in one call, which is what the batch task does |
+
+The factors and the percentile rule are specified in `god-class-detection`.
 
 ## Projects Without an SBOM
 
@@ -107,5 +179,5 @@ analysis/software-architecture/
 │   └── ...
 ├── facts/              # Static knowledge (e.g., build system wildcards)
 └── documentation/      # Documentation generation template
-    └── Documentation.md.hbs
+    └── Documentation.adoc.hbs
 ```
