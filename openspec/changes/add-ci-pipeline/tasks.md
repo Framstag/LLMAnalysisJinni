@@ -14,7 +14,7 @@
 ## 3. Documentation
 
 - [x] 3.1 Document in `AGENTS.md` (Build section) that pushes to `main` and pull requests run `mvn verify` in the `CI` workflow, that this is the same gate as the documented local build, and that the check only blocks merges once branch protection requires it; verify the text names both the workflow path and the exact command
-- [ ] 3.2 Add the workflow status badge to `README.md`; verify the badge image URL resolves and reports the state of the `CI` workflow
+- [x] 3.2 Add the workflow status badge to `README.md`; verify the badge image URL resolves and reports the state of the `CI` workflow
 
 ## 4. Integration verification
 
