@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      # The same gate a local release uses. Only `verify` reaches the failsafe
+      # JarSmokeIT against the packaged uber-jar and the SBOM checks over
+      # target/bom.json; a compile-only or unit-test-only step would not.
+      - name: Verify the build
+        run: mvn -B verify

@@ -1,5 +1,7 @@
 # README
 
+[![CI](https://github.com/Framstag/LLMAnalysisJinni/actions/workflows/ci.yml/badge.svg)](https://github.com/Framstag/LLMAnalysisJinni/actions/workflows/ci.yml)
+
 ## About
 
 This is a small experiment to find out how we can use LLMs for
