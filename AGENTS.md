@@ -14,6 +14,7 @@ Current domain: `analysis/software-architecture/`.
 ├── LICENSE
 ├── Models.md
 ├── README.md
+├── .github/workflows/            # CI (see Build)
 ├── LLMAnalysisJinni.iml          # local IDE file
 ├── mise.toml
 ├── mise.local.toml               # local Mise overrides
@@ -75,6 +76,8 @@ mvn verify
 ```
 
 The aggregate SBOM of the project is generated in the `process-classes` phase, before the tests run, so `mvn package` and `mvn verify` work in a single run on a clean checkout. The SBOM tests parse `target/bom.json` and fail if the generation is moved back behind the test phase.
+
+The same gate runs in CI. The `CI` workflow (`.github/workflows/ci.yml`) runs `mvn -B verify` on every push to `main`, on every pull request, and on demand. It runs the documented gate rather than a reduced substitute, so a run that only compiles or only runs the tests on the full classpath is not accepted as verification. The check is advisory until branch protection on `main` requires it; enabling that is a repository setting, not part of the workflow file.
 
 `mvn verify` also runs the artefact smoke test (`smoke/JarSmokeIT`) against the packaged
 `target/LLMAnalysisJinni-jar-with-dependencies.jar`. It checks that the jar reports
