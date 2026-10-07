@@ -4,7 +4,8 @@ description: Reviews changed files regarding compliance with the given test conc
 output: test-review.md
 systemPromptMode: replace
 inheritProjectContext: true
-tools: ["ctx_read", "write", "ctx_shell"]
+tools: ["ctx_read", "ctx_ls", "ctx_grep", "ctx_shell"]
+subagentOnlyExtensions: ["/home/tim/.pi/agent/npm/node_modules/pi-lean-ctx/extensions/index.ts"]
 inheritSkills: false
 ---
 You are a quality assurance expert.

@@ -181,19 +181,21 @@ Console execution trace SHALL be the verbose SLF4J output of chat activity. Its 
 
 ### Requirement: Log files always written regardless of display mode
 
-The system SHALL always write full conversation logs to `logs/*.log` regardless of whether TUI or `--execution-trace` mode is active.
+The system SHALL always write full conversation logs to `logs/*.log` regardless of whether TUI or `--execution-trace` mode is active. Every attempt of a task step SHALL leave its own log file, so retries are visible in the log directory in every display mode.
 
 #### Scenario: Log files written in TUI mode
 - **WHEN** analysis runs in TUI mode
-- **THEN** full conversation logs SHALL be written to `logs/<taskId>[_<loopIndex>].log`
+- **THEN** full conversation logs SHALL be written to `logs/<taskId>[_<loopIndex>][.attempt<N>].log`
+- **AND** a retried step SHALL leave one file per attempt
 
 #### Scenario: Log files written in execution-trace mode
 - **WHEN** analysis runs with `--execution-trace`
-- **THEN** full conversation logs SHALL still be written to `logs/<taskId>[_<loopIndex>].log`
+- **THEN** full conversation logs SHALL still be written to `logs/<taskId>[_<loopIndex>][.attempt<N>].log`
+- **AND** a retried step SHALL leave one file per attempt
 
 ### Requirement: Engine log output is diverted while the TUI owns the terminal
 
-From the frame the TUI first paints until it closes, engine log records SHALL be written to a log file inside the workspace instead of the terminal. The file SHALL be overwritten at the start of each run, SHALL record the level, the logger, the task identifier when one is set, and the message, and SHALL NOT require any configuration or CLI option to be produced. Components that write diagnostics must go through the engine's logging path, so that no component can write to `stdout` or `stderr` while the TUI owns the terminal. Diagnostics a run emits before that first frame SHALL stay on the console: the display mode is not known before them, and a run with nothing to execute SHALL NOT start the TUI at all.
+From the frame the TUI first paints until it closes, engine log records SHALL be written to a log file inside the workspace instead of the terminal. The file SHALL be overwritten at the start of each run, SHALL record the level, the logger, the task identifier when one is set, and the message, and SHALL NOT require any configuration or CLI option to be produced. The engine log files of a workspace SHALL be bounded in total size: a run SHALL keep the newest records within the bound and SHALL NOT grow the engine logs beyond it, whatever the code logs. Components that write diagnostics must go through the engine's logging path, so that no component can write to `stdout` or `stderr` while the TUI owns the terminal. Diagnostics a run emits before that first frame SHALL stay on the console: the display mode is not known before them, and a run with nothing to execute SHALL NOT start the TUI at all.
 
 #### Scenario: Log records are written to the workspace log file
 - **WHEN** analysis runs in TUI mode
@@ -226,9 +228,19 @@ From the frame the TUI first paints until it closes, engine log records SHALL be
 - **THEN** the run SHALL NOT divert its log output to the engine log file
 - **AND** the console SHALL keep the diagnostics it produced before this change
 
+#### Scenario: Engine logs stay within the bound
+- **WHEN** a run emits many more records than the bound holds
+- **THEN** the engine log files of the workspace SHALL together stay within the bound
+- **AND** the newest records of the run SHALL be present
+
+#### Scenario: A repeated record cannot grow the engine log without limit
+- **WHEN** a run emits the same record millions of times
+- **THEN** the engine log files of the workspace SHALL stay within the bound
+- **AND** the run SHALL NOT fail because of the log volume
+
 ### Requirement: TUI shows the most recent warning or error
 
-The TUI SHALL display the most recent `WARN` or `ERROR` record emitted during the run as a single truncated line within its frame, so that a condition not attached to one task row is visible before the run ends. The line SHALL be updated as newer records arrive and SHALL NOT change the region the TUI reserves for its other content.
+The TUI SHALL display the most recent `WARN` or `ERROR` record emitted during the run as a single truncated line within its frame, so that a condition not attached to one task row is visible before the run ends. The line SHALL be updated as newer records arrive and SHALL NOT change the region the TUI reserves for its other content. A record whose text equals the text the line currently shows SHALL NOT trigger a repaint of the frame.
 
 #### Scenario: Warning appears in the frame
 - **WHEN** the TUI is the display mode
@@ -249,6 +261,15 @@ The TUI SHALL display the most recent `WARN` or `ERROR` record emitted during th
 - **WHEN** the TUI repaints a frame after a warning was shown
 - **THEN** the repaint SHALL overwrite exactly the region of the frame it previously rendered
 - **AND** it SHALL NOT overwrite content written before the TUI started
+
+#### Scenario: A repeated record does not repaint the frame
+- **WHEN** a record is emitted whose text equals the text the reserved line currently shows
+- **THEN** no frame SHALL be painted for that record
+- **AND** the reserved line SHALL still show that record
+
+#### Scenario: A newer record still repaints the frame
+- **WHEN** a record is emitted whose text differs from the text the reserved line currently shows
+- **THEN** the frame SHALL show the newer record
 
 ### Requirement: Terminal control sequences are only emitted for capable terminals
 

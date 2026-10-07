@@ -30,7 +30,7 @@ System messages SHALL be excluded from console output by default. A CLI flag `--
 
 ### Requirement: File log captures complete multi-round conversation
 
-After all tool-call rounds of a single `executeMessages()` call complete, a log file SHALL be written containing the full conversation with metadata.
+After all tool-call rounds of a single `executeMessages()` call complete, a log file SHALL be written containing the full conversation with metadata. Each attempt of a task step SHALL write its own log file, so that the transcript of an attempt that was rejected is not overwritten by a later attempt of the same step.
 
 #### Scenario: All messages written to file
 - **WHEN** `executeMessages()` finishes (all tool rounds done, JSON result returned)
@@ -45,8 +45,10 @@ After all tool-call rounds of a single `executeMessages()` call complete, a log 
 
 #### Scenario: File path is deterministic
 - **WHEN** an execution completes
-- **THEN** the log file SHALL be written to `<workspace>/logs/<taskId>_<index>.log` (or similar deterministic path)
-- **AND** existing log files SHALL be overwritten (no versioning, no append)
+- **THEN** the first attempt of a task step SHALL be written to `<workspace>/logs/<taskId>[_<loopIndex>].log`
+- **AND** a further attempt of the same step SHALL be written to `<workspace>/logs/<taskId>[_<loopIndex>].attempt<N>.log`, where `<N>` is its attempt number
+- **AND** the log file of an attempt that was rejected SHALL NOT be overwritten by a later attempt of the same step
+- **AND** a later run that repeats an attempt of the same step SHALL overwrite that attempt's log file
 
 ### Requirement: Console output is separate from file log
 
@@ -68,11 +70,11 @@ When the model returns an `AiMessage` with a non-null `thinking()` field, the co
 
 ### Requirement: File logging is always-on
 
-Log files SHALL be written for every task execution. No CLI flag controls this.
+Log files SHALL be written for every attempt of a task step. No CLI flag controls this.
 
 #### Scenario: File written for every execution
-- **WHEN** any task executes
-- **THEN** a log file SHALL be written to `<workspace>/logs/<taskId>[_<loopIndex>].log`
+- **WHEN** any task step is attempted
+- **THEN** a log file SHALL be written for that attempt to `<workspace>/logs/<taskId>[_<loopIndex>][.attempt<N>].log`
 - **AND** no CLI option is required to enable this
 
 ### Requirement: Console execution trace follows the configuration precedence order
