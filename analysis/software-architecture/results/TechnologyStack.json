@@ -67,7 +67,6 @@
     "required": [
         "reasoning",
         "summary",
-        "architecture",
         "technologies",
         "derivations"
     ]

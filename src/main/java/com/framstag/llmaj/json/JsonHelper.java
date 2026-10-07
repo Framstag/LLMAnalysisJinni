@@ -4,7 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,64 +22,132 @@ public class JsonHelper
     private static final ResponsePayloadParser PAYLOAD_PARSER =
             new ResponsePayloadParser(ObjectMapperFactory.getJSONObjectMapperInstance());
 
+    /**
+     * Nesting depth the description descends into. A schema that nests deeper is summarised instead of
+     * expanded, so a pathological schema cannot turn the prompt into the schema itself.
+     */
+    private static final int MAX_DESCRIPTION_DEPTH = 6;
+
+    private static final String DEEPER_STRUCTURE = "nested structure, see the JSON schema";
+
     private static String getObjectDescription(JsonNode schema) {
+        return getObjectDescription(schema, 0);
+    }
+
+    /**
+     * Describe one object level of a schema: every property with its type, its permitted values when it
+     * is enumerated, and whether the schema requires it. Object properties and the items of an array are
+     * described as well, at any nesting level, whether or not their schema carries a title.
+     */
+    private static String getObjectDescription(JsonNode schema, int depth) {
         StringBuilder sb = new StringBuilder();
 
         sb.append("{\n");
 
-        JsonNode properties = schema.get("properties");
-        final AtomicInteger propertyCount = new AtomicInteger();
-        properties.fieldNames().forEachRemaining(fieldName -> propertyCount.getAndIncrement());
+        JsonNode properties = schema.path("properties");
+        List<String> fieldNames = new ArrayList<>();
+        properties.fieldNames().forEachRemaining(fieldNames::add);
 
-        final AtomicInteger propertyPos = new AtomicInteger();
-        properties.fieldNames().forEachRemaining(fieldName -> {
+        Set<String> required = requiredNames(schema);
+
+        for (int position = 0; position < fieldNames.size(); position++) {
+            String fieldName = fieldNames.get(position);
             JsonNode property = properties.get(fieldName);
 
-            if ((property.has("type"))) {
-                sb.append("\"").append(fieldName).append("\": (");
-
-                if (property.has("description")) {
-                    sb.append(property.get("description").asText()).append("; ");
-                }
-                if (property.has("type")) {
-                    if (property.get("type").asText().equals("object") &&
-                            property.has("properties")) {
-                        sb.append("type: object ").append(getObjectDescription(property));
-                    }  else if (property.get("type").asText().equals("array") &&
-                            property.has("items") &&
-                            property.get("items").has("type") &&
-                            property.get("items").get("type").asText().equals("object") &&
-                            property.get("items").has("title")) {
-                        sb.append("type: array of ")
-                                .append(property.get("items").get("title").asText())
-                                .append(": ")
-                                .append(getObjectDescription(property.get("items")));
-                    } else {
-                        sb.append("type: ").append(property.get("type").asText());
-                        if (property.has("enum")) {
-                            sb.append(", allowed: [");
-                            JsonNode enumValues = property.get("enum");
-                            for (int i = 0; i < enumValues.size(); i++) {
-                                if (i > 0) sb.append(", ");
-                                sb.append("\"").append(enumValues.get(i).asText()).append("\"");
-                            }
-                            sb.append("]");
-                    }
-                        }
-                        }
-                sb.append(")");
-
-                if (propertyPos.get() < propertyCount.get() - 1) {
-                    sb.append(",\n");
-                }
+            if (!property.has("type")) {
+                continue;
             }
 
-            propertyPos.getAndIncrement();
-        });
+            sb.append('"').append(fieldName).append("\": (");
+
+            if (property.has("description")) {
+                sb.append(property.get("description").asText()).append("; ");
+            }
+
+            sb.append(describeType(property, depth));
+
+            if (required.contains(fieldName)) {
+                sb.append("; required");
+            }
+
+            sb.append(')');
+
+            if (position < fieldNames.size() - 1) {
+                sb.append(",\n");
+            }
+        }
 
         sb.append("\n}");
 
         return sb.toString();
+    }
+
+    /**
+     * Type description of one property, descending into objects and into the items of an array.
+     */
+    private static String describeType(JsonNode property, int depth) {
+        String type = property.path("type").asText();
+
+        if (type.equals("object") && property.has("properties")) {
+            return "type: object " + descend(property, depth);
+        }
+
+        if (type.equals("array")) {
+            JsonNode items = property.path("items");
+            String itemType = items.path("type").asText();
+
+            if (itemType.equals("object") && items.has("properties")) {
+                // The title only names the item type; it does not decide whether the items are described.
+                String itemName = items.has("title") ? items.get("title").asText() : "objects";
+
+                return "type: array of " + itemName + ": " + descend(items, depth);
+            }
+
+            if (!itemType.isEmpty()) {
+                return "type: array of " + itemType;
+            }
+
+            return "type: array";
+        }
+
+        StringBuilder sb = new StringBuilder("type: ").append(type);
+
+        if (property.has("enum")) {
+            sb.append(", allowed: [");
+
+            JsonNode enumValues = property.get("enum");
+
+            for (int index = 0; index < enumValues.size(); index++) {
+                if (index > 0) {
+                    sb.append(", ");
+                }
+
+                sb.append('"').append(enumValues.get(index).asText()).append('"');
+            }
+
+            sb.append(']');
+        }
+
+        return sb.toString();
+    }
+
+    private static String descend(JsonNode schema, int depth) {
+        if (depth + 1 >= MAX_DESCRIPTION_DEPTH) {
+            return "{ " + DEEPER_STRUCTURE + " }";
+        }
+
+        return getObjectDescription(schema, depth + 1);
+    }
+
+    private static Set<String> requiredNames(JsonNode schema) {
+        JsonNode required = schema.path("required");
+        Set<String> names = new LinkedHashSet<>();
+
+        if (required.isArray()) {
+            required.forEach(name -> names.add(name.asText()));
+        }
+
+        return names;
     }
 
     /**

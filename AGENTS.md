@@ -222,7 +222,10 @@ Runtime:
 - a rejected response (no response text, no JSON payload, unparseable payload, schema violation) is attempted again, up to the `retries` attempt budget of the workspace config (default 3, `1` disables)
 - every attempt is a fresh conversation; from the second attempt on the user message carries a repair hint naming the reason and the schema violations
 - only a conformant response is stored; a step whose attempts are all rejected is marked failed and writes no response property
-- retriable model errors (timeout, rate limit, server error) are attempted again; non-retriable ones (authentication, unknown model, invalid request), tool errors and IO failures fail the step immediately
+- retriable model errors (timeout, rate limit, server error) are attempted again; non-retriable ones (authentication, unknown model, invalid request) and IO failures fail the step immediately
+- a tool error does not fail the step: arguments the framework cannot prepare, and a tool that raises, are returned to the model as the tool result, so it can correct the call and continue
+- a tool name that does not exist is answered with the tool result naming the requested name and the tools that are available, instead of ending the attempt
+- the tool-call rounds a model may use within one attempt are bounded by `maxToolRoundTrips` (workspace config, default 10, minimum 1); the round beyond the bound is not executed, the attempt is rejected with a reason naming the bound, and the step's attempt budget decides what follows
 
 Do not assume invalid JSON aborts a run. It is reported as a rejected attempt and retried.
 

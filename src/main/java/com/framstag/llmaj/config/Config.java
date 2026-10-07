@@ -29,6 +29,7 @@ public class Config {
     private int loopParallelism;
     private int taskParallelism;
     private int retries;
+    private int maxToolRoundTrips;
     private boolean nativeJSON;
     private boolean logRequests;
     private boolean logResponses;
@@ -46,6 +47,7 @@ public class Config {
         loopParallelism = 1;
         taskParallelism = 2;
         retries = 3;
+        maxToolRoundTrips = 10;
         nativeJSON = false;
         logRequests = false;
         logResponses = false;
@@ -74,6 +76,20 @@ public class Config {
 
     public void setRetries(int retries) {
         this.retries = retries;
+    }
+
+    /**
+     * Maximum number of tool-call rounds the model may request within one attempt of a task step.
+     * A round is one model answer that requests tools and the tool results returned for it. The
+     * bound exists so that a model that keeps calling tools cannot grow the conversation without
+     * end; when it is reached, the attempt is rejected.
+     */
+    public int getMaxToolRoundTrips() {
+        return maxToolRoundTrips;
+    }
+
+    public void setMaxToolRoundTrips(int maxToolRoundTrips) {
+        this.maxToolRoundTrips = maxToolRoundTrips;
     }
 
     public int getLoopParallelism() {
@@ -171,6 +187,7 @@ public class Config {
                 ", logResponses=" + logResponses +
                 ", taskParallelism=" + taskParallelism +
                 ", retries=" + retries +
+                ", maxToolRoundTrips=" + maxToolRoundTrips +
                 ", mcpServers=" + mcpServers +
                 ", properties=" + properties +
                 '}';
@@ -287,6 +304,7 @@ public class Config {
         logger.info("Task parallelism:   {} ", taskParallelism);
         logger.info("Loop parallelism:   {} ", loopParallelism);
         logger.info("Retries:            {} attempt(s) per task step", retries);
+        logger.info("Tool round trips:   {} at most per attempt", maxToolRoundTrips);
         logger.info("Native JSON:        {}", nativeJSON);
         logger.info("==");
         logger.info("AnalysisDirectory: '{}'", analysisDirectory);

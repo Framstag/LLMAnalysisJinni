@@ -34,6 +34,11 @@
       "description": "Maximum number of attempts of one task step",
       "minimum": 1
     },
+    "maxToolRoundTrips": {
+      "type": "integer",
+      "description": "Maximum number of tool-call rounds the model may use within one task step attempt",
+      "minimum": 1
+    },
     "nativeJSON": {
       "type": "boolean"
     },

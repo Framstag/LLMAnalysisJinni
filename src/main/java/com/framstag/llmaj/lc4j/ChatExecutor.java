@@ -8,11 +8,10 @@ import com.framstag.llmaj.json.JsonHelper;
 import com.framstag.llmaj.json.ResponsePayloadException;
 import com.framstag.llmaj.json.ResponsePayloadParser;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
+import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.exception.ToolArgumentsException;
-import dev.langchain4j.internal.DefaultExecutorProvider;
 import dev.langchain4j.internal.Utils;
 import dev.langchain4j.invocation.InvocationContext;
 import dev.langchain4j.memory.ChatMemory;
@@ -38,45 +37,71 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.function.Function;
+import java.util.concurrent.Executor;
 
 public class ChatExecutor {
     private static final Logger logger = LoggerFactory.getLogger(ChatExecutor.class);
 
     private static final String ANSWER_ONLY_WITH_THE_FOLLOWING_JSON = "\nYou must answer strictly in the following JSON format: ";
 
+    /**
+     * How many tool names an answer to an unknown tool name may list, so the tool result stays a
+     * short message even when a configuration registers many tools.
+     */
+    private static final int MAX_TOOL_NAMES_IN_ANSWER = 20;
 
-    private static final ToolArgumentsErrorHandler DEFAULT_TOOL_ARGUMENTS_ERROR_HANDLER = (error, _) -> {
-        if (error instanceof RuntimeException re) {
-            throw re;
-        } else {
-            throw new RuntimeException(error);
-        }
-    };
-    private static final ToolExecutionErrorHandler DEFAULT_TOOL_EXECUTION_ERROR_HANDLER = (error, _) -> {
-        String errorMessage = Utils.isNullOrBlank(error.getMessage()) ? error.getClass().getName() : error.getMessage();
-        return ToolErrorHandlerResult.text(errorMessage);
-    };
 
-    private final ExecutorService executor;
-    private final ToolArgumentsErrorHandler argumentsErrorHandler;
-    private final ToolExecutionErrorHandler executionErrorHandler;
-    private final Function<ToolExecutionRequest, ToolExecutionResultMessage> toolHallucinationStrategy;
+    /**
+     * What one attempt needs from the tool service: how tools run, how a tool error is answered,
+     * how many tool rounds the model may use, and which tool names exist. It is read once per
+     * attempt, so the value the workspace configuration asks for is the value the engine enforces.
+     */
+    private record ToolPolicy(Executor executor,
+                              ToolArgumentsErrorHandler argumentsErrorHandler,
+                              ToolExecutionErrorHandler executionErrorHandler,
+                              int maxToolRoundTrips,
+                              List<String> availableToolNames) {
+    }
 
     private final ChatLogger chatLogger;
 
     public ChatExecutor() {
-        executor =  DefaultExecutorProvider.getDefaultExecutorService();
-        toolHallucinationStrategy = HallucinatedToolNameStrategy.THROW_EXCEPTION;
-        argumentsErrorHandler = DEFAULT_TOOL_ARGUMENTS_ERROR_HANDLER;
-        executionErrorHandler = DEFAULT_TOOL_EXECUTION_ERROR_HANDLER;
         chatLogger = new ChatLogger();
     }
 
-    private ToolExecutionResult applyToolHallucinationStrategy(ToolExecutionRequest toolRequest) {
-        ToolExecutionResultMessage toolResultMessage = this.toolHallucinationStrategy.apply(toolRequest);
-        return ToolExecutionResult.builder().resultText(toolResultMessage.text()).build();
+    private static ToolPolicy createToolPolicy(ChatExecutionContext executionContext) {
+        ToolService toolService = executionContext.getToolService();
+
+        List<String> availableToolNames = executionContext.getToolFilter()
+                .filter(toolService.toolSpecifications())
+                .stream()
+                .map(ToolSpecification::name)
+                .sorted()
+                .toList();
+
+        return new ToolPolicy(toolService.effectiveToolExecutor(),
+                toolService.argumentsErrorHandler(),
+                toolService.executionErrorHandler(),
+                toolService.maxToolCallingRoundTrips(),
+                availableToolNames);
+    }
+
+    private ToolExecutionResult answerUnknownToolName(ToolExecutionRequest toolRequest, ToolPolicy policy) {
+        String toolNames = policy.availableToolNames().isEmpty()
+                ? "there are no tools available for this task"
+                : "the tools that exist are: " + String.join(", ",
+                        policy.availableToolNames().subList(0,
+                                Math.min(MAX_TOOL_NAMES_IN_ANSWER, policy.availableToolNames().size())));
+
+        // The model is told what it asked for and what it may ask for instead. The step continues,
+        // so a hallucinated name is a correctable mistake rather than the end of the attempt.
+        String message = "There is no tool named '" + toolRequest.name() + "'; " + toolNames
+                + ". Call one of those tools, or answer with the requested JSON object.";
+
+        logger.warn("The model asked for the unknown tool '{}'; the available tools were returned to it",
+                toolRequest.name());
+
+        return ToolExecutionResult.builder().resultText(message).build();
     }
 
     private String cleanupToolName(String toolName) {
@@ -93,44 +118,22 @@ public class ChatExecutor {
         return toolName;
     }
 
-    private static ToolExecutionResult executeWithErrorHandling(ToolExecutionRequest toolRequest, ToolExecutor toolExecutor, InvocationContext invocationContext, ToolArgumentsErrorHandler argumentsErrorHandler, ToolExecutionErrorHandler executionErrorHandler) {
-        try {
-            return toolExecutor.executeWithContext(toolRequest, invocationContext);
-        } catch (Exception e) {
-            ToolErrorContext errorContext = ToolErrorContext.builder()
-                    .toolExecutionRequest(toolRequest)
-                    .invocationContext(invocationContext)
-                    .build();
-            ToolErrorHandlerResult errorHandlerResult;
-            if (e instanceof ToolArgumentsException) {
-                errorHandlerResult = argumentsErrorHandler.handle(e.getCause(), errorContext);
-            } else {
-                errorHandlerResult = executionErrorHandler.handle(e.getCause(), errorContext);
-            }
-
-            return ToolExecutionResult.builder()
-                    .isError(true)
-                    .resultText(errorHandlerResult.text())
-                    .build();
-        }
-    }
-
-    private Map<ToolExecutionRequest, ToolExecutionResult> executeConcurrently(List<ToolExecutionRequest> toolRequests, Map<String, ToolExecutor> toolExecutors, InvocationContext invocationContext) {
+    private Map<ToolExecutionRequest, ToolExecutionResult> executeConcurrently(List<ToolExecutionRequest> toolRequests, Map<String, ToolExecutor> toolExecutors, InvocationContext invocationContext, ToolPolicy policy) {
         Map<ToolExecutionRequest, CompletableFuture<ToolExecutionResult>> futures = new LinkedHashMap<>();
 
         for(ToolExecutionRequest toolRequest : toolRequests) {
             CompletableFuture<ToolExecutionResult> future = CompletableFuture.supplyAsync(() -> {
                 ToolExecutor toolExecutor = toolExecutors.get(cleanupToolName(toolRequest.name()));
                 if (toolExecutor == null) {
-                    return this.applyToolHallucinationStrategy(toolRequest);
+                    return answerUnknownToolName(toolRequest, policy);
                 }
                 else {
-                    return executeWithErrorHandling(toolRequest,
+                    return ToolService.executeWithErrorHandling(toolRequest,
                             toolExecutor, invocationContext,
-                            this.argumentsErrorHandler,
-                            this.executionErrorHandler);
+                            policy.argumentsErrorHandler(),
+                            policy.executionErrorHandler());
                 }
-            }, this.executor);
+            }, policy.executor());
             futures.put(toolRequest, future);
         }
 
@@ -299,6 +302,8 @@ public class ChatExecutor {
         InvocationContext invocationContext = InvocationContext.builder()
                 .build();
 
+        ToolPolicy toolPolicy = createToolPolicy(executionContext);
+
         if (!messages.isEmpty() && messages.getLast() instanceof UserMessage) {
             UserMessage um = (UserMessage) messages.removeLast();
             messages.addLast(patchUserMessage(um, responseSchema, executionContext.getRepairHint()));
@@ -330,8 +335,29 @@ public class ChatExecutor {
         callback.onTokenUsage(taskId, loopIndex, aggregateTokenUsage);
 
         // While the initial request triggers requests for further tool execution...loop
+        int toolRounds = 0;
+
         while (chatResponse.aiMessage().hasToolExecutionRequests()) {
             chatMemory.add(chatResponse.aiMessage());
+
+            if (toolRounds >= toolPolicy.maxToolRoundTrips()) {
+                // The round that asks beyond the bound is not executed. The attempt ends as a
+                // rejection, so the step's attempt budget decides what happens next, and the chat
+                // log is written first because the transcript of a runaway attempt is what a
+                // further attempt is told about.
+                String message = "the model requested more than " + toolPolicy.maxToolRoundTrips()
+                        + " tool round(s) in one attempt";
+
+                logger.warn("Task '{}'{} reached the tool round bound of {} and was rejected",
+                        taskId, loopIndex, toolPolicy.maxToolRoundTrips());
+
+                writeChatLog(executionContext, chatMemory, aggregateTokenUsage);
+
+                return TaskStepOutcome.rejected(
+                        TaskStepFailure.of(StepFailureReason.TOOL_ROUND_TRIPS_EXCEEDED, message));
+            }
+
+            toolRounds++;
 
             // Log tool calls BEFORE execution so tool's own logs come after
             if (config.isExecutionTrace()) {
@@ -350,7 +376,8 @@ public class ChatExecutor {
 
             Map<ToolExecutionRequest, ToolExecutionResult> toolResults = executeConcurrently(chatResponse.aiMessage().toolExecutionRequests(),
                     executionContext.getToolService().toolExecutors(),
-                    invocationContext);
+                    invocationContext,
+                    toolPolicy);
 
             // Log tool results AFTER execution
             for (Map.Entry<ToolExecutionRequest, ToolExecutionResult> entry : toolResults.entrySet()) {
@@ -359,6 +386,14 @@ public class ChatExecutor {
                 ToolExecutionResultMessage resultMessage = ToolExecutionResultMessage.from(toolRequest, toolResult.resultText());
 
                 chatMemory.add(resultMessage);
+
+                if (toolResult.isError()) {
+                    // The message already went back to the model as the tool result. It is reported
+                    // here so a tool failure is visible in the engine log and not only in the
+                    // conversation the model sees.
+                    logger.warn("Tool '{}' failed; the error was returned to the model so it can correct the call",
+                            toolRequest.name());
+                }
 
                 if (config.isExecutionTrace()) {
                     logger.info("<-- Tool {}: {}", toolRequest.name(), toolResult.resultText());
@@ -426,14 +461,23 @@ public class ChatExecutor {
 
         // Write full conversation to log file. This happens for every attempt, so the transcript of
         // a rejected attempt is not lost when the step is attempted again.
+        writeChatLog(executionContext, chatMemory, aggregateTokenUsage);
+
+        return evaluateResponse(executionContext, chatResponse, responseSchema);
+    }
+
+    /**
+     * Writes the conversation of the attempt so far to its own log file.
+     */
+    private void writeChatLog(ChatExecutionContext executionContext,
+                              ChatMemory chatMemory,
+                              TokenUsage aggregateTokenUsage) throws IOException {
         chatLogger.writeLogFile(executionContext.getWorkspacePath(),
                 executionContext.getTaskId(),
                 executionContext.getLoopIndex(),
                 executionContext.getAttemptNumber(),
                 chatMemory.messages(),
                 aggregateTokenUsage);
-
-        return evaluateResponse(executionContext, chatResponse, responseSchema);
     }
 
     /**
@@ -506,9 +550,11 @@ public class ChatExecutor {
             String schemaString = executionContext.getMapper().writeValueAsString(responseSchema);
             Schema schema = schemaRegistry.getSchema(schemaString, InputFormat.JSON);
 
-            return schema.validate(payloadString, InputFormat.JSON).stream()
-                    .map(com.networknt.schema.Error::getMessage)
-                    .toList();
+            List<com.networknt.schema.Error> errors = schema.validate(payloadString, InputFormat.JSON);
+
+            // Report on the parts of an error the engine can name itself: the validator's message is
+            // written in the language of this machine and does not say where or what was wrong.
+            return SchemaViolationReport.of(errors);
         } catch (Exception e) {
             // The validator could not run, which says nothing about the payload, so the payload is
             // accepted with a diagnostic instead of failing a step the engine cannot judge.

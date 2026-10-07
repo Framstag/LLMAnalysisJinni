@@ -17,7 +17,9 @@ public enum StepFailureReason {
     /** The response parses, but it does not conform to the declared response schema. */
     SCHEMA_VIOLATION("schema violation"),
     /** The model call failed with an error another attempt may get past. */
-    RETRIABLE_MODEL_ERROR("retriable model error");
+    RETRIABLE_MODEL_ERROR("retriable model error"),
+    /** The attempt reached the bound on tool-call rounds without an acceptable answer. */
+    TOOL_ROUND_TRIPS_EXCEEDED("tool round bound exceeded");
 
     private final String label;
 

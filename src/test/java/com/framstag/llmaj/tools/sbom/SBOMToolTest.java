@@ -19,11 +19,11 @@ public class SBOMToolTest {
         "pkg:maven/com.github.jknack/handlebars@4.5.5?type=jar",
         "pkg:maven/com.networknt/json-schema-validator@3.0.7?type=jar",
         "pkg:maven/de.siegmar/fastcsv@4.4.0?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-local-ai@1.20.0-beta30?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-mcp@1.20.0-beta30?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-ollama@1.20.0?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-open-ai@1.20.0?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j@1.20.0?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j-local-ai@1.21.0-beta31?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j-mcp@1.21.0-beta31?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j-ollama@1.21.0?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j-open-ai@1.21.0?type=jar",
+        "pkg:maven/dev.langchain4j/langchain4j@1.21.0?type=jar",
         "pkg:maven/info.picocli/picocli@4.7.7?type=jar",
         "pkg:maven/org.cyclonedx/cyclonedx-core-java@13.2.0?type=jar",
         "pkg:maven/org.jline/jline-terminal-ffm@4.4.3?type=jar",
@@ -66,7 +66,24 @@ public class SBOMToolTest {
     void returnErrorOnLoadingNonExistantSBOM() {
         String result = sbomTool.loadSBOM("nonexisting.json");
 
-        Assertions.assertEquals("Error", result);
+        Assertions.assertTrue(result.contains("nonexisting.json"),
+                "the tool result must name the file it could not load, got: " + result);
+        Assertions.assertTrue(result.contains("does not exist"),
+                "the tool result must name the condition, got: " + result);
+    }
+
+    /**
+     * A project without an SBOM reaches the tool with the empty path the location task stored. The
+     * model has to be told what that means instead of having to guess from a bare error.
+     */
+    @Test
+    void emptyFilenameNamesTheMissingInput() {
+        String result = sbomTool.loadSBOM("");
+
+        Assertions.assertTrue(result.contains("No SBOM file to load"),
+                "the tool result must name the missing input, got: " + result);
+        Assertions.assertTrue(result.contains("no SBOM was located"),
+                "the tool result must say what the empty path means, got: " + result);
     }
 
     @Test

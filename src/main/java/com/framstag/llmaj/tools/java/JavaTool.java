@@ -406,13 +406,18 @@ public class JavaTool {
 
         ModuleManager moduleManager = new ModuleManager(moduleName);
 
+        int unparsableSrcFiles = 0;
+        int unparsableClassFiles = 0;
+
         List<Path> classFiles = FileHelper.getAllMatchingFilesInDirectoryRecursively(List.of("*.class"),
                 startPath);
 
         logger.info("{} *.class file(s) found", classFiles.size());
 
         for (Path classFile : classFiles) {
-            ClassFileParser.parseClassFile(classFile, specialSubdirectories, moduleManager);
+            if (!ClassFileParser.parseClassFile(classFile, specialSubdirectories, moduleManager)) {
+                unparsableClassFiles++;
+            }
         }
 
         List<Path> srcFiles = FileHelper.getAllMatchingFilesInDirectoryRecursively(List.of("*.java"), startPath);
@@ -428,10 +433,21 @@ public class JavaTool {
 
 
         for (Path srcFile : srcFiles) {
-            JavaFileParser.parseJavaFile(srcFile,
+            if (!JavaFileParser.parseJavaFile(srcFile,
                     specialSubdirectories,
                     moduleManager,
-                    typeSolver);
+                    typeSolver)) {
+                unparsableSrcFiles++;
+            }
+        }
+
+        // One record per module: a scanned tree can hold thousands of files that carry no type or cannot
+        // be parsed, and one record per file would bury every other diagnostic of the run.
+        if (unparsableSrcFiles > 0 || unparsableClassFiles > 0) {
+            logger.info("Module '{}': {} of {} source file(s) and {} of {} class file(s) were not"
+                            + " analysed (the detail per file is at DEBUG)",
+                    moduleName, unparsableSrcFiles, srcFiles.size(),
+                    unparsableClassFiles, classFiles.size());
         }
 
         Module module = moduleManager.getModule();

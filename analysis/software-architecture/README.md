@@ -68,6 +68,20 @@ Tasks execute in dependency order, roughly: **project-wide information** → **m
 | ⚡ Beta | Recently added, basic coverage, may have edge cases |
 | ⏳ Experimental | New, limited testing |
 
+## Projects Without an SBOM
+
+The analysis runs on projects that do not ship a Software Bill of Materials. `SBOMLocation` records
+that absence (`sbom.found` is `false`, `sbom.path` is empty) and stays successful; it is a result of
+the analysis, not a defect of the run.
+
+* `LoadSBOM` answers with the result `ERROR` and a reason naming the absence instead of claiming
+  dependency data. A tool call without a path answers that the input is missing.
+* The tasks that use dependency data - `DependencyList`, `TechnologyStack`, `LicenseEvaluation` -
+  complete with an explicitly empty result and a reason that names the missing dependency data, so the
+  document shows why a section is empty instead of showing a failure.
+* A task is never rejected because dependency data is missing. A rejection is always a response that
+  does not conform to its schema, which is what the run reports and retries.
+
 ## Adding New Tasks
 
 1. Add the task definition to `tasks.yaml` with id, prompt, schema, dependencies, tags, and tool whitelist

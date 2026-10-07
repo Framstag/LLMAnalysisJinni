@@ -7,6 +7,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.ConsoleAppender;
 import ch.qos.logback.core.read.ListAppender;
+import ch.qos.logback.core.util.FileSize;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -101,6 +102,44 @@ public class EngineLogRoutingTest {
     }
 
     /**
+     * Total size of the engine log files of a workspace, including the rolled ones.
+     */
+    private static long engineLogSize(Path workspace) throws IOException {
+        Path logs = workspace.resolve("logs");
+
+        if (!Files.isDirectory(logs)) {
+            return 0;
+        }
+
+        try (var files = Files.list(logs)) {
+            return files.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().startsWith("engine.log"))
+                    .mapToLong(path -> {
+                        try {
+                            return Files.size(path);
+                        } catch (IOException e) {
+                            return 0;
+                        }
+                    })
+                    .sum();
+        }
+    }
+
+    private static long engineLogFileCount(Path workspace) throws IOException {
+        Path logs = workspace.resolve("logs");
+
+        if (!Files.isDirectory(logs)) {
+            return 0;
+        }
+
+        try (var files = Files.list(logs)) {
+            return files.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().startsWith("engine.log"))
+                    .count();
+        }
+    }
+
+    /**
      * Collects the records the display would show, so a test can assert what the in-frame line sees.
      */
     private static final class CollectingSink implements LogLineSink {
@@ -187,6 +226,81 @@ public class EngineLogRoutingTest {
         assertTrue(logFile.contains("record of the second run"), "the second run must be recorded");
         assertFalse(logFile.contains("record of the first run"),
                 "the log file must be overwritten per run, got:\n" + logFile);
+    }
+
+    @Test
+    public void testEngineLogStaysWithinItsBound() throws IOException {
+        // A bound small enough to be exceeded by a test, with the same rolling behaviour as a run.
+        FileSize maxFileSize = FileSize.valueOf("64KB");
+        EngineLogRouting.installForDisplayMode(true, workspace, false,
+                new EngineLogRouting.EngineLogBounds(maxFileSize, 1));
+        EngineLogRouting.detachConsoleAfterFirstFrame(true);
+
+        String filler = "filler filler filler filler filler filler filler filler filler filler filler filler";
+
+        for (int index = 0; index < 4000; index++) {
+            testLogger.warn("engine log bound test record {} {}", index, filler);
+        }
+
+        long bound = maxFileSize.getSize() * 2;
+        long size = engineLogSize(workspace);
+
+        assertTrue(size <= bound + 4096,
+                "the engine log files must stay within their bound of " + bound
+                        + " bytes, got " + size);
+        assertTrue(engineLogFileCount(workspace) <= 2,
+                "the number of engine log files must be bounded too, got "
+                        + engineLogFileCount(workspace));
+        assertTrue(readEngineLog(workspace).contains("engine log bound test record 3999"),
+                "the newest records must be kept, so a run can still be diagnosed");
+    }
+
+    @Test
+    public void testEngineLogOfThePreviousRunIsNotKept() throws IOException {
+        EngineLogRouting.installForDisplayMode(true, workspace, false,
+                new EngineLogRouting.EngineLogBounds(FileSize.valueOf("64KB"), 1));
+        EngineLogRouting.detachConsoleAfterFirstFrame(true);
+
+        String filler = "filler filler filler filler filler filler filler filler filler filler filler filler";
+
+        for (int index = 0; index < 2000; index++) {
+            testLogger.warn("record of the first run {} {}", index, filler);
+        }
+
+        EngineLogRouting.installForDisplayMode(true, workspace, false,
+                new EngineLogRouting.EngineLogBounds(FileSize.valueOf("64KB"), 1));
+        EngineLogRouting.detachConsoleAfterFirstFrame(true);
+        testLogger.warn("record of the second run");
+
+        assertTrue(readEngineLog(workspace).contains("record of the second run"));
+
+        try (var files = Files.list(workspace.resolve("logs"))) {
+            for (Path file : files.filter(Files::isRegularFile).toList()) {
+                assertFalse(Files.readString(file).contains("record of the first run"),
+                        "the rolled files of an earlier run must not be kept, got: " + file);
+            }
+        }
+    }
+
+    @Test
+    public void testRunWithoutTuiWritesNoEngineLogFile() throws IOException {
+        EngineLogRouting.installForDisplayMode(false, workspace, false);
+        EngineLogRouting.detachConsoleAfterFirstFrame(false);
+
+        testLogger.warn("a record of a run whose console keeps the diagnostics");
+
+        assertEquals(0, engineLogFileCount(workspace),
+                "a run that does not divert its output must not write an engine log file");
+    }
+
+    @Test
+    public void testExecutionTraceWritesNoEngineLogFile() throws IOException {
+        EngineLogRouting.installForDisplayMode(false, workspace, true);
+
+        testLogger.warn("a record of an execution trace run");
+
+        assertEquals(0, engineLogFileCount(workspace),
+                "the execution trace keeps the console and writes no engine log file");
     }
 
     @Test

@@ -102,4 +102,40 @@ public class TaskStepFailureTest {
         assertTrue(hint.length() <= TaskStepFailure.MAX_HINT_LENGTH,
                 "a hint is injected into a prompt and must stay bounded, was " + hint.length());
     }
+
+    @Test
+    void repairHintNamesTheTotalNumberOfViolations() {
+        List<String> violations = new ArrayList<>();
+
+        for (int i = 0; i < 200; i++) {
+            violations.add("$.field" + i + ": violation number " + i);
+        }
+
+        String hint = TaskStepFailure.schemaViolation(violations).repairHint();
+
+        assertTrue(hint.contains("200"),
+                "a hint that carries less than every violation must name the total, got: " + hint);
+        assertTrue(hint.length() <= TaskStepFailure.MAX_HINT_LENGTH,
+                "the hint stays a prompt block with a bound, was " + hint.length());
+        assertEquals(200, TaskStepFailure.schemaViolation(violations).violationMessages().size(),
+                "the complete list must stay available outside the prompt");
+    }
+
+    @Test
+    void toolRoundBoundRejectionNamesTheBound() {
+        TaskStepFailure failure = TaskStepFailure.of(StepFailureReason.TOOL_ROUND_TRIPS_EXCEEDED,
+                "the model requested more than 10 tool rounds in one attempt");
+
+        String display = failure.displayMessage();
+        String hint = failure.repairHint();
+
+        assertTrue(display.contains("tool round bound exceeded"),
+                "the display must name the reason, got: " + display);
+        assertTrue(display.contains("more than 10 tool rounds"),
+                "the display must name the bound, got: " + display);
+        assertTrue(hint.contains("tool round bound exceeded"),
+                "the next attempt must be told the reason, got: " + hint);
+        assertTrue(hint.contains("more than 10 tool rounds"),
+                "the next attempt must be told the bound, got: " + hint);
+    }
 }
