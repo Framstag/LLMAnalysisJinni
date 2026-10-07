@@ -11,6 +11,7 @@ public class BuildUnit {
     private final boolean production;
     private final boolean generated;
     private final List<String> imports;
+    private final List<ClassReference> references;
     private final List<Clazz> clazzes;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
@@ -22,13 +23,28 @@ public class BuildUnit {
                      boolean generated,
                      @JsonProperty("imports")
                      List<String> imports,
+                     @JsonProperty("references")
+                     List<ClassReference> references,
                      @JsonProperty("classes")
                      List<Clazz> classesByName) {
         this.name = name;
         this.production = production;
         this.generated = generated;
-        this.imports = imports;
+        this.imports = imports == null ? List.of() : imports;
+        this.references = references == null ? List.of() : references;
         this.clazzes = classesByName;
+    }
+
+    /**
+     * Builds a build unit without a weighted reference record. Reports written before the record existed are
+     * read through the creator above; code that builds a model by hand uses this.
+     */
+    public BuildUnit(String name,
+                     boolean production,
+                     boolean generated,
+                     List<String> imports,
+                     List<Clazz> classesByName) {
+        this(name, production, generated, imports, List.of(), classesByName);
     }
 
     public String getName() {
@@ -45,6 +61,14 @@ public class BuildUnit {
 
     public List<String> getImports() {
         return Collections.unmodifiableList(imports);
+    }
+
+    /**
+     * The weighted reference record. Empty for a report written before the record existed, which is how a
+     * consumer detects that a module report has to be regenerated.
+     */
+    public List<ClassReference> getReferences() {
+        return Collections.unmodifiableList(references);
     }
 
     public List<Clazz> getClazzes() {

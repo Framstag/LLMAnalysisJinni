@@ -49,10 +49,10 @@ public class FileToolTest {
 
         assertEquals(List.of(
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/cli", List.of("AnalyseCmdLoopTaskTest.java", "AnalyseCmdOptionParsingTest.java", "AnalyseCmdRetryTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/config", List.of("ConfigMaxToolRoundTripsTest.java", "ConfigOverridesTest.java", "ConfigRetriesTest.java", "ConfigStorerTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/config", List.of("ConfigAnalysisReportBudgetsTest.java", "ConfigMaxToolRoundTripsTest.java", "ConfigOverridesTest.java", "ConfigRetriesTest.java", "ConfigStorerTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/display", List.of("DisplayDecisionTest.java", "DisplayManagerTest.java", "LoopWorkerRowTest.java", "ProgressDisplayTest.java", "SimpleOutputTest.java", "TaskRowTest.java")),
 
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/documentation", List.of("DocumentationTemplateTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/documentation", List.of("DocumentationTemplateTest.java", "IntraModuleDocumentationTemplateTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/json", List.of("JsonHelperSchemaDescriptionTest.java", "JsonHelperTest.java", "ResponsePayloadParserTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/lc4j", List.of("ChatExecutionLoggingTest.java", "ChatExecutorOutcomeTest.java", "ChatExecutorToolErrorTest.java", "ChatExecutorToolRoundBoundTest.java", "SchemaViolationReportTest.java", "TaskStepFailureTest.java", "TaskStepOutcomeTest.java", "TaskStepRetrierTest.java", "ToolArgumentsErrorHandlerTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/logging", List.of("EngineLogRoutingTest.java")),
@@ -63,7 +63,8 @@ public class FileToolTest {
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/common", List.of("CsvReportWriterTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/file", List.of("FileIOToolTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/filesystem", List.of("FileToolTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/java", List.of("JavaToolTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/java", List.of("ClassDependencyGraphToolTest.java", "ClassFileParserReferenceTest.java", "DependencyDiagramStatePersistenceTest.java", "DependencyDiagramToolTest.java", "ExistingMetricReportCompatibilityTest.java", "GodClassRankingToolTest.java", "JavaToolTest.java", "RawModuleReportFormatTest.java", "RegenerateWorkspaceReportsTest.java", "SplitCandidateToolTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/java/graph", List.of("MaximumSpanningForestTest.java", "MinimumCutTest.java", "PercentilesTest.java", "RealModuleDiagramTest.java", "SeparationLadderTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/sbom", List.of("SBOMToolTest.java"))),
                 result.stream()
                         .sorted(Comparator.comparing(FilesInDirectory::directory))

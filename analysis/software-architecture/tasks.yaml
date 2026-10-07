@@ -514,3 +514,35 @@ tags:
   - inter_module_dependency_evaluation
 toolWhitelist:
   - java_get_inter_module_dependency_report
+
+---
+id: ClassDependencyGraphEvaluationAll
+name: Evaluate the class reference structure and propose module splits
+prompt: prompts/class_dependency_graph_evaluation_all.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: classDependencyGraphEvaluationAll
+active: true
+dependsOn:
+  - module_analysis_reports_all
+tags:
+  - class_dependency_graph_evaluation_all
+toolWhitelist:
+  - java_generate_all_dependency_diagrams
+  - java_get_all_class_dependency_graphs
+  - java_get_all_split_candidates
+
+---
+id: GodClassEvaluationAll
+name: Evaluate god class candidates for all Java modules
+prompt: prompts/god_class_evaluation_all.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: godClassEvaluationAll
+active: true
+dependsOn:
+  - module_analysis_reports_all
+tags:
+  - god_class_evaluation_all
+toolWhitelist:
+  - java_get_all_god_class_rankings

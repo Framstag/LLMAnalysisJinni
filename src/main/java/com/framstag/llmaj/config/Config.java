@@ -3,6 +3,9 @@ package com.framstag.llmaj.config;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSetter;
+import com.framstag.llmaj.tools.java.GodClassRanking;
+import com.framstag.llmaj.tools.java.graph.DependencyDiagrams;
+import com.framstag.llmaj.tools.java.graph.MinimumCut;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,6 +19,28 @@ import java.util.Set;
 
 public class Config {
     private static final Logger logger = LoggerFactory.getLogger(Config.class);
+
+    /** Class count of the package overview. */
+    public static final String DIAGRAM_MAX_OVERVIEW_NODES_PROPERTY = "diagram.maxOverviewNodes";
+
+    /** Class count of one class detail diagram. */
+    public static final String DIAGRAM_MAX_NODES_PROPERTY = "diagram.maxNodes";
+
+    /** Reference weight below which an edge is not drawn. Every omission is stated in the caption. */
+    public static final String DIAGRAM_MIN_EDGE_WEIGHT_PROPERTY = "diagram.minEdgeWeight";
+
+    public static final String DIAGRAM_MAX_EDGES_PER_NODE_PROPERTY = "diagram.maxEdgesPerNode";
+
+    public static final String DIAGRAM_MAX_GROUP_DIAGRAMS_PROPERTY = "diagram.maxGroupDiagrams";
+
+    /** Class count above which the cubic exact minimum cut is skipped. */
+    public static final String DIAGRAM_MIN_CUT_NODE_LIMIT_PROPERTY = "diagram.minCutNodeLimit";
+
+    /** Number of ranked classes reported for one module. */
+    public static final String GOD_CLASS_RANKING_LIMIT_PROPERTY = "godClass.rankingLimit";
+
+    /** Number of ranked classes reported per module when all modules are reported at once. */
+    public static final String GOD_CLASS_BATCH_RANKING_LIMIT_PROPERTY = "godClass.batchRankingLimit";
 
     private Path projectDirectory;
     private Path analysisDirectory;
@@ -55,6 +80,65 @@ public class Config {
         executionTraceSystem = false;
         mcpServers = new LinkedList<>();
         properties = new HashMap<>();
+        seedAnalysisReportBudgets();
+    }
+
+    /**
+     * The bounds of the intra-module analyses are part of the workspace configuration, so a reader of
+     * {@code config.json} can see what the reports were produced with and change it without a code change.
+     * They are seeded rather than left implicit, because every one of them is a number the reports quote.
+     */
+    private void seedAnalysisReportBudgets() {
+        DependencyDiagrams.DiagramSettings diagramDefaults = DependencyDiagrams.DiagramSettings.DEFAULT;
+
+        properties.put(DIAGRAM_MAX_NODES_PROPERTY, Integer.toString(diagramDefaults.maxNodes()));
+        properties.put(DIAGRAM_MAX_OVERVIEW_NODES_PROPERTY,
+                Integer.toString(diagramDefaults.maxOverviewNodes()));
+        properties.put(DIAGRAM_MIN_EDGE_WEIGHT_PROPERTY, Integer.toString(diagramDefaults.minEdgeWeight()));
+        properties.put(DIAGRAM_MAX_EDGES_PER_NODE_PROPERTY,
+                Integer.toString(diagramDefaults.maxEdgesPerNode()));
+        properties.put(DIAGRAM_MAX_GROUP_DIAGRAMS_PROPERTY,
+                Integer.toString(diagramDefaults.maxGroupDiagrams()));
+        properties.put(DIAGRAM_MIN_CUT_NODE_LIMIT_PROPERTY,
+                Integer.toString(MinimumCut.DEFAULT_NODE_LIMIT));
+        properties.put(GOD_CLASS_RANKING_LIMIT_PROPERTY,
+                Integer.toString(GodClassRanking.DEFAULT_RANKING_LIMIT));
+        properties.put(GOD_CLASS_BATCH_RANKING_LIMIT_PROPERTY,
+                Integer.toString(GodClassRanking.DEFAULT_BATCH_RANKING_LIMIT));
+    }
+
+    @JsonIgnore
+    public int getBudget(String propertyName, int defaultValue) {
+        return getBudget(properties, propertyName, defaultValue);
+    }
+
+    /**
+     * Reads one of the numeric budgets from a property map.
+     *
+     * @return the configured value, or the default when the property is absent or is not a positive number
+     */
+    public static int getBudget(Map<String, String> properties, String propertyName, int defaultValue) {
+        String value = properties.get(propertyName);
+
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+
+        try {
+            int configured = Integer.parseInt(value.trim());
+
+            if (configured < 1) {
+                logger.warn("Property '{}' is '{}', which is not a positive number; using {} instead",
+                        propertyName, value, defaultValue);
+                return defaultValue;
+            }
+
+            return configured;
+        } catch (NumberFormatException e) {
+            logger.warn("Property '{}' is '{}', which is not a number; using {} instead",
+                    propertyName, value, defaultValue);
+            return defaultValue;
+        }
     }
 
     public int getTaskParallelism() {

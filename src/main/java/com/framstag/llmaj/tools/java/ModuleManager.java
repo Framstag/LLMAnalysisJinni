@@ -64,6 +64,7 @@ public class ModuleManager {
                         buildUnitManager.isProduction(),
                         buildUnitManager.isGenerated(),
                         buildUnitManager.getImports(),
+                        buildUnitManager.getReferences(),
                         clazzes);
 
                 pck.addBuildUnit(buildUnit);

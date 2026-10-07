@@ -18,12 +18,24 @@ public class Method {
     private int parameterCount;
     private Integer linesOfCode;
     private int nestingDepth;
+    private int internalFieldAccesses;
+    private int foreignFieldAccesses;
+    private int internalCalls;
+    private int foreignCalls;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public Method(@JsonProperty("name")
                   String name,
                   @JsonProperty("descriptor")
-                  String descriptor) {
+                  String descriptor,
+                  @JsonProperty("internalFieldAccesses")
+                  Integer internalFieldAccesses,
+                  @JsonProperty("foreignFieldAccesses")
+                  Integer foreignFieldAccesses,
+                  @JsonProperty("internalCalls")
+                  Integer internalCalls,
+                  @JsonProperty("foreignCalls")
+                  Integer foreignCalls) {
         this.name = name;
         this.descriptor = descriptor;
         this.annotations = new LinkedList<>();
@@ -34,6 +46,14 @@ public class Method {
         this.parameterCount = 0;
         this.linesOfCode = null;
         this.nestingDepth = 0;
+        this.internalFieldAccesses = internalFieldAccesses == null ? 0 : internalFieldAccesses;
+        this.foreignFieldAccesses = foreignFieldAccesses == null ? 0 : foreignFieldAccesses;
+        this.internalCalls = internalCalls == null ? 0 : internalCalls;
+        this.foreignCalls = foreignCalls == null ? 0 : foreignCalls;
+    }
+
+    public Method(String name, String descriptor) {
+        this(name, descriptor, 0, 0, 0, 0);
     }
 
     public String getName() {
@@ -114,5 +134,37 @@ public class Method {
 
     public void setNestingDepth(int nestingDepth) {
         this.nestingDepth = nestingDepth;
+    }
+
+    public int getInternalFieldAccesses() {
+        return internalFieldAccesses;
+    }
+
+    public void setInternalFieldAccesses(int internalFieldAccesses) {
+        this.internalFieldAccesses = internalFieldAccesses;
+    }
+
+    public int getForeignFieldAccesses() {
+        return foreignFieldAccesses;
+    }
+
+    public void setForeignFieldAccesses(int foreignFieldAccesses) {
+        this.foreignFieldAccesses = foreignFieldAccesses;
+    }
+
+    public int getInternalCalls() {
+        return internalCalls;
+    }
+
+    public void setInternalCalls(int internalCalls) {
+        this.internalCalls = internalCalls;
+    }
+
+    public int getForeignCalls() {
+        return foreignCalls;
+    }
+
+    public void setForeignCalls(int foreignCalls) {
+        this.foreignCalls = foreignCalls;
     }
 }

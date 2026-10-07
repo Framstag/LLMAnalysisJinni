@@ -20,6 +20,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -244,7 +245,7 @@ class JavaToolTest {
     @Test
     void generateAllModuleAnalysisReportsContinuesAfterModuleError() throws Exception {
         Files.createDirectories(tempDir.resolve("Java"));
-        Files.writeString(tempDir.resolve("Java/Java_core.json"), "{}");
+        writeRawReport("core");
         Map<String, String> modulePaths = new LinkedHashMap<>();
         modulePaths.put("core", ".");
         modulePaths.put("api", "missing-api");
@@ -264,8 +265,7 @@ class JavaToolTest {
 
     @Test
     void generateAllModuleAnalysisReportsReusesExistingReportsAndSkipsNonJavaModules() throws Exception {
-        Files.createDirectories(tempDir.resolve("Java"));
-        Files.writeString(tempDir.resolve("Java/Java_core.json"), "{}");
+        writeRawReport("core");
         AnalysisContext context = contextWithModules("core", "docs");
         JavaTool javaTool = new JavaTool(context);
 
@@ -378,6 +378,110 @@ class JavaToolTest {
         assertReportDescriptor(coreReport, "core", "GENERATED", "Java", "Java_core");
     }
 
+
+    @Test
+    void generateAllModuleAnalysisReportsRegeneratesAReportWithoutAFormatVersion() throws Exception {
+        writeOutdatedRawReport("core", """
+                {
+                  "name" : "core",
+                  "packages" : [ ]
+                }
+                """);
+
+        JavaTool javaTool = new JavaTool(contextWithModules("core", "docs"));
+
+        Map<String, Object> result = javaTool.generateAllModuleAnalysisReports();
+
+        List<?> reports = (List<?>) result.get("reports");
+        assertEquals(1, reports.size());
+
+        Map<?, ?> coreReport = (Map<?, ?>) reports.getFirst();
+        assertEquals("core", coreReport.get("moduleName"));
+        assertEquals("GENERATED", coreReport.get("status"),
+                "a report written before the weighted record must not be reused");
+        assertTrue(((String) coreReport.get("reasoning")).contains("no report format version"),
+                "the reason must name the missing format version, got: " + coreReport.get("reasoning"));
+    }
+
+    @Test
+    void generateAllModuleAnalysisReportsRegeneratesAnOlderFormatVersion() throws Exception {
+        writeOutdatedRawReport("core", """
+                {
+                  "name" : "core",
+                  "reportFormatVersion" : 1,
+                  "packages" : [ ]
+                }
+                """);
+
+        JavaTool javaTool = new JavaTool(contextWithModules("core", "docs"));
+
+        Map<String, Object> result = javaTool.generateAllModuleAnalysisReports();
+
+        List<?> reports = (List<?>) result.get("reports");
+        assertEquals(1, reports.size());
+
+        Map<?, ?> coreReport = (Map<?, ?>) reports.getFirst();
+        assertEquals("GENERATED", coreReport.get("status"));
+        assertTrue(((String) coreReport.get("reasoning")).contains("format version 1"),
+                "the reason must name the outdated version, got: " + coreReport.get("reasoning"));
+    }
+
+    /**
+     * End to end on real input: the project tree of this repository is scanned, the outdated report is
+     * replaced, and the result states why. The unit test above covers the decision, this one covers the
+     * path from the guard through the parser to the written report.
+     */
+    @Test
+    void generateAllModuleAnalysisReportsRegeneratesAnOutdatedReportEndToEnd() throws Exception {
+        Path projectRoot = Paths.get("").toAbsolutePath();
+
+        writeOutdatedRawReport("core", """
+                {
+                  "name" : "core",
+                  "reportFormatVersion" : 1,
+                  "packages" : [ ]
+                }
+                """);
+
+        ObjectNode state = objectMapper.createObjectNode();
+        ArrayNode modules = state.putObject("modules").putArray("modules");
+        ObjectNode module = modules.addObject();
+        module.put("name", "core");
+        module.put("path", ".");
+
+        ArrayNode languages = module.putObject("programmingLanguages").putArray("programmingLanguages");
+        languages.addObject().put("name", "Java").put("version", "unknown");
+
+        ArrayNode subdirectories = module.putObject("subdirectories").putArray("directories");
+        ObjectNode directory = subdirectories.addObject();
+        directory.put("path", "src/main/java");
+        directory.put("categoryId", "Src");
+        directory.put("desc", "Java source directory");
+
+        JavaTool javaTool = new JavaTool(new AnalysisContext(projectRoot, tempDir, Map.of(), state));
+
+        Map<String, Object> result = javaTool.generateAllModuleAnalysisReports();
+
+        List<?> reports = (List<?>) result.get("reports");
+        assertEquals(1, reports.size());
+
+        Map<?, ?> coreReport = (Map<?, ?>) reports.getFirst();
+        assertEquals("GENERATED", coreReport.get("status"));
+        assertTrue(((String) coreReport.get("reasoning")).contains("format version 1"),
+                "the reason must name the outdated version, got: " + coreReport.get("reasoning"));
+
+        Module regenerated = objectMapper.readValue(
+                tempDir.resolve("Java/Java_core.json").toFile(), Module.class);
+
+        assertEquals(Module.CURRENT_REPORT_FORMAT_VERSION, regenerated.getReportFormatVersion());
+        assertFalse(regenerated.getPackages().isEmpty(),
+                "the real project tree must have produced a report");
+    }
+
+    private void writeOutdatedRawReport(String moduleName, String content) throws Exception {
+        Files.createDirectories(tempDir.resolve("Java"));
+        Files.writeString(tempDir.resolve("Java/Java_" + moduleName + ".json"), content);
+    }
 
     private void assertSkippedError(Map<?, ?> report, String moduleName) {
         assertEquals(moduleName, report.get("moduleName"));

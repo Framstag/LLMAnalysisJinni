@@ -1,12 +1,22 @@
 package com.framstag.llmaj.tools.java;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.framstag.llmaj.AnalysisContext;
+import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.file.FileHelper;
 import com.framstag.llmaj.json.ObjectMapperFactory;
 import com.framstag.llmaj.tools.common.Distribution;
+import com.framstag.llmaj.tools.java.graph.DependencyDiagrams;
+import com.framstag.llmaj.tools.java.graph.GraphEdge;
+import com.framstag.llmaj.tools.java.graph.IntraModuleGraph;
+import com.framstag.llmaj.tools.java.graph.MapWeightedGraph;
+import com.framstag.llmaj.tools.java.graph.MinimumCut;
+import com.framstag.llmaj.tools.java.graph.SeparationLadder;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.resolution.TypeSolver;
@@ -231,6 +241,42 @@ public class JavaTool {
 
     private boolean reportFileExists(String moduleName) {
         return Files.exists(context.getWorkingDirectory().resolve(JAVA_REPORT_SUBDIRECTORY).resolve(moduleNameToReportName(moduleName) + ".json"));
+    }
+
+    /**
+     * Reads the format version of a report without loading it. A report file can be megabytes large and the
+     * version is what decides whether loading it at all is worth anything.
+     *
+     * @return the recorded version, or empty when the report was written before the version was recorded
+     */
+    private OptionalInt reportFormatVersion(String moduleName) throws IOException {
+        Path reportPath = context.getWorkingDirectory().resolve(JAVA_REPORT_SUBDIRECTORY)
+                .resolve(moduleNameToReportName(moduleName) + ".json");
+
+        if (!Files.exists(reportPath)) {
+            return OptionalInt.empty();
+        }
+
+        ObjectMapper mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
+
+        try (JsonParser parser = mapper.getFactory().createParser(reportPath.toFile())) {
+            if (parser.nextToken() != JsonToken.START_OBJECT) {
+                return OptionalInt.empty();
+            }
+
+            while (parser.nextToken() == JsonToken.FIELD_NAME) {
+                String fieldName = parser.currentName();
+                parser.nextToken();
+
+                if ("reportFormatVersion".equals(fieldName) && parser.currentToken().isNumeric()) {
+                    return OptionalInt.of(parser.getIntValue());
+                }
+
+                parser.skipChildren();
+            }
+        }
+
+        return OptionalInt.empty();
     }
 
     private Map<String, Object> moduleReportDescriptor(String moduleName,
@@ -488,12 +534,43 @@ public class JavaTool {
             }
 
             if (reportFileExists(moduleName)) {
-                reports.add(moduleReportDescriptor(
-                        moduleName,
-                        "REUSED",
-                        moduleNameToReportName(moduleName),
-                        "Existing Java raw report file reused.",
-                        "Java"));
+                OptionalInt recordedVersion = reportFormatVersion(moduleName);
+
+                if (recordedVersion.isPresent()
+                        && recordedVersion.getAsInt() == Module.CURRENT_REPORT_FORMAT_VERSION) {
+                    reports.add(moduleReportDescriptor(
+                            moduleName,
+                            "REUSED",
+                            moduleNameToReportName(moduleName),
+                            "Existing Java raw report file reused.",
+                            "Java"));
+                    continue;
+                }
+
+                // Reusing a report that predates the weighted reference record would hand every later tool an
+                // unweighted, silently wrong view of the module, so it is regenerated and the reason is named.
+                String outdatedReason = recordedVersion.isPresent()
+                        ? "Existing Java raw report file records format version " + recordedVersion.getAsInt()
+                        + " and was regenerated as version " + Module.CURRENT_REPORT_FORMAT_VERSION + "."
+                        : "Existing Java raw report file records no report format version and was regenerated as version "
+                        + Module.CURRENT_REPORT_FORMAT_VERSION + ".";
+
+                try {
+                    generateModuleAnalysisReport(moduleName);
+                    reports.add(moduleReportDescriptor(
+                            moduleName,
+                            "GENERATED",
+                            moduleNameToReportName(moduleName),
+                            outdatedReason,
+                            "Java"));
+                } catch (IOException | RuntimeException e) {
+                    reports.add(moduleReportDescriptor(
+                            moduleName,
+                            "ERROR",
+                            moduleNameToReportName(moduleName),
+                            outdatedReason + " Regeneration failed: " + e.getMessage(),
+                            "Java"));
+                }
                 continue;
             }
 
@@ -2248,6 +2325,750 @@ return List.of(pd, td, gd);
         logger.info("## GetInterModuleDependencyReport done. {} modules analysed.", allModules.size());
 
         return List.of(ceInterDist, caDist, instabilityDist);
+    }
+
+    @Tool(name = "java_generate_dependency_diagrams",
+            value = """
+                    Writes the dependency diagrams of a module into the analysis state, where the generated
+                    documentation picks them up and prints them.
+
+                    Two levels are written: a package overview, which aggregates the class level reference
+                    weights between packages and is emitted whenever the module has a reference graph at all,
+                    and class detail per group of the cheapest separation, which also draws the other groups
+                    collapsed with the total coupling to them, so the separation is visible and not merely
+                    asserted.
+
+                    The source is derived from the class reference graph alone. Nothing in it is model
+                    generated, so it is identical on every run for the same module report, and a repeated call
+                    replaces the entry of that module rather than appending to it.
+
+                    Every diagram states in its caption how many classes it shows, how many edges were omitted
+                    below the configured minimum weight, and how many groups were collapsed. A group above the
+                    configured node budget is not drawn and is reported instead; the same holds for a module
+                    above the budget even for its package overview. An omission is never silent.
+                    """)
+    public Map<String, Object> generateDependencyDiagrams(@P("The name of the module to analyse")
+                                                          String moduleName) throws IOException {
+        logger.info("## GenerateDependencyDiagrams('{}')", moduleName);
+
+        if (moduleName == null || moduleName.isEmpty()) {
+            logger.warn("No module name given");
+            return dependencyDiagramNotAvailable("", "No module name given.");
+        }
+
+        Module module = getModuleReport(moduleName);
+
+        if (!module.isReportFormatCurrent()) {
+            logger.warn("Report of module '{}' carries no weighted reference record", moduleName);
+            return dependencyDiagramNotAvailable(moduleName, outdatedReportReason(module));
+        }
+
+        return storeDependencyDiagrams(module);
+    }
+
+    @Tool(name = "java_generate_all_dependency_diagrams",
+            value = """
+                    Writes the dependency diagrams of all detected Java modules into the analysis state in one
+                    call. Generating a diagram needs no model, so there is no reason to ask for one module at a
+                    time.
+                    """)
+    public Map<String, Object> generateAllDependencyDiagrams() throws IOException {
+        List<Map<String, Object>> reports = new ArrayList<>();
+        List<Map<String, Object>> skipped = new ArrayList<>();
+
+        for (String moduleName : getJavaModuleNames(context.getAnalysisState())) {
+            try {
+                Module module = getModuleReport(moduleName);
+
+                if (!module.isReportFormatCurrent()) {
+                    skipped.add(dependencyDiagramNotAvailable(moduleName, outdatedReportReason(module)));
+                    continue;
+                }
+
+                reports.add(storeDependencyDiagrams(module));
+            } catch (IOException | RuntimeException e) {
+                logger.warn("Could not generate the dependency diagrams of '{}': {}", moduleName,
+                        e.getMessage());
+                skipped.add(dependencyDiagramNotAvailable(moduleName,
+                        "Could not generate the dependency diagrams: " + e.getMessage()));
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("reports", reports);
+        result.put("skipped", skipped);
+
+        return result;
+    }
+
+    private Map<String, Object> dependencyDiagramNotAvailable(String moduleName, String reasoning) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("moduleName", moduleName);
+        descriptor.put("status", "NOT_AVAILABLE");
+        descriptor.put("reasoning", reasoning);
+
+        return descriptor;
+    }
+
+    private static final DependencyDiagrams.DiagramSettings DEPENDENCY_DIAGRAM_SETTINGS_FALLBACK =
+            DependencyDiagrams.DiagramSettings.DEFAULT;
+
+    /**
+     * The diagram budgets come from the workspace configuration, so a run can be reproduced from its
+     * {@code config.json}. The built-in defaults apply when a property is absent or unusable.
+     */
+    private DependencyDiagrams.DiagramSettings dependencyDiagramSettings() {
+        return new DependencyDiagrams.DiagramSettings(
+                Config.getBudget(context.getProperties(),
+                        Config.DIAGRAM_MAX_NODES_PROPERTY, DEPENDENCY_DIAGRAM_SETTINGS_FALLBACK.maxNodes()),
+                Config.getBudget(context.getProperties(),
+                        Config.DIAGRAM_MAX_OVERVIEW_NODES_PROPERTY,
+                        DEPENDENCY_DIAGRAM_SETTINGS_FALLBACK.maxOverviewNodes()),
+                Config.getBudget(context.getProperties(),
+                        Config.DIAGRAM_MIN_EDGE_WEIGHT_PROPERTY,
+                        DEPENDENCY_DIAGRAM_SETTINGS_FALLBACK.minEdgeWeight()),
+                Config.getBudget(context.getProperties(),
+                        Config.DIAGRAM_MAX_EDGES_PER_NODE_PROPERTY,
+                        DEPENDENCY_DIAGRAM_SETTINGS_FALLBACK.maxEdgesPerNode()),
+                Config.getBudget(context.getProperties(),
+                        Config.DIAGRAM_MAX_GROUP_DIAGRAMS_PROPERTY,
+                        DEPENDENCY_DIAGRAM_SETTINGS_FALLBACK.maxGroupDiagrams()));
+    }
+
+    /**
+     * Writes the dependency diagrams of a module into the analysis state.
+     */
+    private Map<String, Object> storeDependencyDiagrams(Module module) {
+        DependencyDiagrams.DiagramSet diagramSet =
+                DependencyDiagrams.of(IntraModuleGraph.of(module), dependencyDiagramSettings());
+
+        ObjectMapper mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
+        ObjectNode analysisState = context.getAnalysisState();
+        JsonNode existing = analysisState.get(DEPENDENCY_DIAGRAM_PROPERTY);
+        ObjectNode diagrams = existing != null && existing.isObject()
+                ? (ObjectNode) existing
+                : analysisState.putObject(DEPENDENCY_DIAGRAM_PROPERTY);
+
+        ObjectNode moduleDiagrams = mapper.createObjectNode();
+        moduleDiagrams.put("moduleName", module.getName());
+        moduleDiagrams.put("reasoning", diagramSet.reasoning());
+        moduleDiagrams.put("maxNodes", dependencyDiagramSettings().maxNodes());
+        moduleDiagrams.put("maxOverviewNodes", dependencyDiagramSettings().maxOverviewNodes());
+        moduleDiagrams.put("minEdgeWeight", dependencyDiagramSettings().minEdgeWeight());
+
+        if (diagramSet.overview() == null) {
+            moduleDiagrams.putNull("overview");
+        } else {
+            moduleDiagrams.set("overview", diagramNode(mapper, diagramSet.overview()));
+        }
+
+        ArrayNode groupDiagrams = moduleDiagrams.putArray("groupDiagrams");
+        for (DependencyDiagrams.Diagram diagram : diagramSet.groups()) {
+            groupDiagrams.add(diagramNode(mapper, diagram));
+        }
+
+        ArrayNode notDrawn = moduleDiagrams.putArray("notDrawn");
+        for (String reason : diagramSet.notDrawn()) {
+            notDrawn.add(reason);
+        }
+
+        // Replacing the entry of the module keeps a repeated call idempotent instead of appending a second
+        // set of diagrams for the same module.
+        diagrams.set(module.getName(), moduleDiagrams);
+
+        logger.info("Stored {} diagram(s) for module '{}' in the analysis state",
+                1 + diagramSet.groups().size(), module.getName());
+
+        return dependencyDiagramDescriptor(diagramSet);
+    }
+
+    private ObjectNode diagramNode(ObjectMapper mapper, DependencyDiagrams.Diagram diagram) {
+        ObjectNode node = mapper.createObjectNode();
+        node.put("name", diagram.name());
+        node.put("title", diagram.title());
+        node.put("caption", diagram.caption());
+        node.put("source", diagram.source());
+
+        return node;
+    }
+
+    private Map<String, Object> dependencyDiagramDescriptor(DependencyDiagrams.DiagramSet diagramSet) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("moduleName", diagramSet.moduleName());
+        descriptor.put("status", "OK");
+        descriptor.put("overview", diagramSet.overview() == null
+                ? null
+                : diagramSet.overview().caption());
+        descriptor.put("groupDiagramCount", diagramSet.groups().size());
+        descriptor.put("groupDiagramCaptions", diagramSet.groups().stream()
+                .map(DependencyDiagrams.Diagram::caption)
+                .toList());
+        descriptor.put("notDrawn", diagramSet.notDrawn());
+        descriptor.put("stateProperty", DEPENDENCY_DIAGRAM_PROPERTY + "." + diagramSet.moduleName());
+        descriptor.put("reasoning", diagramSet.reasoning()
+                + " The source itself is not repeated here: it lives in the analysis state and the"
+                + " documentation prints it from there.");
+
+        return descriptor;
+    }
+
+    private static final String DEPENDENCY_DIAGRAM_PROPERTY = "dependencyDiagrams";
+
+    @Tool(name = "java_get_split_candidates",
+            value = """
+                    Proposes where a module could be separated into smaller modules, as a ladder ordered by
+                    ascending cost, so the cheapest separation comes first.
+
+                    The cost of a separation is the weight of the reference tie that had to be severed, which is
+                    the strongest tie between the two groups that came apart. One strong tie means two sides are
+                    not independent, however few ties there are, so a heavy tie cannot hide behind light ones.
+
+                    A separation may cut across package boundaries: the ladder is derived from the class
+                    reference graph alone, and each group is described by the package that contributes most of
+                    its members together with the members that do not belong to it. The result is a set of
+                    candidate separations with their prices, not one asserted answer.
+
+                    The ladder needs no resolution, no group count and no seed, so two calls agree. It is
+                    computed over the production classes of the module, because test classes reference
+                    everything and would dominate the structure.
+
+                    Alongside it, the exact minimum cut is reported as a secondary figure: the least total
+                    coupling that has to be given up to break the module in two. That computation is a cubic
+                    pass and is skipped, with the reason, for a module above the configured class limit.
+                    """)
+    public Map<String, Object> getSplitCandidates(@P("The name of the module to analyse")
+                                                  String moduleName) throws IOException {
+        logger.info("## GetSplitCandidates('{}')", moduleName);
+
+        if (moduleName == null || moduleName.isEmpty()) {
+            logger.warn("No module name given");
+            return splitCandidatesNotAvailable("", "No module name given.");
+        }
+
+        Module module = getModuleReport(moduleName);
+
+        if (!module.isReportFormatCurrent()) {
+            logger.warn("Report of module '{}' carries no weighted reference record", moduleName);
+            return splitCandidatesNotAvailable(moduleName, outdatedReportReason(module));
+        }
+
+        return splitCandidateDescriptor(IntraModuleGraph.of(module), true);
+    }
+
+    @Tool(name = "java_get_all_split_candidates",
+            value = """
+                    Returns a compact separation ladder for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllSplitCandidates() throws IOException {
+        List<Map<String, Object>> reports = new ArrayList<>();
+        List<Map<String, Object>> skipped = new ArrayList<>();
+
+        for (String moduleName : getJavaModuleNames(context.getAnalysisState())) {
+            try {
+                Module module = getModuleReport(moduleName);
+
+                if (!module.isReportFormatCurrent()) {
+                    skipped.add(splitCandidatesNotAvailable(moduleName, outdatedReportReason(module)));
+                    continue;
+                }
+
+                reports.add(splitCandidateDescriptor(IntraModuleGraph.of(module), false));
+            } catch (IOException | RuntimeException e) {
+                logger.warn("Could not derive split candidates for '{}': {}", moduleName, e.getMessage());
+                skipped.add(splitCandidatesNotAvailable(moduleName,
+                        "Could not derive split candidates: " + e.getMessage()));
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("reports", reports);
+        result.put("skipped", skipped);
+
+        return result;
+    }
+
+    private Map<String, Object> splitCandidatesNotAvailable(String moduleName, String reasoning) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("moduleName", moduleName);
+        descriptor.put("status", "NOT_AVAILABLE");
+        descriptor.put("reasoning", reasoning);
+
+        return descriptor;
+    }
+
+    private Map<String, Object> splitCandidateDescriptor(IntraModuleGraph graph, boolean includeMembers) {
+        MapWeightedGraph production = graph.productionReferenceGraph();
+        List<SeparationLadder.Separation> ladder = SeparationLadder.of(production);
+        int returnedCount = Math.min(SPLIT_CANDIDATE_LIMIT, ladder.size());
+
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("moduleName", graph.moduleName());
+        descriptor.put("status", "OK");
+        descriptor.put("nodeCount", production.nodes().size());
+        descriptor.put("edgeCount", production.edges().size());
+        descriptor.put("separationCount", ladder.size());
+        descriptor.put("returnedSeparationCount", returnedCount);
+        descriptor.put("separationLimit", SPLIT_CANDIDATE_LIMIT);
+        descriptor.put("separations", ladder.subList(0, returnedCount).stream()
+                .map(separation -> separationDescriptor(separation, includeMembers))
+                .toList());
+        descriptor.put("minimumCut", minimumCutDescriptor(production));
+        descriptor.put("reasoning", splitReasoning(graph, production, ladder));
+
+        return descriptor;
+    }
+
+    private String splitReasoning(IntraModuleGraph graph,
+                                  MapWeightedGraph production,
+                                  List<SeparationLadder.Separation> ladder) {
+        String head = "Separations are derived from " + production.nodes().size()
+                + " production class(es) and " + production.edges().size()
+                + " reference edge(s) of module '" + graph.moduleName() + "', without a resolution, a group count"
+                + " or a seed, ordered by ascending cost over " + ladder.size() + " step(s).";
+
+        if (ladder.isEmpty()) {
+            return head + " No step changes the partition, so the production classes are already as separate"
+                    + " as the reference graph says they can be.";
+        }
+
+        return head + " The cost of a step is the strongest tie between the two groups it separates, so a"
+                + " heavy tie appears at its own weight and not before the cheaper steps. A group may span"
+                + " several packages; the dominant package and the members outside it are named per group."
+                + " The secondary minimum cut figure is the least total coupling that separates the module,"
+                + " which can differ from the first ladder step because it may prefer one heavy tie over"
+                + " several light ones.";
+    }
+
+    private Map<String, Object> separationDescriptor(SeparationLadder.Separation separation,
+                                                     boolean includeMembers) {
+        List<Set<String>> largestGroups = separation.groups().stream()
+                .sorted(Comparator.comparingInt((Set<String> group) -> group.size()).reversed()
+                        .thenComparing(group -> group.iterator().next()))
+                .toList();
+        int listedGroupCount = Math.min(SPLIT_GROUP_LIMIT, largestGroups.size());
+
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("cost", separation.cost());
+        descriptor.put("groupCount", separation.groups().size());
+        descriptor.put("listedGroupCount", listedGroupCount);
+        descriptor.put("weakestSeveredWeight", separation.weakestSeveredWeight());
+        descriptor.put("strongestSeveredWeight", separation.strongestSeveredWeight());
+        descriptor.put("totalSeveredWeight", separation.totalSeveredWeight());
+        descriptor.put("severedEdges", separation.severedEdges().stream()
+                .map(edge -> {
+                    Map<String, Object> edgeDescriptor = new LinkedHashMap<>();
+                    edgeDescriptor.put("from", edge.from());
+                    edgeDescriptor.put("to", edge.to());
+                    edgeDescriptor.put("weight", edge.weight());
+                    return edgeDescriptor;
+                })
+                .toList());
+        descriptor.put("groups", largestGroups.stream()
+                .limit(listedGroupCount)
+                .map(group -> groupDescriptor(group, includeMembers))
+                .toList());
+
+        return descriptor;
+    }
+
+    private Map<String, Object> groupDescriptor(Set<String> group, boolean includeMembers) {
+        Map<String, Integer> membersByPackage = new TreeMap<>();
+
+        for (String member : group) {
+            membersByPackage.merge(packageOfClass(member), 1, Integer::sum);
+        }
+
+        String dominantPackage = "";
+        int dominantPackageMemberCount = 0;
+
+        for (Map.Entry<String, Integer> entry : membersByPackage.entrySet()) {
+            if (entry.getValue() > dominantPackageMemberCount) {
+                dominantPackage = entry.getKey();
+                dominantPackageMemberCount = entry.getValue();
+            }
+        }
+
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("size", group.size());
+        descriptor.put("dominantPackage", dominantPackage);
+        descriptor.put("dominantPackageMemberCount", dominantPackageMemberCount);
+        descriptor.put("nonConformingMemberCount", group.size() - dominantPackageMemberCount);
+
+        if (includeMembers) {
+            descriptor.put("members", List.copyOf(group));
+        }
+
+        return descriptor;
+    }
+
+    private static String packageOfClass(String className) {
+        int lastDot = className.lastIndexOf('.');
+
+        return lastDot < 0 ? "" : className.substring(0, lastDot);
+    }
+
+    private Map<String, Object> minimumCutDescriptor(MapWeightedGraph production) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+
+        if (production.nodes().size() > minimumCutNodeLimit()) {
+            descriptor.put("status", "NOT_COMPUTED");
+            descriptor.put("reason", "The exact minimum cut is computed in a cubic pass and the module has "
+                    + production.nodes().size() + " production classes, above the limit of "
+                    + minimumCutNodeLimit() + ". The ladder above is unaffected.");
+            return descriptor;
+        }
+
+        Optional<MinimumCut.Cut> cut = MinimumCut.of(production);
+
+        if (cut.isEmpty()) {
+            descriptor.put("status", "NOT_COMPUTED");
+            descriptor.put("reason", "A graph of fewer than two classes cannot be cut in two.");
+            return descriptor;
+        }
+
+        descriptor.put("status", "OK");
+        descriptor.put("weight", cut.get().weight());
+        descriptor.put("side", List.copyOf(cut.get().side()));
+
+        return descriptor;
+    }
+
+    private static final int SPLIT_CANDIDATE_LIMIT = 5;
+    private static final int SPLIT_GROUP_LIMIT = 10;
+
+    private int minimumCutNodeLimit() {
+        return Config.getBudget(context.getProperties(), Config.DIAGRAM_MIN_CUT_NODE_LIMIT_PROPERTY,
+                MinimumCut.DEFAULT_NODE_LIMIT);
+    }
+
+    @Tool(name = "java_get_god_class_ranking",
+            value = """
+                    Ranks the production classes of a module by how far each stands out from its peers, best
+                    candidate first.
+
+                    Every factor is the class's percentile within the module, never an absolute threshold and
+                    never a pass or fail verdict, so the result says that a class stands out among its peers
+                    and not that it is bad. The factor that drove a class's score is named as well, so the
+                    weighting can be disagreed with.
+
+                    The factors are the sum of method cyclomatic complexity, cohesion, accesses to fields
+                    declared outside the class, the greatest method nesting depth, the greatest method length
+                    and the coupling to other classes of the module.
+
+                    Cohesion is a TCC-like approximation and not TCC: the module report records how often a
+                    method touches a field of its own class, not which field, so two methods count as sharing
+                    state when both touch any of it.
+                    """)
+    public Map<String, Object> getGodClassRanking(@P("The name of the module to analyse")
+                                                  String moduleName) throws IOException {
+        logger.info("## GetGodClassRanking('{}')", moduleName);
+
+        if (moduleName == null || moduleName.isEmpty()) {
+            logger.warn("No module name given");
+            return godClassRankingNotAvailable("", "No module name given.");
+        }
+
+        Module module = getModuleReport(moduleName);
+
+        if (!module.isReportFormatCurrent()) {
+            logger.warn("Report of module '{}' carries no per-method access counters", moduleName);
+            return godClassRankingNotAvailable(moduleName, outdatedReportReason(module));
+        }
+
+        return godClassRankingDescriptor(module, IntraModuleGraph.of(module), godClassRankingLimit());
+    }
+
+    @Tool(name = "java_get_all_god_class_rankings",
+            value = """
+                    Returns a compact god class ranking for all detected Java modules.
+                    """)
+    public Map<String, Object> getAllGodClassRankings() throws IOException {
+        List<Map<String, Object>> reports = new ArrayList<>();
+        List<Map<String, Object>> skipped = new ArrayList<>();
+
+        for (String moduleName : getJavaModuleNames(context.getAnalysisState())) {
+            try {
+                Module module = getModuleReport(moduleName);
+
+                if (!module.isReportFormatCurrent()) {
+                    skipped.add(godClassRankingNotAvailable(moduleName, outdatedReportReason(module)));
+                    continue;
+                }
+
+                reports.add(compactGodClassRankingDescriptor(module));
+            } catch (IOException | RuntimeException e) {
+                logger.warn("Could not rank the classes of '{}': {}", moduleName, e.getMessage());
+                skipped.add(godClassRankingNotAvailable(moduleName,
+                        "Could not rank the classes of the module: " + e.getMessage()));
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("reports", reports);
+        result.put("skipped", skipped);
+
+        return result;
+    }
+
+    private Map<String, Object> godClassRankingNotAvailable(String moduleName, String reasoning) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("moduleName", moduleName);
+        descriptor.put("status", "NOT_AVAILABLE");
+        descriptor.put("reasoning", reasoning);
+
+        return descriptor;
+    }
+
+    private Map<String, Object> godClassRankingDescriptor(Module module,
+                                                          IntraModuleGraph graph,
+                                                          int entryLimit) {
+        List<GodClassRanking.RankedClass> ranking = GodClassRanking.of(module, graph, entryLimit);
+        int excludedClassCount = GodClassRanking.excludedClassCount(module, graph);
+
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("moduleName", module.getName());
+        descriptor.put("status", "OK");
+        descriptor.put("classCount", ranking.isEmpty() ? 0 : ranking.getFirst().rankedClassCount());
+        descriptor.put("excludedClassCount", excludedClassCount);
+        descriptor.put("entryLimit", entryLimit);
+        descriptor.put("returnedEntryCount", ranking.size());
+        descriptor.put("ranking", ranking.stream().map(this::rankedClassDescriptor).toList());
+        descriptor.put("reasoning", "Ranked " + descriptor.get("classCount")
+                + " production class(es) of the module within the module's project namespace '"
+                + graph.projectNamespace() + "'. " + excludedClassCount
+                + " class(es) were left out: not production code, generated, or outside the namespace."
+                + " No threshold was applied, every factor is a percentile among these classes.");
+
+        return descriptor;
+    }
+
+    private Map<String, Object> compactGodClassRankingDescriptor(Module module) {
+        IntraModuleGraph graph = IntraModuleGraph.of(module);
+        List<GodClassRanking.RankedClass> ranking =
+                GodClassRanking.of(module, graph, godClassBatchRankingLimit());
+
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("moduleName", module.getName());
+        descriptor.put("status", "OK");
+        descriptor.put("classCount", ranking.isEmpty() ? 0 : ranking.getFirst().rankedClassCount());
+        descriptor.put("excludedClassCount", GodClassRanking.excludedClassCount(module, graph));
+        descriptor.put("ranking", ranking.stream().map(this::rankedClassDescriptor).toList());
+
+        return descriptor;
+    }
+
+    private int godClassRankingLimit() {
+        return Config.getBudget(context.getProperties(), Config.GOD_CLASS_RANKING_LIMIT_PROPERTY,
+                GodClassRanking.DEFAULT_RANKING_LIMIT);
+    }
+
+    private int godClassBatchRankingLimit() {
+        return Config.getBudget(context.getProperties(), Config.GOD_CLASS_BATCH_RANKING_LIMIT_PROPERTY,
+                GodClassRanking.DEFAULT_BATCH_RANKING_LIMIT);
+    }
+
+    private Map<String, Object> rankedClassDescriptor(GodClassRanking.RankedClass rankedClass) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("name", rankedClass.name());
+        descriptor.put("rank", rankedClass.rank());
+        descriptor.put("rankedClassCount", rankedClass.rankedClassCount());
+        descriptor.put("score", rankedClass.score());
+        descriptor.put("dominantFactor", rankedClass.dominantFactor());
+        descriptor.put("factors", rankedClass.factors().stream()
+                .map(factor -> {
+                    Map<String, Object> factorDescriptor = new LinkedHashMap<>();
+                    factorDescriptor.put("name", factor.name());
+                    factorDescriptor.put("value", Math.round(factor.value() * 100.0) / 100.0);
+                    factorDescriptor.put("percentile", factor.percentile());
+                    return factorDescriptor;
+                })
+                .toList());
+
+        return descriptor;
+    }
+
+    @Tool(name = "java_get_class_dependency_graph",
+            value = """
+                    Returns the class reference graph inside a module: one node per top level class of the
+                    module and the couplings between them.
+
+                    An edge weight is the API width of the reference, the number of distinct members of the
+                    referenced class that are touched, with both directions folded together. The traffic, the
+                    number of reference sites, is reported beside it.
+
+                    Only references between two classes of the module count as structure inside the module.
+                    A reference to a type the module does not define, and any class outside the module's
+                    project namespace, is excluded and the number of exclusions is reported.
+
+                    A structural relation, a superclass, an implemented interface or a declared field type,
+                    is listed separately: it is a fact about the type system rather than a measured coupling,
+                    so it carries no separation cost.
+                    """)
+    public Map<String, Object> getClassDependencyGraph(@P("The name of the module to analyse")
+                                                       String moduleName) throws IOException {
+        logger.info("## GetClassDependencyGraph('{}')", moduleName);
+
+        if (moduleName == null || moduleName.isEmpty()) {
+            logger.warn("No module name given");
+            return classDependencyGraphNotAvailable("", "No module name given.");
+        }
+
+        Module module = getModuleReport(moduleName);
+
+        if (!module.isReportFormatCurrent()) {
+            logger.warn("Report of module '{}' carries no weighted reference record", moduleName);
+            return classDependencyGraphNotAvailable(moduleName, outdatedReportReason(module));
+        }
+
+        return classDependencyGraphDescriptor(IntraModuleGraph.of(module));
+    }
+
+    @Tool(name = "java_get_all_class_dependency_graphs",
+            value = """
+                    Returns a compact class reference graph summary for all detected Java modules.
+
+                    Each entry holds the node and edge counts, how much was excluded, the distribution of
+                    edge weights and the heaviest couplings. The full edge list is not returned for every
+                    module, because a large project would not fit into a conversation; ask for the graph of
+                    a single module when the full list is needed.
+                    """)
+    public Map<String, Object> getAllClassDependencyGraphs() throws IOException {
+        List<Map<String, Object>> reports = new ArrayList<>();
+        List<Map<String, Object>> skipped = new ArrayList<>();
+
+        for (String moduleName : getJavaModuleNames(context.getAnalysisState())) {
+            try {
+                Module module = getModuleReport(moduleName);
+
+                if (!module.isReportFormatCurrent()) {
+                    skipped.add(classDependencyGraphNotAvailable(moduleName, outdatedReportReason(module)));
+                    continue;
+                }
+
+                reports.add(compactClassDependencyGraphDescriptor(IntraModuleGraph.of(module)));
+            } catch (IOException | RuntimeException e) {
+                logger.warn("Could not compute the class dependency graph of '{}': {}", moduleName,
+                        e.getMessage());
+                skipped.add(classDependencyGraphNotAvailable(moduleName,
+                        "Could not compute the class dependency graph: " + e.getMessage()));
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("reports", reports);
+        result.put("skipped", skipped);
+
+        return result;
+    }
+
+    private Map<String, Object> classDependencyGraphNotAvailable(String moduleName, String reasoning) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("moduleName", moduleName);
+        descriptor.put("status", "NOT_AVAILABLE");
+        descriptor.put("reasoning", reasoning);
+
+        return descriptor;
+    }
+
+    private String outdatedReportReason(Module module) {
+        String recordedVersion = module.getReportFormatVersion() == 0
+                ? "no report format version"
+                : "report format version " + module.getReportFormatVersion();
+
+        return "The raw module report records " + recordedVersion
+                + " and carries no weighted reference record. Regenerate it as version "
+                + Module.CURRENT_REPORT_FORMAT_VERSION
+                + " by re-running the Java module report collection.";
+    }
+
+    private Map<String, Object> classDependencyGraphDescriptor(IntraModuleGraph graph) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("moduleName", graph.moduleName());
+        descriptor.put("status", "OK");
+        descriptor.put("projectNamespace", graph.projectNamespace());
+        descriptor.put("nodeCount", graph.nodes().size());
+        descriptor.put("nodes", graph.nodes().stream()
+                .map(node -> {
+                    Map<String, Object> nodeDescriptor = new LinkedHashMap<>();
+                    nodeDescriptor.put("name", node.name());
+                    nodeDescriptor.put("production", node.production());
+                    nodeDescriptor.put("generated", node.generated());
+                    return nodeDescriptor;
+                })
+                .toList());
+        descriptor.put("referenceEdgeCount", graph.couplings().size());
+        descriptor.put("referenceEdges", graph.couplings().stream()
+                .map(coupling -> couplingDescriptor(coupling.from(), coupling.to(),
+                        coupling.apiWidth(), coupling.traffic()))
+                .toList());
+        descriptor.put("structuralEdgeCount", graph.structuralLinks().size());
+        descriptor.put("structuralEdges", graph.structuralLinks().stream()
+                .map(link -> couplingDescriptor(link.from(), link.to(), 0, 0))
+                .toList());
+        descriptor.put("excludedNodeCount", graph.excludedNodes());
+        descriptor.put("excludedEdgeCount", graph.excludedEdges());
+        descriptor.put("reasoning", reasoningFor(graph));
+
+        return descriptor;
+    }
+
+    private Map<String, Object> compactClassDependencyGraphDescriptor(IntraModuleGraph graph) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("moduleName", graph.moduleName());
+        descriptor.put("status", "OK");
+        descriptor.put("projectNamespace", graph.projectNamespace());
+        descriptor.put("nodeCount", graph.nodes().size());
+        descriptor.put("productionNodeCount", graph.productionReferenceGraph().nodes().size());
+        descriptor.put("referenceEdgeCount", graph.couplings().size());
+        descriptor.put("structuralEdgeCount", graph.structuralLinks().size());
+        descriptor.put("excludedNodeCount", graph.excludedNodes());
+        descriptor.put("excludedEdgeCount", graph.excludedEdges());
+        descriptor.put("referenceEdgeWidthDistribution", edgeWidthDistribution(graph));
+        descriptor.put("strongestCouplings", graph.couplings().stream()
+                .sorted(Comparator.comparingInt(IntraModuleGraph.Coupling::apiWidth).reversed()
+                        .thenComparing(IntraModuleGraph.Coupling::from)
+                        .thenComparing(IntraModuleGraph.Coupling::to))
+                .limit(CLASS_GRAPH_STRONGEST_COUPLINGS)
+                .map(coupling -> couplingDescriptor(coupling.from(), coupling.to(),
+                        coupling.apiWidth(), coupling.traffic()))
+                .toList());
+        descriptor.put("reasoning", reasoningFor(graph));
+
+        return descriptor;
+    }
+
+    private static final int CLASS_GRAPH_STRONGEST_COUPLINGS = 10;
+
+    private Map<String, Object> couplingDescriptor(String from, String to, int apiWidth, int traffic) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("from", from);
+        descriptor.put("to", to);
+        descriptor.put("apiWidth", apiWidth);
+        descriptor.put("traffic", traffic);
+
+        return descriptor;
+    }
+
+    private Distribution edgeWidthDistribution(IntraModuleGraph graph) {
+        Map<Integer, Integer> edgesByApiWidth = new TreeMap<>();
+
+        for (IntraModuleGraph.Coupling coupling : graph.couplings()) {
+            edgesByApiWidth.merge(coupling.apiWidth(), 1, Integer::sum);
+        }
+
+        Distribution distribution = new Distribution("Reference edges by API width");
+        edgesByApiWidth.forEach((width, count) -> distribution.addEntry(Integer.toString(width), count));
+
+        return distribution;
+    }
+
+    private String reasoningFor(IntraModuleGraph graph) {
+        return graph.nodes().size() + " class(es), " + graph.couplings().size()
+                + " reference edge(s) and " + graph.structuralLinks().size()
+                + " structural relation(s) inside the project namespace '"
+                + graph.projectNamespace() + "'. " + graph.excludedNodes()
+                + " class(es) and " + graph.excludedEdges()
+                + " reference(s) were excluded because they belong to no class of the module.";
     }
 
     private String findTargetModule(String importString, String currentModule,

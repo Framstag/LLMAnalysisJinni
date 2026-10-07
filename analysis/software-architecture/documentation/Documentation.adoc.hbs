@@ -795,3 +795,106 @@ Skipped or errored modules:
 {{~/analysisReportsAll.skipped}}
 |===
 {{/if}}
+
+=== Analysis of the Class Reference Structure per Module
+
+{{#if classDependencyGraphEvaluationAll.moduleEvaluations}}
+The analysis resulted in the following findings per module:
+
+{{~#each classDependencyGraphEvaluationAll.moduleEvaluations}}
+
+==== Module "{{moduleName}}"
+
+{{reasoning}}
+
+|===
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation
+
+{{~#each evaluations}}
+|{{aspect}} |{{urgency}} |{{criticality}} |{{expectation}} |{{reasoning}} |{{finding}} |{{recommendation}}
+{{~/each}}
+|===
+
+{{~/each}}
+{{else}}
+No evaluation of the class reference structure was produced.
+{{/if}}
+
+=== Dependency Diagrams per Module
+
+The diagrams below show the reference structure inside each module. The package overview aggregates the class
+level couplings between packages. The class detail diagrams show the groups of the cheapest separation, with
+the other groups drawn collapsed and weighted with the total coupling to them. Every diagram states in its
+caption how many classes it shows and how many edges it omits.
+
+{{#if dependencyDiagrams}}
+{{~#each dependencyDiagrams}}
+
+==== Module "{{moduleName}}"
+
+{{reasoning}}
+
+{{#if overview}}
+===== Packages
+
+{{overview.caption}}
+
+[plantuml]
+----
+{{overview.source}}
+----
+{{else}}
+No package overview was generated for this module.
+{{/if}}
+
+{{#if groupDiagrams}}
+===== Class detail
+
+{{~#each groupDiagrams}}
+{{caption}}
+
+[plantuml]
+----
+{{source}}
+----
+
+{{~/each}}
+{{/if}}
+
+{{#if notDrawn}}
+Not drawn:
+
+{{~#each notDrawn}}
+* {{this}}
+{{~/each}}
+{{/if}}
+
+{{~/each}}
+{{else}}
+No dependency diagrams were generated.
+{{/if}}
+
+=== God Class Candidates per Module
+
+{{#if godClassEvaluationAll.moduleEvaluations}}
+The analysis resulted in the following findings per module:
+
+{{~#each godClassEvaluationAll.moduleEvaluations}}
+
+==== Module "{{moduleName}}"
+
+{{reasoning}}
+
+|===
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation
+
+{{~#each evaluations}}
+|{{aspect}} |{{urgency}} |{{criticality}} |{{expectation}} |{{reasoning}} |{{finding}} |{{recommendation}}
+{{~/each}}
+|===
+
+{{~/each}}
+{{else}}
+No god class ranking was produced, so no god class candidates are listed. A ranking needs a module report
+that carries the weighted reference record and the per-method access counters.
+{{/if}}
