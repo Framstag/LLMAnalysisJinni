@@ -49,6 +49,18 @@ public final class DependencyDiagrams {
     /** A class name goes into a quoted PlantUML label and has to be harmless there. */
     private static final Pattern SAFE_LABEL = Pattern.compile("[A-Za-z0-9_.$]+");
 
+    /** The leading words of an element of the class diagram family. */
+    private static final List<String> CLASS_ELEMENT_LEADING_WORDS = List.of("class", "abstract", "interface",
+            "annotation", "enum", "entity", "struct", "protocol", "exception", "metaclass", "stereotype");
+
+    /**
+     * The leading words of an element of another diagram family. PlantUML reads the diagram type from the first
+     * element it finds, so a class diagram that also carries one of these needs {@code allowmixing}.
+     */
+    private static final List<String> OTHER_ELEMENT_LEADING_WORDS = List.of("rectangle", "package", "component",
+            "usecase", "actor", "node", "cloud", "database", "folder", "artifact", "boundary", "control",
+            "collections", "queue", "stack", "storage", "card", "file", "hexagon", "label");
+
     /** A group that couples to many other groups would otherwise fill the picture with collapsed nodes. */
     private static final int MAX_COLLAPSED_GROUPS = 8;
 
@@ -329,6 +341,14 @@ public final class DependencyDiagrams {
         source.append("@startuml\n");
         source.append("title ").append(graph.moduleName()).append(" - ").append(label).append("\n");
 
+        // A collapsed group is a rectangle next to the classes, and PlantUML reads such a source as a class
+        // diagram, which refuses the other family unless the diagram allows the mix. Without this line the
+        // renderer rejects the whole diagram with "Use 'allowmixing' if you want to mix classes and other UML
+        // elements", so the diagram would be stored as source no one can draw.
+        if (!weightsToOtherGroups.isEmpty()) {
+            source.append("allowmixing\n");
+        }
+
         Map<String, String> aliasByClass = new LinkedHashMap<>();
         int aliasIndex = 0;
 
@@ -424,8 +444,10 @@ public final class DependencyDiagrams {
 
     /**
      * Checks the generated source before it is stored. Structural, not a full parse: the source has to be
-     * opened and closed, it has to carry at least one node, and every quoted label has to be closed on its own
-     * line. A diagram that is silently broken is worse than no diagram.
+     * opened and closed, it has to carry at least one element, every quoted label has to be closed on its own
+     * line, and a source that puts a class element next to an element of another family has to say
+     * {@code allowmixing}, because the renderer fixes the diagram type from the first element it reads and
+     * rejects the mix otherwise. A diagram that is silently broken is worse than no diagram.
      */
     public static boolean isValid(String source) {
         if (source == null) {
@@ -438,19 +460,40 @@ public final class DependencyDiagrams {
             return false;
         }
 
-        boolean hasNode = false;
+        boolean hasClassElement = false;
+        boolean hasOtherElement = false;
+        boolean allowsMixing = false;
 
         for (String line : trimmed.split("\n", -1)) {
             if (line.chars().filter(character -> character == '"').count() % 2 != 0) {
                 return false;
             }
 
-            if (line.startsWith("class ") || line.startsWith("package ") || line.startsWith("rectangle ")) {
-                hasNode = true;
+            String statement = line.strip();
+
+            if (statement.equals("allowmixing")) {
+                allowsMixing = true;
+            }
+
+            if (declaresElement(statement, CLASS_ELEMENT_LEADING_WORDS)) {
+                hasClassElement = true;
+            } else if (declaresElement(statement, OTHER_ELEMENT_LEADING_WORDS)) {
+                hasOtherElement = true;
             }
         }
 
-        return hasNode;
+        if (hasClassElement && hasOtherElement && !allowsMixing) {
+            return false;
+        }
+
+        return hasClassElement || hasOtherElement;
+    }
+
+    /** True when the statement opens with one of the leading words of an element family. */
+    private static boolean declaresElement(String statement, List<String> leadingWords) {
+        int space = statement.indexOf(' ');
+
+        return leadingWords.contains(space < 0 ? statement : statement.substring(0, space));
     }
 
     private static Diagram diagram(String name,

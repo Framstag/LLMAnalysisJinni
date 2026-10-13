@@ -171,6 +171,24 @@ class DependencyDiagramToolTest {
     }
 
     @Test
+    void theClassDetailAllowsMixingWhenItCollapsesGroups() throws Exception {
+        Workspace workspace = workspace(fixtureModule());
+
+        workspace.javaTool().generateDependencyDiagrams("core");
+
+        String largestGroup = groupSource(workspace, 0);
+
+        assertTrue(largestGroup.contains("allowmixing"),
+                "a class diagram that also holds a collapsed group is rejected by the renderer unless it"
+                        + " allows the mix, got: " + largestGroup);
+        assertTrue(DependencyDiagrams.isValid(largestGroup),
+                "the emitted source has to pass the check the emitter itself applies, got: " + largestGroup);
+        assertFalse(overviewSource(workspace).contains("allowmixing"),
+                "the package overview holds packages only, so it must not claim a mix, got: "
+                        + overviewSource(workspace));
+    }
+
+    @Test
     void aStructuralRelationIsDrawnEvenWithoutAReferenceEdge() throws Exception {
         Workspace workspace = workspace(fixtureModule());
 
@@ -268,6 +286,15 @@ class DependencyDiagramToolTest {
                 "a diagram without a node says nothing");
         assertFalse(DependencyDiagrams.isValid("@startuml\nclass \"a.B as C0\n@enduml\n"),
                 "a label that is never closed is not valid");
+        assertTrue(DependencyDiagrams.isValid("@startuml\npackage \"a\" as P0\npackage \"b\" as P1\nP0 --> P1\n"
+                        + "@enduml\n"),
+                "a package overview carries one family of element, so it needs no allowmixing");
+        assertFalse(DependencyDiagrams.isValid("@startuml\nclass \"a.B\" as C0\nrectangle \"g\" as G0\n"
+                        + "C0 --> G0 : 1\n@enduml\n"),
+                "a class next to a rectangle is rejected by the renderer unless the source allows mixing");
+        assertTrue(DependencyDiagrams.isValid("@startuml\nclass \"a.B\" as C0\nrectangle \"g\" as G0\n"
+                        + "allowmixing\nC0 --> G0 : 1\n@enduml\n"),
+                "the same source with allowmixing is valid");
         assertFalse(DependencyDiagrams.isValid(null));
     }
 
