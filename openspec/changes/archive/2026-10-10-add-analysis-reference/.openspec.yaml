@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-10-10
+goal: Give every analysis in the generated architecture report a description and
+  an interpretation guide, sourced from one central reference document
