@@ -146,8 +146,8 @@ public class ClassFileParser {
     /**
      * Parses one class file into the module manager.
      *
-     * @return true when the class file contributed a type to the module, false when it could not be read,
-     * so the caller can count the files a module did not analyse
+     * @return true when the class file contributed a type to the module, false when it could not be read or
+     * declares no class of the module, so the caller can count the files a module did not analyse
      */
     public static boolean parseClassFile(Path classFile,
                                        List<SpecialSubdirectory> specialSubdirectories,
@@ -156,8 +156,18 @@ public class ClassFileParser {
             logger.info("# Parsing class file '{}'...", classFile);
             ClassModel classModel = ClassFile.of().parse(classFile);
             String packageName = classModel.thisClass().asSymbol().packageName();
-            String qualifiedName = classModel.thisClass().asSymbol().packageName()+"."+
-                    classModel.thisClass().asSymbol().displayName();
+            String qualifiedName = qualifiedNameOf(classModel);
+
+            if (ParserHelper.isPackageOrModuleInfo(qualifiedName)) {
+                // javac writes a package-info.class for an annotated package-info.java and a module-info.class
+                // for a module descriptor. Neither declares a class of the module, and a build unit for it
+                // would put a name with a hyphen into the report, which the diagram cannot represent. The file
+                // is left out like a source file without a type, before a package or a build unit is created.
+                logger.debug("Skipping the compilation unit level type '{}' of file '{}'",
+                        qualifiedName, classFile);
+
+                return false;
+            }
 
             SubdirectoryCategory category = getCategoryOfFile(specialSubdirectories,classFile,SubdirectoryCategory.SRC);
 
@@ -282,6 +292,15 @@ public class ClassFileParser {
         }
 
         return true;
+    }
+
+    /**
+     * The qualified name of the top level class a class file declares: the package of the file, a dot and
+     * the display name of the class file.
+     */
+    private static String qualifiedNameOf(ClassModel classModel) {
+        return classModel.thisClass().asSymbol().packageName() + "."
+                + classModel.thisClass().asSymbol().displayName();
     }
 
     private static List<String> getClassModelImports(ClassModel classModel) {

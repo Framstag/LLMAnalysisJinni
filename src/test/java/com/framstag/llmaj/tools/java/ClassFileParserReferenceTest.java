@@ -8,6 +8,7 @@ import javax.tools.ToolProvider;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,36 +24,76 @@ class ClassFileParserReferenceTest {
     Path tempDir;
 
     private ModuleManager parse(String... sources) throws Exception {
-        Path sourceDir = tempDir.resolve("src/demo");
-        Files.createDirectories(sourceDir);
-
-        List<String> sourceFiles = new java.util.ArrayList<>();
+        List<Path> sourceFiles = new java.util.ArrayList<>();
         for (String source : sources) {
             // A public type has to live in a file of its own name, otherwise javac refuses the fixture.
-            Path sourceFile = sourceDir.resolve(publicTypeName(source) + ".java");
-            Files.writeString(sourceFile, source);
-            sourceFiles.add(sourceFile.toString());
+            sourceFiles.add(writeSource(publicTypeName(source), source));
         }
 
-        Path classesDir = tempDir.resolve("classes");
+        return parseFiles("classes", sourceFiles).moduleManager();
+    }
+
+    /** Writes a source file into the fixture package {@code demo}. */
+    private Path writeSource(String fileName, String source) throws Exception {
+        return writeSource(tempDir.resolve("src/demo"), fileName, source);
+    }
+
+    /** Writes a source file into a directory below the fixture tree, for a file outside a package. */
+    private Path writeSource(Path directory, String fileName, String source) throws Exception {
+        Files.createDirectories(directory);
+
+        Path sourceFile = directory.resolve(fileName + ".java");
+        Files.writeString(sourceFile, source);
+
+        return sourceFile;
+    }
+
+    /**
+     * The outcome of one class file visit: the module the files contributed to, and per class file whether it
+     * contributed a type, which is what the caller counts as a file the module did not analyse.
+     */
+    private record ClassFileVisit(ModuleManager moduleManager, Map<String, Boolean> contributedByFileName) {
+        private boolean contributed(String fileName) {
+            Boolean contributed = contributedByFileName.get(fileName);
+
+            if (contributed == null) {
+                throw new AssertionError("no class file named " + fileName
+                        + " in " + contributedByFileName.keySet());
+            }
+
+            return contributed;
+        }
+    }
+
+    private ClassFileVisit parseFiles(String classesDirectoryName, List<Path> sourceFiles) throws Exception {
+        Path classesDir = tempDir.resolve(classesDirectoryName);
         Files.createDirectories(classesDir);
 
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         List<String> arguments = new java.util.ArrayList<>(List.of("-d", classesDir.toString()));
-        arguments.addAll(sourceFiles);
+        sourceFiles.forEach(sourceFile -> arguments.add(sourceFile.toString()));
 
         int compilerResult = compiler.run(null, null, null, arguments.toArray(String[]::new));
         assertEquals(0, compilerResult, "the fixture must compile");
 
         ModuleManager moduleManager = new ModuleManager("core");
+        Map<String, Boolean> contributedByFileName = new java.util.TreeMap<>();
 
         try (var classFiles = Files.walk(classesDir)) {
             for (Path classFile : classFiles.filter(path -> path.toString().endsWith(".class")).toList()) {
-                ClassFileParser.parseClassFile(classFile, List.of(), moduleManager);
+                contributedByFileName.put(classFile.getFileName().toString(),
+                        ClassFileParser.parseClassFile(classFile, List.of(), moduleManager));
             }
         }
 
-        return moduleManager;
+        return new ClassFileVisit(moduleManager, contributedByFileName);
+    }
+
+    private static List<String> namesOf(ModuleManager moduleManager) {
+        return moduleManager.getPackages().stream()
+                .flatMap(pck -> pck.getBuildUnits().stream())
+                .map(BuildUnitManager::getName)
+                .toList();
     }
 
     private static String publicTypeName(String source) {
@@ -251,5 +292,59 @@ class ClassFileParserReferenceTest {
         assertTrue(reference.isStructural());
         assertEquals(0, reference.getTraffic());
         assertFalse(reference.isStructuralOnly() && reference.getApiWidth() > 0);
+    }
+
+    private static final String ANNOTATED_PACKAGE_INFO = """
+            @Deprecated
+            package demo;
+            """;
+
+    private static final String REGULAR_CLASS = """
+            package demo;
+
+            public class Regular {
+            }
+            """;
+
+    /**
+     * javac writes a package-info.class for an annotated package-info.java. It carries the annotations of the
+     * package and declares no class of the module, so it must not become one: the name it would get carries a
+     * hyphen, and one such name stopped the dependency diagram of a whole module before.
+     */
+    @Test
+    void anAnnotatedPackageInfoDoesNotBecomeAClassOfTheModule() throws Exception {
+        ClassFileVisit visit = parseFiles("classes-package-info", List.of(
+                writeSource("package-info", ANNOTATED_PACKAGE_INFO),
+                writeSource("Regular", REGULAR_CLASS)));
+
+        assertTrue(visit.contributedByFileName().containsKey("package-info.class"),
+                "the fixture has to produce a package-info.class, otherwise the test proves nothing");
+        assertFalse(visit.contributed("package-info.class"),
+                "the descriptor declares no class of the module, so the file counts as one that contributed"
+                        + " no type");
+        assertTrue(visit.contributed("Regular.class"),
+                "a regular class beside the descriptor is a type of the module");
+
+        assertTrue(namesOf(visit.moduleManager()).stream().noneMatch(name -> name.contains("package-info")),
+                "no build unit may be a package annotation descriptor, got: "
+                        + namesOf(visit.moduleManager()));
+        assertTrue(namesOf(visit.moduleManager()).contains("demo.Regular"),
+                "the class beside the descriptor is still parsed, got: " + namesOf(visit.moduleManager()));
+    }
+
+    @Test
+    void aModuleDescriptorDoesNotBecomeAClassOfTheModule() throws Exception {
+        ClassFileVisit visit = parseFiles("classes-module-info", List.of(
+                writeSource(tempDir.resolve("src"), "module-info", "module demo.mod {\n}\n")));
+
+        assertTrue(visit.contributedByFileName().containsKey("module-info.class"),
+                "the fixture has to produce a module-info.class, otherwise the test proves nothing");
+        assertFalse(visit.contributed("module-info.class"),
+                "the descriptor declares no class of the module, so the file counts as one that contributed"
+                        + " no type");
+
+        assertTrue(visit.moduleManager().getPackages().isEmpty(),
+                "a module descriptor carries no package of the module, got: "
+                        + visit.moduleManager().getPackages().stream().map(PackageManager::getName).toList());
     }
 }

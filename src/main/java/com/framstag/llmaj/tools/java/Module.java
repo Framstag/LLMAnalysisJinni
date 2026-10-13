@@ -13,9 +13,12 @@ public class Module {
      * The format of the raw module report. Bump this whenever a report loses data that a consumer needs,
      * so that a reused report is detected as outdated instead of quietly yielding empty results.
      *
-     * <p>Version 2 added the weighted reference record and the per-method access counters.
+     * <p>Version 2 added the weighted reference record and the per-method access counters. Version 3 dropped
+     * the two compilation unit level types that {@code javac} writes without declaring a class of the module,
+     * {@code package-info.class} and {@code module-info.class}: a report written before that exclusion carries
+     * them as classes of the module in its counts and in its metric inputs.
      */
-    public static final int CURRENT_REPORT_FORMAT_VERSION = 2;
+    public static final int CURRENT_REPORT_FORMAT_VERSION = 3;
 
     private final String name;
     private final int reportFormatVersion;
