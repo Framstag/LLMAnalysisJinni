@@ -27,6 +27,7 @@ Terms that different modules use with different meanings:
 * Group the modules into bounded context candidates by the language they share:
   * Modules that share leading candidate terms and import each other are one context, or two contexts in a customer/supplier relation; decide by whether they share a domain or only a mechanism.
   * Modules that share no language at all belong to different contexts, however much they import from each other.
+  * A module that is a technical mechanism, such as a binding, a container or a renderer, is a context of its own even when it is small; its language is the mechanism it implements, and folding it into the domain context beside it hides that the domain is spoken somewhere else.
 * Name the relation between two contexts and **state the counted evidence behind it**: the import count between the pair and the shared leading terms, which the overview reports for the pair.
 * Read the quadrant the overview reports:
   * `candidate domain leak` - the two modules share a domain vocabulary and do not import each other. This is the finding the analysis exists for: nothing in the code connects them, and they still talk about the same thing. Name the terms they share.
