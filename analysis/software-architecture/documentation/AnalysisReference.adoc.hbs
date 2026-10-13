@@ -1,0 +1,1167 @@
+== Analysis Methods and Interpretation
+
+Every section of this report that shows a number names below the analysis the number came from. This chapter
+states, for each of those analyses, what it measures, how its result is to be read, what its weights mean and
+where the limits of the measurement are.
+
+The entries describe the analyses, not this run. The numbers of this run stand in the sections themselves, and
+an earlier report that carries no such numbers is not described here either.
+
+Each entry carries the same five parts:
+
+|===
+|Part |Content
+
+|What is measured |the quantity, its unit, and which code it covers
+|How to read it |the direction that is the problem, the kind of scale, and the thresholds the evaluation applies
+|Weights |what a weight weighs, for the analyses that report one
+|Caveats |what the analysis cannot see, so that no more is read into a value than the measurement supports
+|Steering |the values that steer the analysis, what each one bounds, and where it comes from
+|===
+
+The *Source* column of a steering table tells where a value comes from. `config.json` names a property of the
+workspace configuration together with the value a workspace is seeded with, so a run can be reproduced and
+changed from its configuration alone. `analysis knowledge` names a fixed value of the analysis itself.
+
+[[cyclomatic-complexity]]
+=== Cyclomatic complexity
+
+Ranked by the task `CyclomaticComplexityEvaluationAll`.
+
+==== What is measured
+
+The cyclomatic complexity of every method of every Java module, read from the compiled class files rather than
+from the sources. It counts the independent paths through a method, so a method without a branch has the value
+1 and each additional decision point raises it.
+
+The result is a histogram per module and per kind of code: each row names a complexity value and how many
+methods sit at it. Production, test and generated code are reported apart from each other.
+
+==== How to read it
+
+* The value is absolute and belongs to one method. It says how many paths a reader or a test has to cover, not
+  how long the method is.
+* A method above 10 is the finding. The evaluation states that the majority of methods should stay at or below
+  10, so the share of methods above it and the highest value of a module say more than the mean does.
+* A distribution whose mass sits at 1 to 3 is unremarkable. What deserves a look is a tail that reaches far
+  above 10.
+* Test code is expected to be simple; a test method above 10 is unusual and worth a look of its own.
+
+==== Weights
+
+None. Each row of the histogram names a value and the number of methods that sit at it.
+
+==== Caveats
+
+* The measurement comes from bytecode. A compiler adds branches that the source does not show, for example for
+  a switch over strings, a lambda or a synthetic accessor, so the value can be higher than the source suggests.
+* A short method that delegates to three other methods counts branches it does not own.
+* The value says nothing about what a method does, so a complex method can be a well-tested state machine.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|complexity above 10 |a method is reported as a complexity finding |analysis knowledge
+|===
+
+[[method-nesting-depth]]
+=== Method nesting depth
+
+Ranked by the task `NestingDepthEvaluationAll`.
+
+==== What is measured
+
+The greatest nesting depth of each method, meaning how many blocks a statement of the method is nested in.
+Reported as a histogram per module and per kind of code, with a row per depth value and the number of methods
+at it.
+
+==== How to read it
+
+* The value is absolute and belongs to one method. It measures how deeply a reader has to track the enclosing
+  conditions to follow the method.
+* A method nested deeper than 4 is a readability refactoring candidate.
+* The value is read together with the cyclomatic complexity, because the two disagree in a useful way:
+** high complexity above 10 with low nesting below 3 is *flat complex*: many decisions, but a structure a reader
+   can follow.
+** low complexity below 5 with nesting above 5 is *nested spaghetti*: few decisions, but hard to follow.
+** high complexity above 10 and nesting above 5 at once is the worst case and the first place to refactor.
+
+==== Weights
+
+None. Each row of the histogram names a depth and the number of methods that reach it.
+
+==== Caveats
+
+* Depth counts blocks, not the difficulty of the conditions inside them, so a method with one complex condition
+  and a method with one trivial condition at the same depth read alike.
+* Guard clauses that leave a method early reduce the number, which is intended, but a long method written as a
+  flat sequence of statements reads as depth 1 whatever its length.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|nesting above 4 |a method is reported as a readability finding |analysis knowledge
+|complexity above 10 with nesting below 3 |a method is described as flat complex |analysis knowledge
+|complexity below 5 with nesting above 5 |a method is described as nested spaghetti |analysis knowledge
+|===
+
+[[method-visibility]]
+=== Method visibility
+
+Ranked by the task `VisibilityEvaluationAll`.
+
+==== What is measured
+
+The visibility of every method, counted per level: public, protected, private and package private. Reported as
+a histogram per module and per kind of code, with a row per visibility level and the number of methods at it.
+
+==== How to read it
+
+* The values are counts of methods, so the reading is a share of the total: how much of the surface of a module
+  is open to its callers.
+* More than 50 percent public methods in production code indicates encapsulation leaks.
+* More than 80 percent public methods with few or no private and protected methods indicates an anemic domain
+  model, meaning a module that holds data and leaves the behaviour elsewhere.
+* More than 40 percent static methods indicates a procedural style rather than an object design.
+* A low share of final methods means the design expects inheritance, which a reader should expect to see
+  reflected in the inheritance report.
+
+==== Weights
+
+None. Each row of the histogram names a visibility level and the number of methods at it.
+
+==== Caveats
+
+* A library or a plugin entry point is meant to be public, so a high public share is a finding for an
+  application module and can be correct for a module that is consumed by others.
+* The measurement sees declarations, not callers. A public method nobody calls from outside is not visible in
+  the numbers.
+* Constructors and synthetic methods are counted like any other method.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|public share above 50 percent |the module is reported as an encapsulation leak |analysis knowledge
+|public share above 80 percent without private or protected methods |the module is described as an anemic domain model |analysis knowledge
+|static share above 40 percent |the module is described as procedural |analysis knowledge
+|===
+
+[[class-inheritance]]
+=== Class inheritance
+
+Ranked by the task `InheritanceEvaluationAll`.
+
+==== What is measured
+
+Two distributions per module and per kind of code: the inheritance depth of each class, meaning how many
+superclasses sit above it, and the number of interfaces each class implements.
+
+==== How to read it
+
+* Both values are absolute counts of levels and of interfaces.
+* An inheritance depth above 3 indicates a fragile hierarchy, because a change to a base class reaches every
+  level below it. Such a chain is a refactoring candidate.
+* A class implementing more than 5 interfaces may have more than one reason to change, so the count is a hint at
+  a missing split.
+* A distribution with almost every class at depth 0 indicates missing abstraction layers rather than a flat
+  design that was chosen.
+* A module in which no class extends another class of the same module misses opportunities for polymorphism,
+  which is worth stating only if the module holds several similar classes.
+
+==== Weights
+
+None. Each row of a histogram names a depth or an interface count and the number of classes at it.
+
+==== Caveats
+
+* The depth counts classes inside and outside the module together, so a class extending a framework base class
+  looks like a deep hierarchy of the module.
+* Interfaces of the platform and marker interfaces count like any other interface.
+* A shallow hierarchy is not automatically good: composition can hide the same coupling in a field type.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|inheritance depth above 3 |a class is reported as a fragile hierarchy |analysis knowledge
+|more than 5 implemented interfaces |a class is reported as a single responsibility concern |analysis knowledge
+|===
+
+[[method-complexity]]
+=== Method complexity
+
+Ranked by the task `MethodComplexityEvaluationAll`.
+
+==== What is measured
+
+Two distributions per module and per kind of code: the number of parameters of each method and its length in
+statements as the parser counted them.
+
+==== How to read it
+
+* Both values are absolute and belong to one method.
+* More than 7 parameters indicates an excessive parameter list: the caller has to know the order of many values
+  of which several are likely to belong together in a type.
+* More than 30 statements indicates a god method.
+* The three measures are read together. A method with complexity above 10, more than 5 parameters and more than
+  30 statements is a high priority refactoring target, because it is long, branching and hard to call.
+* A method with complexity below 5 but more than 40 statements is a long sequence of operations without
+  branching, for example an initialization block. It is not hard to test but it is hard to read.
+
+==== Weights
+
+None. Each row of a histogram names a parameter count or a statement count and the number of methods at it.
+
+==== Caveats
+
+* The length counts parsed statements, which is not the number of lines a reader sees: a chained call or a
+  lambda can be many lines and few statements.
+* Parameters of a constructor count like parameters of any method, so a builder or a factory can look excessive
+  although its callers never pass the values by hand.
+* A long method of one line per statement can still be perfectly clear.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|more than 7 parameters |a method is reported as an excessive parameter list |analysis knowledge
+|more than 30 statements |a method is reported as a god method |analysis knowledge
+|complexity above 10 with more than 5 parameters and more than 30 statements |a method is reported as a high priority refactoring target |analysis knowledge
+|complexity below 5 with more than 40 statements |a method is described as a long sequence without branching |analysis knowledge
+|===
+
+[[field-visibility]]
+=== Field visibility
+
+Ranked by the task `FieldVisibilityEvaluationAll`.
+
+==== What is measured
+
+The visibility of every field, counted per level: public, protected, private and package private, per module and
+per kind of code.
+
+==== How to read it
+
+* The values are counts of fields, so the reading is a share of the total.
+* Public fields on a domain class, other than static final constants, indicate an encapsulation leak: any code
+  can change the state of an instance without the class noticing.
+* A class whose fields are all public and whose methods are only getters and setters is a data class candidate,
+  which is reported as an anemic domain model.
+* A class with more than 10 fields and more than 20 methods is a god class candidate, and belongs together with
+  the cohesion and method count reports.
+* The share of static and final fields says how much of the class is constants rather than instance state.
+
+==== Weights
+
+None. Each row of the histogram names a visibility level and the number of fields at it.
+
+==== Caveats
+
+* Fields of an enum, a record or an interface constant are public by the rules of the language and are not a
+  leak.
+* The report sees the declared visibility, not how a field is used, so a package private field that is read by
+  one collaborator looks as closed as a private one.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|public fields other than static final constants |a class is reported as an encapsulation leak |analysis knowledge
+|all fields public with only getters and setters |a class is reported as a data class candidate |analysis knowledge
+|more than 10 fields with more than 20 methods |a class is reported as a god class candidate |analysis knowledge
+|===
+
+[[class-cohesion]]
+=== Class cohesion
+
+Ranked by the task `ClassCohesionEvaluationAll`.
+
+==== What is measured
+
+Two distributions per module and per kind of code: the number of fields of each class, and the ratio of fields
+to methods of each class in percent, meaning how many fields the class has per 100 methods.
+
+==== How to read it
+
+* The field count is absolute. The ratio is a percent and is undefined for a class without methods, so such a
+  class appears only in the field count.
+* A class with many fields above 10 and many methods above 20 may be a god class, because it holds both a lot of
+  state and a lot of behaviour.
+* A high ratio, meaning more fields than methods, points at a data holder: the class stores state and leaves the
+  work to its callers.
+* A low ratio, meaning many methods over few fields, points at a utility class or a procedural design.
+* A class at the extreme of both ends of the same module is the more interesting finding than the module mean.
+
+==== Weights
+
+None. Each row of a histogram names a field count or a ratio and the number of classes at it.
+
+==== Caveats
+
+* The ratio is a rough proxy and not a cohesion metric. It says nothing about whether the methods work on the
+  same fields; the cohesion factor of the god class ranking takes that into account where the module report
+  carries the access counters.
+* Generated value holders, configuration classes and data transfer objects are meant to have many fields and few
+  methods, so the finding has to be read against the purpose of the class.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|more than 10 fields with more than 20 methods |a class is reported as a god class candidate |analysis knowledge
+|more fields than methods |a class is reported as a data class candidate |analysis knowledge
+|many methods with few fields |a class is reported as a utility or procedural design |analysis knowledge
+|===
+
+[[class-coupling]]
+=== Class coupling
+
+Ranked by the task `CouplingEvaluationAll`.
+
+==== What is measured
+
+Two reports per module and per kind of code: the efferent coupling of each class, which is the number of imports
+of the class that point outside its own package, and the list of package prefixes the module imports from,
+counted by the number of imports of the module that go there.
+
+==== How to read it
+
+* The coupling value is absolute and belongs to one class. Higher means the class depends on more of the rest of
+  the world and is harder to change alone.
+* A class with a coupling above 20 is a hub class and fragile.
+* A module whose production classes have a mean coupling above 10 is likely too tightly coupled.
+* In the dependency list, one prefix holding more than 50 percent of the imports of the module indicates
+  framework lock-in: the module is bound to one framework and cannot move without a rewrite.
+* The list is also the place to see which external parts of the system a module leans on, for example a driver, a
+  template engine or a logging front end.
+
+==== Weights
+
+* The coupling of a class weighs how many distinct external imports the class declares. Imports from
+  `java.lang` and static imports do not count, and imports of the own package do not count.
+* The dependency list weighs one package prefix with the number of imports of the module that point to it, so a
+  prefix with more imports is the heavier dependency. The count is per imported name, not per use.
+
+==== Caveats
+
+* A prefix is the first two segments of a package name, so unrelated packages of one vendor can be counted
+  together while two packages of one library can be counted apart.
+* The measurement counts declared imports, so a fully qualified name written inline is invisible, and an import
+  that the compiler removes for an annotation is not counted either.
+* A high coupling of one class can be intended for a facade or a factory that is meant to know everyone.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|class coupling above 20 |a class is reported as a hub class |analysis knowledge
+|mean production coupling above 10 |the module is reported as tightly coupled |analysis knowledge
+|more than 50 percent of imports from one prefix |the module is reported as framework lock-in |analysis knowledge
+|===
+
+[[test-coverage]]
+=== Test coverage
+
+Ranked by the task `TestCoverageEvaluationAll`.
+
+==== What is measured
+
+How many production classes of a module have a test class, and which ones do not. A production class counts as
+tested when the module holds a test class whose name is the class name followed by `Test` or `Tests`. The report
+names the total, the tested, the untested count, the ratio in percent, and the list of untested classes.
+
+==== How to read it
+
+* The ratio is a percent of classes, not of lines and not of branches, so it says how much of the module has a
+  home for its tests, not how well the code is exercised.
+* A ratio below 50 percent indicates insufficient test coverage.
+* A module with production code and no test class at all has no coverage, and its ratio is 0.
+* An untested core domain class is a heavier finding than an untested utility class, so the list matters more
+  than the ratio.
+
+==== Weights
+
+None. Each row names a count of classes or the ratio in percent.
+
+==== Caveats
+
+* The classification follows a naming convention. A test class named differently, a parameterized test in
+  another package, or a test that lives in a separate build module is not found, so the figure is a lower bound.
+* A production class whose name contains `Abstract` is not counted at all, because it cannot be instantiated on
+  its own.
+* A test class that exists but exercises nothing counts as coverage.
+* Classes and not methods are compared, so a class with 200 methods counts once.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|ratio below 50 percent |the module is reported as insufficiently tested |analysis knowledge
+|===
+
+[[circular-dependencies]]
+=== Circular dependencies
+
+Ranked by the task `CircularDependencyEvaluationAll`.
+
+==== What is measured
+
+The cycles between the classes of one module. An edge exists from one class of the module to another class of the
+same module when the first imports the second, so the graph holds the references inside the module only. The
+report names each cycle with its length and the classes it runs through.
+
+==== How to read it
+
+* The values are a count of cycles and, per cycle, the number of classes in it. A cycle of 2 classes is a mutual
+  dependency, a longer one is a ring the module cannot break by moving a single class.
+* A cycle over more than 3 classes is a critical architecture smell, because the classes in it can only be
+  understood, tested and changed together.
+* The classes of a cycle are the place to look for a missing interface: one of the participants usually only
+  needs a small part of the others.
+* A cycle that runs through core domain classes matters more than one that runs through utilities or generated
+  code.
+
+==== Weights
+
+None. The report names the members of a cycle, not how often the references between them are used.
+
+==== Caveats
+
+* Only references between classes of the same module are followed, so a cycle that closes over two modules
+  appears in neither module's report. The package tangle report covers the same ground one level up.
+* The import names are matched to class names, and a wildcard import of the same module is resolved through the
+  package it names. A class reached only through reflection or a service loader is invisible.
+* Inherited and implemented relations are not part of the graph, so a cycle that exists only through a
+  superclass is not reported.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|cycle over 3 classes |the cycle is reported as a critical architecture smell |analysis knowledge
+|===
+
+[[method-count]]
+=== Method count
+
+Ranked by the task `MethodCountEvaluationAll`.
+
+==== What is measured
+
+The number of methods of each class, as a histogram per module and per kind of code. Constructors and static
+initializers are counted as methods.
+
+==== How to read it
+
+* The value is absolute and belongs to one class. It says how much behaviour one class carries, not how complex
+  that behaviour is.
+* A class with more than 20 methods is a god class candidate.
+* The tail of the distribution is the finding rather than the mean: a module whose classes mostly hold 2 to 8
+  methods and a single class holding 60 has one class that should be split.
+* The count is read together with the class cohesion report, because a class with many methods and few fields is
+  the more likely god class.
+
+==== Weights
+
+None. Each row of the histogram names a method count and the number of classes at it.
+
+==== Caveats
+
+* An interface or an abstract class with many declarations is not the same finding as a class with many method
+  bodies, and the count does not tell the two apart.
+* The count follows the declarations of the compiled class, so inherited methods of a superclass are counted in
+  the superclass and not in the class that uses them.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|more than 20 methods |a class is reported as a god class candidate |analysis knowledge
+|===
+
+[[documentation-ratio]]
+=== Documentation ratio
+
+Ranked by the task `DocumentationRatioEvaluationAll`.
+
+==== What is measured
+
+How many classes and how many methods carry a documentation comment, counted separately for production, test and
+generated code. The report names the documented and the total count of each, so the ratio is derived from two
+numbers rather than stated as a percentage of its own.
+
+==== How to read it
+
+* The values are counts. A ratio below 50 percent documented classes indicates poor documentation coverage, and
+  is the reading for methods as well.
+* A comment counts as documentation when it is present and not blank, so the ratio measures attention, not
+  quality. It does not say whether a comment explains why the code exists.
+* The difference between the class ratio and the method ratio is telling: a module with documented classes and
+  undocumented methods has a described surface and an unexplained body.
+* A public method that no reader outside the module can see needs less documentation than a public entry point,
+  so the ratio is read together with the visibility report.
+
+==== Weights
+
+None. Each row names a count of classes or methods, documented or total.
+
+==== Caveats
+
+* Only documentation comments of the analysed type are visible; a comment on a method inside a generated class
+  follows the generator and is not a judgement about the module.
+* An override of a documented method needs no own comment to be understandable, so the ratio understates coverage
+  in code with deep hierarchies.
+* A class name that explains the type can make a missing class comment harmless.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|below 50 percent documented classes |the module is reported as poorly documented |analysis knowledge
+|===
+
+[[data-class-candidates]]
+=== Data class candidates
+
+Ranked by the task `DataClassEvaluationAll`.
+
+==== What is measured
+
+The classes that only hold state. A class counts as a candidate when it has fields and either all of its fields
+are private and every method other than a constructor is a getter or a setter, or all of its fields are public
+and the only methods besides a constructor are `toString`, `hashCode` and `equals`.
+
+==== How to read it
+
+* The report is a list of class names, so there is no value to scale: each entry is one class, and the finding is
+  the count and the role of those classes.
+* A candidate in a domain package indicates an anemic domain model: the behaviour of the domain lives in services
+  while the domain classes only carry its data.
+* A candidate at the edge of the system, for example an API request or a persistence row, is expected and needs
+  no change.
+* A candidate is worth reading together with the field visibility report, which shows the same classes from the
+  other side.
+
+==== Weights
+
+None. The report names classes, it does not weigh them.
+
+==== Caveats
+
+* The classification follows the names of the accessor methods. A class whose real behaviour hides in a method
+  named `getTotal` counts as a candidate although it computes something.
+* A record or a class with a single field and one derived method is a legitimate design and still counts.
+* Only the declared methods of the class are inspected, so a class that inherits its behaviour from a superclass
+  looks empty.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|all fields private with only getters and setters |the class is reported as a data class candidate |analysis knowledge
+|all fields public without logic |the class is reported as a data class candidate |analysis knowledge
+|===
+
+[[boolean-parameters]]
+=== Boolean parameters
+
+Ranked by the task `BooleanParameterEvaluationAll`.
+
+==== What is measured
+
+The methods that take three or more boolean parameters, reported by name. The count comes from the method
+descriptor of the compiled class.
+
+==== How to read it
+
+* The report is a list of method names. Each one is a flag argument smell: a call reads as
+  `process(input, true, false, true)`, and the reader of the call has to look up the method to know what the
+  flags mean.
+* The finding is the count and the number of call sites a reader has to check, so a method with three flags is
+  worth naming even when the module is small.
+* The usual repair is one method per case, or a named type that carries the choice, and the report is a
+  candidate list for that repair rather than a defect list.
+
+==== Weights
+
+None. The report names methods, it does not weigh them.
+
+==== Caveats
+
+* The count comes from the descriptor, so a boolean parameter that is always passed the same constant counts like
+  any other.
+* Three booleans are flagged and two are not, which is a convention rather than a limit the language or the
+  design would give.
+* A generated builder or a test helper with flag parameters is reported like production code.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|three or more boolean parameters |the method is reported as a flag argument smell |analysis knowledge
+|===
+
+
+[[annotation-usage]]
+=== Annotation usage
+
+Ranked by the task `AnnotationEvaluationAll`.
+
+==== What is measured
+
+The annotations of the classes and of the methods of each module, counted per annotation type and reported per
+kind of code.
+
+==== How to read it
+
+* The values are counts of annotation occurrences. The total says how much of the module is steered by
+  annotations, and the ranked list says by what.
+* One framework above 60 percent of the annotations of a module, for example a Spring package, indicates
+  framework lock-in: the module is bound to it and its classes need a framework context to run.
+* A low share of `@Override` in classes that extend a superclass or implement an interface indicates missing
+  `@Override` discipline, which lets an override break silently when the superclass changes.
+* A class with far more annotations than the module average concentrates the framework concerns of the module,
+  and is a candidate for a split.
+
+==== Weights
+
+None. Each row names an annotation type and the number of occurrences.
+
+==== Caveats
+
+* The annotations are read from the compiled class files, so an annotation that the compiler does not keep in the
+  class file is invisible, and the count can differ from what the sources show.
+* Annotations a framework or a generator adds are counted like handwritten ones.
+* A high annotation count is not by itself a finding: a test class, a mapped entity or a configuration class is
+  expected to carry several.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|one framework above 60 percent of annotations |the module is reported as framework lock-in |analysis knowledge
+|low `@Override` share in classes with a superclass or interface |the module is reported as missing override discipline |analysis knowledge
+|===
+
+[[package-tangles]]
+=== Package tangles
+
+Ranked by the task `PackageTangleEvaluationAll`.
+
+==== What is measured
+
+The cycles between the packages of one module. An edge exists from one package of the module to another package
+of the same module when a class of the first references a class of the second. The report names each cycle with
+its length, the packages it runs through and the class references that carry it.
+
+==== How to read it
+
+* The values are a count of cycles and, per cycle, the number of packages in it.
+* A cycle over more than 3 packages is a major architecture erosion concern, because no package in it can be
+  changed, released or understood on its own.
+* Package cycles matter more than class cycles: a class can be moved, while a package cycle means the layering
+  of the module is gone.
+* The class references named under a cycle show which direction is the cheap one to cut. One of them is often a
+  single type that only needs an interface.
+* A cycle that runs through core domain packages matters more than one that runs through infrastructure or
+  utility packages, because the packages of the domain are the ones the rest of the system has to be able to
+  follow.
+
+==== Weights
+
+None. The report names the packages and the class references of a cycle, not how often they are used.
+
+==== Caveats
+
+* Only packages of one module are considered, so a cycle that closes over two modules appears in neither. The
+  inter-module report covers the border between modules.
+* A cycle of two packages that reference each other in one place each is reported like a tangle of eight
+  packages, so the length and the number of contributing references have to be read together.
+* Generated and test packages take part in the same graph as production packages.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|cycle over 3 packages |the cycle is reported as architecture erosion |analysis knowledge
+|===
+
+[[import-diversity]]
+=== Import diversity
+
+Ranked by the task `ImportDiversityEvaluationAll`.
+
+==== What is measured
+
+How the imports of a module are spread over packages. Imports are grouped by the first two segments of the
+imported package name and counted, and each group is labelled internal or external against the namespace of the
+project. Static imports and imports of `java.lang` are left out.
+
+==== How to read it
+
+* The values are counts of import statements per package prefix, so the reading is the share of the module's
+  imports that a prefix holds.
+* More than 80 percent external imports indicates low internal code reuse: the module leans on frameworks and
+  libraries more than on the rest of the project, and may be too thin to justify its existence.
+* More than 50 percent of the external imports resolving to a single prefix indicates framework lock-in.
+* A heavy share of `java.*` and `javax.*` imports is a neutral finding: it says the module works with the standard
+  library rather than through an abstraction of the project, which is right for some modules and wrong for
+  others.
+* Many different prefixes for the same concern indicate dependency sprawl, for example several JSON libraries in
+  one module.
+
+==== Weights
+
+* A prefix is weighed with the number of import statements of the module that point to it, counted per import
+  statement and not per use in the code.
+* Internal and external are labels, not weights: they tell whether the prefix belongs to the project.
+
+==== Caveats
+
+* The prefix is the first two segments, so all packages of one vendor are counted together and two packages of
+  one library can be counted apart.
+* The project namespace is derived from the package of the first class of the module, so a module whose own
+  classes sit below an unexpected root can be classified wrongly.
+* Wildcard imports count once, however many types they bring in.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|more than 80 percent external imports |the module is reported as low internal reuse |analysis knowledge
+|more than 50 percent of external imports from one prefix |the module is reported as framework lock-in |analysis knowledge
+|more than 40 percent of external imports from `java.*` or `javax.*` |the module is reported as standard library usage, which is context dependent |analysis knowledge
+|===
+
+[[inter-module-dependencies]]
+=== Inter-module dependencies
+
+Ranked by the task `InterModuleDependencyEvaluation`, which needs at least two modules with a report.
+
+==== What is measured
+
+Three values per module of the project: the efferent coupling `Ce`, which is the number of other project modules
+the module imports from, the afferent coupling `Ca`, which is the number of other project modules that import
+from it, and the instability `Ce / (Ce + Ca) * 100`, which is how much of the module's module-level dependencies
+point away from it. The report also writes the full dependency matrix as a CSV file with the import count of
+every ordered module pair.
+
+==== How to read it
+
+* `Ce` and `Ca` count modules, not types and not imports. `Ce` of 3 means the module leans on three other modules
+  of the project, whatever the number of imports.
+* Instability is a percent between 0 and 100 and is a ratio, not a count:
+** below 30 means stable and is where a foundation module belongs, for example a core library or the domain
+   model. Such a module is depended upon by many others and must not change often.
+** above 70 means unstable and is where a leaf belongs, for example an entry point or a user interface.
+** between 30 and 70 is the balanced zone of an intermediate layer, for example a service or a repository.
+* The direction of the dependencies is the second reading: a stable module below 30 that depends on an unstable
+  module above 70 inverts the dependency and is the classic architecture violation this analysis exists for.
+* A module with a high `Ca` and an instability above 70 is a fragile hub: many modules depend on it while it
+  itself depends on many, so a change to it reaches far.
+* A module with `Ce` and `Ca` both at 0 is connected to nothing. It is dead code, a library that is only used from
+  outside the project, or intentionally isolated.
+* A very high import count between two modules in the matrix indicates tight coupling at the implementation
+  level, even when the module counts look calm: two modules that exchange 400 imports across a single boundary
+  do not have a boundary worth the name.
+
+==== Weights
+
+* The weight of the dependency matrix is the number of import statements that go from one module to another.
+  Imports of the JDK, static imports and imports inside the same module are not counted.
+* Instability weighs `Ce` against the sum of `Ce` and `Ca`, so it is a ratio in percent and not a count of
+  modules.
+* The module counts `Ce` and `Ca` are unweighted: every module counts once, however many imports it contributes.
+
+==== Caveats
+
+* A module is identified by the namespace of its classes, and imports are mapped to the owning module by longest
+  prefix match. Modules whose packages overlap can therefore be attributed wrongly.
+* A wildcard import is resolved through the package it names, and an import of a type that the project does not
+  declare does not count as an inter-module dependency.
+* The measurement counts imports, not calls. A type imported for a single annotation counts like one used
+  throughout the module.
+* A module without a Java report is skipped, so its dependents look less coupled than they are.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|instability below 30 |the module is read as a stable foundation module |analysis knowledge
+|instability above 70 |the module is read as an unstable leaf module |analysis knowledge
+|instability between 30 and 70 |the module is read as an intermediate layer |analysis knowledge
+|`Ca` above 2 with instability above 70 |the module is reported as a fragile hub |analysis knowledge
+|===
+
+[[class-reference-structure]]
+=== Class reference structure
+
+Ranked by the task `ClassDependencyGraphEvaluationAll`.
+
+==== What is measured
+
+The reference graph of each Java module: its classes as nodes and the references between them as edges. The
+report states how many classes and reference edges the graph holds, how much was excluded, the distribution of
+edge weights, the heaviest couplings, and the ladder of candidate separations of the module. Classes and
+references that belong to no class of the module are excluded from the graph and reported as excluded.
+
+==== How to read it
+
+* The graph covers one module. A reference to a class outside it is not an edge, so a module that talks to the
+  rest of the world through interfaces looks loosely coupled inside and may be tightly bound outside.
+* A coupling carries two numbers: the *API width* is the size of the interface that crosses the seam, and the
+  *traffic* is how much code crosses it. A wide seam with little traffic is a shared type; a narrow seam with
+  much traffic is a hot path.
+* The ladder of separations orders the ways to cut the module apart by ascending cost. The cost of a step is the
+  weight of the strongest reference edge it severs, so a single heavy tie appears at its own weight and never
+  before the cheaper steps. One strong tie means two sides are not independent, however few ties there are.
+* Every proposed split has a price, and the price is the number it carries: the cost of the step and the total
+  severed weight of the separation. A cheap separation severs light ties, which is what a split can afford.
+* A module whose production classes are already separate has no ladder, and its structure is as split as the
+  graph says it can be.
+
+==== Weights
+
+* The weight of a reference edge is the API width of the coupling: the number of distinct members that are referenced
+  across the seam between two classes, each counted once by owner, member name and descriptor. It is the price a
+  separation pays for cutting that seam.
+* The traffic of a coupling is the number of reference sites in the code of the one class whose owner is the other
+  class. It is reported beside the weight and is not derived from it: one member read in fifty places has an API
+  width of 1 and a traffic of 50.
+* A separation weighs the edge it severs and, as its second number, the total weight of all edges it severs.
+* The minimum cut figure is the least total coupling that separates the module, which can differ from the first
+  ladder step because it may prefer one heavy tie over many light ones.
+
+==== Caveats
+
+* Inheritance, implemented interfaces and declared field types are recorded as structural relations. They are
+  drawn where both ends are in the picture, but they carry no separation cost, so a cheap split along a
+  reference edge can leave a superclass spanning both sides.
+* The ladder is derived from the production classes; test and generated classes take part in the graph but not in
+  the candidate separations.
+* A module whose raw report predates the weighted reference record has no usable graph, and the analysis reports
+  that the report has to be regenerated instead of deriving candidates from unweighted data.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+
+|number of candidate separations reported per module |the ladder is cut after this many steps |analysis knowledge
+|heaviest couplings reported per module |the list of couplings ends after this many entries |analysis knowledge
+|`diagram.minCutNodeLimit` |class count above which the exact minimum cut figure of a separation is skipped |config.json, seeded 400
+|===
+
+[[dependency-diagrams]]
+=== Dependency diagrams
+
+Ranked by the task `ClassDependencyGraphEvaluationAll`, which stores the diagram source beside its evaluation.
+
+==== What is measured
+
+The class reference graph of each Java module, drawn as PlantUML source. Every module gets a package overview,
+and a class detail diagram per group of the module.
+
+==== How to read it
+
+* The package overview draws one node per package and one edge between two packages whose weight is the sum of
+  the references between their classes, so a heavy edge between two packages is the one a reader should look at
+  first.
+* The class detail diagrams show the groups of the cheapest separation of the class reference graph, which is
+  the split at the lowest total coupling. A module whose production classes are already separate has no such
+  separation, and its packages are drawn as the groups instead.
+* A class detail diagram draws its own group as classes and every other group as one collapsed rectangle,
+  weighted with the total coupling to that group. At most the eight heaviest collapsed groups are drawn, so a
+  group that is coupled to many others does not push its own classes out of the picture.
+* Every inheritance or implemented interface relation is drawn whenever both of its ends are in the diagram,
+  whatever the weight cutoff says, because a structural relation is not a reference that can be cut.
+* Group labels come from the composition of the group and not from a model: the dominant package of the group plus
+  the number of members that do not belong to it.
+* A group of one class is skipped, because a diagram of one class shows no structure and would only use up the
+  diagram budget.
+* The diagrams are not drawn by the engine, and no image file is written. The document carries the source, and
+  whatever the reader previews the document with draws it.
+
+==== Weights
+
+* The weight of an edge in the package overview is the total reference weight between the two packages, summed
+  over their class pairs.
+* A collapsed group in a class detail diagram is weighted with the total coupling between the drawn group and that
+  group, which is what makes the collapsed node wider or narrower than the others.
+* References below the minimum edge weight are not drawn, and the caption of a diagram says how many were left
+  out that way.
+
+==== Caveats
+
+* Every emitted diagram states its own omissions in its caption: how many classes it shows out of the total, how
+  many edges were omitted below the minimum edge weight, how many structural relations it draws whatever the
+  cutoff, and how many other groups it shows collapsed. A diagram without such a caption predates this rule.
+* A group above the node budget gets no class detail diagram, and a group that arrives after the diagram budget
+  is used up is not drawn. Both are listed under a *Not drawn* heading with the budget that was exceeded.
+* A module above the package budget gets no package overview at all, and a module whose class name cannot be
+  written into the PlantUML source gets no diagram. Both are reported with their reason instead of leaving a hole
+  in the document.
+* The diagrams are derived from the parsed reports, so they carry no model-written content and are identical on
+  every run over the same module report.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|`diagram.maxNodes` |classes in one class detail diagram |config.json, seeded 80
+|`diagram.maxOverviewNodes` |packages in the package overview |config.json, seeded 250
+|`diagram.minEdgeWeight` |reference weight below which a reference is not drawn |config.json, seeded 2
+|`diagram.maxEdgesPerNode` |edges drawn per class; the edges dropped this way count as omitted |config.json, seeded 8
+|`diagram.maxGroupDiagrams` |class detail diagrams emitted per module |config.json, seeded 12
+|`diagram.minCutNodeLimit` |class count above which the exact minimum cut figure of a separation is skipped |config.json, seeded 400
+|===
+
+[[god-class-candidates]]
+=== God class candidates
+
+Ranked by the task `GodClassEvaluationAll`.
+
+==== What is measured
+
+The production classes of every Java module, ranked by how far each stands out from the other production
+classes of the same module. Test code and generated code are not ranked; the number of classes left out is
+reported beside the ranking.
+
+Six factors are measured per class:
+
+|===
+|Factor |What it measures
+
+|`WMC` |the sum of the cyclomatic complexity of the methods of the class
+|`cohesion (TCC-like)` |the share of method pairs that both work on the state of the class
+|`foreign data accesses` |the number of accesses of the class to fields declared outside it
+|`maximum nesting depth` |the greatest nesting depth among the methods of the class
+|`maximum method lines` |the length of the longest method of the class
+|`module coupling` |the afferent plus the efferent coupling of the class within its module
+|===
+
+==== How to read it
+
+* Every factor is a *percentile within the module*. No absolute threshold decides the outcome, and no class is
+  classified as a god class. A rank of 1 of 214 says that the class stands out among its peers in that module,
+  not that it is bad.
+* The `score` is the mean of the factor percentiles that count as badness, so a higher score is the stronger
+  candidate, and `rank` is the position of the class among all ranked classes of the module.
+* `cohesion` is the one factor where a low value is the problem, so it is read inverted: it contributes the
+  share of peers the class is behind on cohesion, not its own percentile.
+* Size alone is not the finding. A large class whose methods all work on its own state scores high on cohesion
+  and is correctly not flagged; a class whose methods each touch their own corner of the state loses that
+  protection. Size and cohesion together are what make this a god class ranking rather than a large class
+  ranking.
+* `dominantFactor` names the factor that drove the score, so the weighting can be disputed instead of trusted.
+  A low cohesion percentile is the usual driver of a real god class candidate.
+
+==== Weights
+
+* Each of the six factors weighs the same: the score is their unweighted mean.
+* Two classes are comparable only inside their own module. Because a percentile is a position among the values
+  of one module, the same class ranked in a smaller or simpler module gets different values, and a factor value
+  that looks high in one module can be unremarkable in another.
+* The percentile of a factor is the position of the value of the class among the values of that same factor
+  across the ranked classes of the module.
+
+==== Caveats
+
+* Cohesion is a TCC-like approximation, not TCC. The module report records that a method touches a field of its
+  own class, not which field, so two methods count as sharing state when both touch any of it.
+* A class with fewer than two methods has no pair that could disagree and counts as fully cohesive.
+* The ranking needs a module report that carries the weighted reference record and the per-method access
+  counters. A module whose report lacks them gets no ranking.
+* Only production classes are ranked, so the share of test and generated code of a module does not influence
+  the ranking but also does not hide a large production class.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|`godClass.rankingLimit` |the ranked classes reported for one module |config.json, seeded 15
+|`godClass.batchRankingLimit` |the ranked classes reported per module when all modules are ranked in one call, as the batch task does |config.json, seeded 5
+|===
+
+[[domain-language]]
+=== Domain language
+
+Measured by the task `DomainVocabularyEvaluationAll`, on the counted vocabulary that the batch tool
+`java_get_all_domain_vocabulary_reports` derives from the raw module reports, and judged against the glossary
+that the task `DomainGlossary` fixes for the whole project.
+
+==== What is measured
+
+* The vocabulary of a module, split into four tiers: `technical` for plumbing and framework vocabulary,
+  `generic` for words that carry shape rather than meaning, `noise` for the boilerplate of the language and of
+  English prose, and `unclassified` for everything the lexicon does not list, which the analysis treats as a
+  candidate domain term.
+* Four shares and values per module, all of them computed in the engine and never estimated by the model:
+  * the technical share and the generic share, each as a share of the counted occurrences,
+  * the share of the candidate occurrences that the five most frequent candidate terms hold,
+  * the naming cohesion, which is the mean name overlap of the types that reference each other minus the mean
+    name overlap of the types that do not, over the pairs of two different build units of the module,
+  * the purpose coverage, which is the share of the words of the module's purpose and architecture text that
+    occur in the code vocabulary, the code coverage over the leading candidate terms, and the overlap of the
+    identifier vocabulary with the documentation vocabulary.
+* The count of candidate domain terms of the module, and the list of every distinct term with its tier, its
+   occurrence count and its occurrence count per channel (type name, method name, method verb, field name,
+  package segment, documentation).
+
+==== How to read it
+
+* Every share is a share of occurrences and lies between zero and one, with the noise tier excluded from the
+  numerator and the denominator of the technical and the generic share.
+* No share carries a threshold of its own and no share carries a verdict. The technical share of a module that
+  implements an XML binding is expected to be high, and the same value in a module that models a domain marks
+  a finding, so the value is read against the purpose of the module.
+* The naming cohesion is a difference and not an absolute quality. A positive value says the names follow the
+  references of the module, a value near zero says the names of the module are interchangeable, and a negative
+  value says the references run against the naming.
+* The purpose coverage reads in both directions: a purpose word the code never uses is a concept that was
+  stated and not implemented, and a frequent name the description never mentions is a concept that lives in
+  the code without being declared.
+* `unavailable` is not zero. A module without a description has no coverage, a module without documentation
+  has no documentation overlap, and a module without both a referencing and a non-referencing pair of build
+  units has no naming cohesion.
+* A module whose candidate term count is below the configured minimum is reported as carrying insufficient
+  evidence: it carries the count, the leading candidate terms it has and no share, no coverage value and no
+  naming cohesion. The bound is low on purpose, because a project made of many small modules would otherwise
+  answer for a few of them only.
+
+==== Weights
+
+None. Every term of the evidence names its occurrence count and its channels, and every metric is a share or a
+count of occurrences.
+
+==== Caveats
+
+* The analysis reads identifiers and documentation comments and nothing else. It does not see string literals,
+  configuration keys, resource names or message texts, where the language of a domain also lives, so a name
+  that the analysis calls absent may be present in a string of the code.
+* The naming cohesion is a set overlap of words, not the latent semantic cohesion of the literature. It reads
+  neither synonyms nor word order, so two names for the same concept count as unrelated.
+* The tiers come from a lexicon that is data, not from the code. A term the lexicon does not list is a candidate
+  and not a domain term, and a term it lists wrongly stays visible as a row of the evidence CSV instead of
+  disappearing.
+* A name in a language other than English, or a name that follows conventions the tokenizer does not split,
+  contributes tokens the lexicon cannot classify.
+* The analysis covers production code only. Test and generated build units are excluded, so a mock named after a
+  domain class and a generated metamodel do not enter the vocabulary.
+* The vocabulary analysis is written for Java modules, because only they have a raw report. A module of another
+  language or a module without a raw report is named as skipped, never silently omitted.
+* Only the build units of a module are compared for naming cohesion, since a module is the finest granularity the
+  report offers. A bounded context larger than a module cannot be measured here.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|`domainLanguage.lexicon` |the file that classifies the terms into tiers |config.json, seeded analysis/software-architecture/facts/domain_lexicon.csv
+|`domainLanguage.minimumCandidateTerms` |the lowest number of candidate domain terms a module needs before its shares are reported; below it the module carries its count and its leading terms only |config.json, seeded 50
+|`domainLanguage.topTermsPerModule` |the number of leading candidate terms per module the compact tool result carries to the model; the CSV evidence keeps every term |config.json, seeded 20
+|five |the number of leading candidate terms whose occurrences form the concentration value |analysis knowledge
+|===
+
+[[context-map]]
+=== Context map
+
+Measured by the task `ContextMapEvaluation`, on the project-level overview that the tool
+`java_get_domain_language_overview` derives from the counted vocabulary of the modules and the import matrix of
+the inter-module dependency analysis.
+
+==== What is measured
+
+* The vocabulary of every module in one view: one row per module and term with its tier and its channel counts,
+  and one rollup row per term that names how many modules use it and which ones.
+* The lexical overlap of every pair of modules: the candidate domain terms they share, the overlap of their
+  candidate vocabularies, and the terms only one side uses.
+* The terms a module uses and does not establish itself: a term is established by a module when it is one of the
+  leading candidate terms of that module, and the share of the using module's candidate occurrences the term
+  holds.
+* The quadrant of every pair: the imports between the two modules as the inter-module dependency analysis
+  counted them, the lexical overlap, and a classification that reads both.
+
+==== How to read it
+
+* The quadrant has two axes and four answers:
+  * `candidate domain leak` - the pair shares candidate domain terms and connects with no import. Nothing in the
+    code joins the two, and they still talk about the same thing.
+  * `translation` - the pair imports and shares no vocabulary. The boundary translates, which is a boundary
+    doing its work.
+  * `coupled` - both axes are present.
+  * `independent` - neither axis is present, which is a legitimate answer and not a defect.
+  * `structural evidence missing` - the import matrix was not available, so the structural axis is unknown. This
+    is not an import count of zero, and no pair is classified as a leak on it.
+* The classification is a candidate, not a finding of fact. Both counted values stand beside it in the evidence,
+  so a reader can apply their own bound.
+* The lexical axis is present when the pair shares a candidate term that is a leading term in both modules. A
+  term that is a leading term of one module only is that module's own word, however often the other one uses it.
+* A term more than half of the modules use is set aside as the vocabulary of the whole project: the name of the
+  project, the root of its packages, a word every layer repeats. Such a term connects every pair and tells no
+  pair apart, so it neither marks a shared language nor owns a domain. The evidence reports those terms as their
+  own view, so a reader sees what was set aside. The measured project shows why: the name of the project alone
+  appeared in 2834 of 3655 pairs and made 87 percent of all pairs look like a shared language.
+* A term a module establishes itself is never one it borrows. An intrusion row therefore always names an owner
+  other than the module itself.
+* The overlap is a share and lies between zero and one. A pair that shares a single word of two large
+  vocabularies has a small overlap, which says the two are adjacent rather than the same.
+
+==== Weights
+
+None. Every term of the evidence names its occurrence count and its channels, and every pair names its import
+count and its overlap.
+
+==== Caveats
+
+* The overview joins two analyses and is as good as their evidence. A module without a raw report takes part in
+  no pair, and a module written in another language than Java is not part of the map at all.
+* Ownership rests on the configured leading term count. A term that only just misses a module's leading terms
+  counts as borrowed from whoever establishes it, so the value of `contextMap.leadingTerms` moves intrusions
+  across the line.
+* The vocabulary is a set of words, not a meaning. Two modules that name the same concept with different words
+  share nothing here, and two modules that use one word for two things share everything. The glossary of the
+  analysis is the place that settles a meaning, and the ambiguity it records is the sign of the second case.
+* The quadrant says that two modules share a language and no import. It does not say which of them owns the
+  language, whether the sharing is deliberate, or whether one of them should change. That judgement is the
+  context map's, and it is stated as a relation with its evidence, not as a fact.
+* A module that is a technical layer rather than a domain shares the language of the mechanism with its
+  neighbours. Such a pair is classified `coupled` wherever the imports are there, which is expected and not a
+  finding.
+* The pair list of a project grows with the square of its modules. The evidence keeps every pair; the tool
+  result and the rendered context map carry the most significant pairs of each classification.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|`contextMap.leadingTerms` |how many leading candidate terms of a module establish its domain and count as its own language; also the bound of the term span the tool result carries |config.json, seeded 20
+|`contextMap.maxPairsPerClassification` |how many module pairs of one classification the tool result carries per classification; the CSV evidence keeps every pair |config.json, seeded 25
+|`contextMap.ubiquitousModuleShare` |the share of the modules above which a term is the vocabulary of the whole project rather than the language of a boundary; below three modules nothing is project-wide |config.json, seeded 0.5
+|===

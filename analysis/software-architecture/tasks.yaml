@@ -546,3 +546,53 @@ tags:
   - god_class_evaluation_all
 toolWhitelist:
   - java_get_all_god_class_rankings
+---
+id: DomainGlossary
+name: Build the ubiquitous language glossary of the project
+prompt: prompts/domain_glossary.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/DomainGlossary.json
+responseProperty: domainGlossary
+active: true
+dependsOn:
+  - module_description
+  - module_architecture
+  - module_analysis_reports_all
+tags:
+  - domain_glossary
+toolWhitelist:
+  - java_get_all_domain_vocabulary_reports
+---
+id: DomainVocabularyEvaluationAll
+name: Evaluate the domain language of all Java modules
+prompt: prompts/domain_language_evaluation_all.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ModuleBatchEvaluation.json
+responseProperty: domainVocabularyEvaluationAll
+active: true
+dependsOn:
+  - domain_glossary
+  - module_description
+  - module_architecture
+  - module_analysis_reports_all
+tags:
+  - domain_vocabulary_evaluation
+toolWhitelist:
+  - java_get_all_domain_vocabulary_reports
+---
+id: ContextMapEvaluation
+name: Draw the context map of the project from its language
+prompt: prompts/context_map_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ContextMap.json
+responseProperty: contextMap
+active: true
+dependsOn:
+  - domain_vocabulary_evaluation
+  - inter_module_dependency_evaluation
+  - module_description
+  - module_architecture
+tags:
+  - context_map_evaluation
+toolWhitelist:
+  - java_get_domain_language_overview

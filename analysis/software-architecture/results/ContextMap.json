@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ContextMap",
+  "description": "The bounded contexts the language of the modules suggests, the relation between them, and what could not be placed",
+  "type": "object",
+  "properties": {
+    "reasoning": {
+      "type": "string",
+      "description": "Overall reasoning: how the contexts were derived from the shared vocabulary, the intruding terms and the quadrant of language and imports"
+    },
+    "contexts": {
+      "type": "array",
+      "description": "One entry per bounded context candidate",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "A short name for the context, taken from the language that holds it together"
+          },
+          "modules": {
+            "type": "array",
+            "description": "The modules that speak this context, named as the analysis reports them",
+            "items": {
+              "type": "string"
+            }
+          },
+          "language": {
+            "type": "array",
+            "description": "The terms that hold the context together",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reasoning": {
+            "type": "string",
+            "description": "Why these modules belong to one context: the shared terms and the imports that support the grouping"
+          }
+        },
+        "required": [
+          "name",
+          "modules",
+          "language",
+          "reasoning"
+        ]
+      }
+    },
+    "relations": {
+      "type": "array",
+      "description": "One entry per relation between two contexts. A project with a single context has no relation.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fromContext": {
+            "type": "string",
+            "description": "The context the relation starts at"
+          },
+          "toContext": {
+            "type": "string",
+            "description": "The context the relation points at"
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "shared kernel",
+              "customer/supplier",
+              "conformist",
+              "anticorruption layer",
+              "partnership",
+              "separate ways"
+            ],
+            "description": "The named relation between the two contexts"
+          },
+          "evidence": {
+            "type": "string",
+            "description": "The counted evidence the relation rests on: the import count and the shared leading terms of the pair, or the quadrant classification it reads"
+          },
+          "sharedLanguage": {
+            "type": "boolean",
+            "description": "Whether the pair shares leading candidate terms, as the overview reports it"
+          },
+          "structurallyCoupled": {
+            "type": "boolean",
+            "description": "Whether the pair imports each other, as the overview reports it"
+          }
+        },
+        "required": [
+          "fromContext",
+          "toContext",
+          "relation",
+          "evidence",
+          "sharedLanguage",
+          "structurallyCoupled"
+        ]
+      }
+    },
+    "unplacedModules": {
+      "type": "array",
+      "description": "The modules that could not be placed in a context, with the reason",
+      "items": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "The module that was not placed"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why it was not placed, for example that its vocabulary is too small to judge or that it shares no language with any other module"
+          }
+        },
+        "required": [
+          "module",
+          "reason"
+        ]
+      }
+    }
+  },
+  "required": [
+    "reasoning",
+    "contexts"
+  ]
+}

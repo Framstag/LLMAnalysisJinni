@@ -2,6 +2,7 @@ package com.framstag.llmaj.tasks;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.framstag.llmaj.config.Config;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -38,6 +39,34 @@ class SoftwareArchitectureTaskConfigTest {
             "ModulePackageTangleEvaluation",
             "ModuleImportDiversityEvaluation"
     );
+
+    @Test
+    void analysisReadmePointsToTheAnalysisReference() throws Exception {
+        String readme = Files.readString(ANALYSIS_DIR.resolve("README.md"));
+
+        assertTrue(readme.contains("AnalysisReference.adoc.hbs"),
+                "the directory listing names the reference document");
+        assertTrue(readme.contains("## Analysis Methods and Interpretation"),
+                "the README points at the reference as the place that describes an analysis");
+
+        for (String budget : List.of(
+                Config.DIAGRAM_MAX_NODES_PROPERTY,
+                Config.DIAGRAM_MAX_OVERVIEW_NODES_PROPERTY,
+                Config.DIAGRAM_MIN_EDGE_WEIGHT_PROPERTY,
+                Config.DIAGRAM_MAX_EDGES_PER_NODE_PROPERTY,
+                Config.DIAGRAM_MAX_GROUP_DIAGRAMS_PROPERTY,
+                Config.DIAGRAM_MIN_CUT_NODE_LIMIT_PROPERTY,
+                Config.GOD_CLASS_RANKING_LIMIT_PROPERTY,
+                Config.GOD_CLASS_BATCH_RANKING_LIMIT_PROPERTY)) {
+            assertFalse(readme.contains(budget),
+                    "the README does not restate the budget " + budget + ", which the reference states");
+        }
+
+        assertFalse(readme.contains("## Dependency Diagrams"),
+                "the diagram facts are described in the reference entry");
+        assertFalse(readme.contains("## God Class Ranking"),
+                "the ranking facts are described in the reference entry");
+    }
 
     @Test
     void softwareArchitectureTasksUseBatchedJavaModuleEvaluation() throws Exception {
@@ -94,7 +123,9 @@ class SoftwareArchitectureTaskConfigTest {
                 "BooleanParameterEvaluationAll",
                 "AnnotationEvaluationAll",
                 "PackageTangleEvaluationAll",
-                "ImportDiversityEvaluationAll")) {
+                "ImportDiversityEvaluationAll",
+                "DomainGlossary",
+                "DomainVocabularyEvaluationAll")) {
             assertBatchTask(tasksYaml,
                     batchedTask,
                     decapitalize(batchedTask),
@@ -173,6 +204,49 @@ class SoftwareArchitectureTaskConfigTest {
         assertFalse(documentation.contains("{{#nestingDepthEvaluation.evaluations"));
     }
 
+    @Test
+    void theDomainLanguageTasksBuildTheGlossaryBeforeAnyModuleIsJudged() throws Exception {
+        String tasksYaml = Files.readString(ANALYSIS_DIR.resolve("tasks.yaml"));
+
+        String glossaryBlock = extractBlock(tasksYaml, "id: DomainGlossary");
+
+        assertTrue(glossaryBlock.contains("toolWhitelist:\n  - java_get_all_domain_vocabulary_reports"),
+                "the glossary reads the counted vocabulary and nothing else");
+        assertFalse(glossaryBlock.contains("loopOn:"), "the glossary is built once for the project");
+
+        String evaluationBlock = extractBlock(tasksYaml, "id: DomainVocabularyEvaluationAll");
+
+        assertTrue(evaluationBlock.contains("  - domain_glossary\n"),
+                "the module judgements read the glossary that fixes the meaning of a term");
+        assertTrue(evaluationBlock.contains("prompt: prompts/domain_language_evaluation_all.md\n"),
+                "the evaluation uses its own prompt");
+        assertFalse(evaluationBlock.contains("loopOn:"), "the judgement is one batch call");
+    }
+
+    @Test
+    void theGlossarySchemaExposesTheTermsWithTheirClassificationAndTheirModules() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+
+        JsonNode glossary = mapper.readTree(Files.readString(ANALYSIS_DIR.resolve("results/DomainGlossary.json")));
+
+        assertEquals(List.of("reasoning", "terms"), requiredFields(glossary));
+        assertEquals("array", glossary.path("properties").path("terms").path("type").asText());
+        assertEquals(List.of("term", "classification", "meaning", "modules"),
+                requiredFields(glossary.path("properties").path("terms").path("items")));
+        assertEquals(List.of("domain", "technical", "generic"),
+                toStringList(glossary.path("properties").path("terms").path("items")
+                        .path("properties").path("classification").path("enum")));
+        assertEquals(List.of("term", "meanings"),
+                requiredFields(glossary.path("properties").path("ambiguousTerms").path("items")));
+    }
+
+    private List<String> toStringList(JsonNode array) {
+        List<String> values = new ArrayList<>();
+        array.forEach(value -> values.add(value.asText()));
+
+        return values;
+    }
+
     private void assertRawReportCollectionTask(String tasksYaml) {
         String block = extractBlock(tasksYaml, "id: CollectJavaModuleReportsAll");
 
@@ -191,6 +265,38 @@ class SoftwareArchitectureTaskConfigTest {
         assertTrue(block.contains("responseProperty: " + responseProperty), taskId + " responseProperty mismatch");
         assertTrue(block.contains("  - " + dependencyTag + "\n"), taskId + " dependency tag mismatch");
         assertFalse(block.contains("  - module_analysis_reports\n"), taskId + " must not depend on legacy tag");
+    }
+
+    @Test
+    void theContextMapTaskReadsTheOverviewOfTheWholeProject() throws Exception {
+        String tasksYaml = Files.readString(ANALYSIS_DIR.resolve("tasks.yaml"));
+        String block = extractBlock(tasksYaml, "id: ContextMapEvaluation");
+
+        assertTrue(block.contains("active: true"));
+        assertTrue(block.contains("responseProperty: contextMap"));
+        assertTrue(block.contains("toolWhitelist:\n  - java_get_domain_language_overview"),
+                "the context map reads the project-level overview and nothing else");
+        assertTrue(block.contains("  - domain_vocabulary_evaluation\n"),
+                "the context map stands on the counted vocabulary");
+        assertTrue(block.contains("  - inter_module_dependency_evaluation\n"),
+                "the structural side of the quadrant comes from the import matrix");
+        assertFalse(block.contains("loopOn:"), "the context map is one call for the project");
+    }
+
+    @Test
+    void theContextMapSchemaExposesContextsRelationsAndUnplacedModules() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode contextMap = mapper.readTree(Files.readString(ANALYSIS_DIR.resolve("results/ContextMap.json")));
+
+        assertEquals("object", contextMap.path("type").asText());
+        assertEquals(List.of("reasoning", "contexts"), requiredFields(contextMap));
+        assertEquals(List.of("name", "modules", "language", "reasoning"),
+                requiredFields(contextMap.path("properties").path("contexts").path("items")));
+        assertEquals(List.of("fromContext", "toContext", "relation", "evidence", "sharedLanguage",
+                        "structurallyCoupled"),
+                requiredFields(contextMap.path("properties").path("relations").path("items")));
+        assertEquals(List.of("module", "reason"),
+                requiredFields(contextMap.path("properties").path("unplacedModules").path("items")));
     }
 
     private String extractBlock(String yaml, String marker) {

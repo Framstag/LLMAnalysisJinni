@@ -15,6 +15,39 @@ public class CsvReportWriter {
 
     private static final Logger logger = LoggerFactory.getLogger(CsvReportWriter.class);
 
+    /**
+     * @return the module name as a filename body: every character that is neither a word character nor a
+     * dot nor a dash becomes an underscore, so that a module named {@code My Module} yields {@code My_Module}
+     */
+    public static String sanitizeModuleName(String moduleName) {
+        return moduleName.replaceAll("[^\\w.-]", "_");
+    }
+
+    /**
+     * Writes a report file that holds its header and no row. A report of several views is read as a set, so a
+     * view that has nothing to report still has to be there; a missing file would look like an analysis that
+     * did not run.
+     */
+    public static void writeCsvHeader(Path workingDir, String filename, String[] header) {
+        Path csvPath = workingDir.resolve(filename);
+
+        Path parentDir = csvPath.getParent();
+        if (parentDir != null && !parentDir.equals(workingDir)) {
+            try {
+                Files.createDirectories(parentDir);
+            } catch (IOException e) {
+                logger.error("Error creating directory for CSV {}: {}", filename, e.getMessage());
+                return;
+            }
+        }
+
+        try (CsvWriter csv = CsvWriter.builder().build(csvPath)) {
+            csv.writeRecord(header);
+        } catch (IOException e) {
+            logger.error("Error writing CSV {}: {}", filename, e.getMessage());
+        }
+    }
+
     public static void writeCsv(Path workingDir, String filename, String[] header, List<String[]> rows) {
         if (rows == null || rows.isEmpty()) return;
 

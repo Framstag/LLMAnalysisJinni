@@ -384,6 +384,8 @@ We got the following findings:
 
 === Analysis of Cyclomatic Complexity per Module
 
+Analysis methods and interpretation: see <<cyclomatic-complexity,Cyclomatic complexity>>.
+
 {{#if cyclomaticComplexityEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
@@ -405,6 +407,8 @@ The analysis resulted in the following findings per module:
 {{/if}}
 
 === Analysis of Method Nesting Depth per Module
+
+Analysis methods and interpretation: see <<method-nesting-depth,Method nesting depth>>.
 
 {{#if nestingDepthEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
@@ -428,6 +432,8 @@ The analysis resulted in the following findings per module:
 
 === Analysis of Method Visibility per Module
 
+Analysis methods and interpretation: see <<method-visibility,Method visibility>>.
+
 {{#if visibilityEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
@@ -449,6 +455,8 @@ The analysis resulted in the following findings per module:
 {{/if}}
 
 === Analysis of Class Inheritance per Module
+
+Analysis methods and interpretation: see <<class-inheritance,Class inheritance>>.
 
 {{#if inheritanceEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
@@ -472,6 +480,8 @@ The analysis resulted in the following findings per module:
 
 === Analysis of Method Complexity per Module
 
+Analysis methods and interpretation: see <<method-complexity,Method complexity>>.
+
 {{#if methodComplexityEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
@@ -493,6 +503,8 @@ The analysis resulted in the following findings per module:
 {{/if}}
 
 === Analysis of Field Visibility per Module
+
+Analysis methods and interpretation: see <<field-visibility,Field visibility>>.
 
 {{#if fieldVisibilityEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
@@ -516,6 +528,8 @@ The analysis resulted in the following findings per module:
 
 === Analysis of Class Cohesion per Module
 
+Analysis methods and interpretation: see <<class-cohesion,Class cohesion>>.
+
 {{#if classCohesionEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
@@ -537,6 +551,8 @@ The analysis resulted in the following findings per module:
 {{/if}}
 
 === Analysis of Class Coupling per Module
+
+Analysis methods and interpretation: see <<class-coupling,Class coupling>>.
 
 {{#if couplingEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
@@ -560,6 +576,8 @@ The analysis resulted in the following findings per module:
 
 === Analysis of Test Coverage per Module
 
+Analysis methods and interpretation: see <<test-coverage,Test coverage>>.
+
 {{#if testCoverageEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
@@ -581,6 +599,8 @@ The analysis resulted in the following findings per module:
 {{/if}}
 
 === Analysis of Circular Dependencies per Module
+
+Analysis methods and interpretation: see <<circular-dependencies,Circular dependencies>>.
 
 {{#if circularDependencyEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
@@ -604,6 +624,8 @@ The analysis resulted in the following findings per module:
 
 === Analysis of Method Count per Module
 
+Analysis methods and interpretation: see <<method-count,Method count>>.
+
 {{#if methodCountEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
@@ -625,6 +647,8 @@ The analysis resulted in the following findings per module:
 {{/if}}
 
 === Analysis of Documentation Ratio per Module
+
+Analysis methods and interpretation: see <<documentation-ratio,Documentation ratio>>.
 
 {{#if documentationRatioEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
@@ -648,6 +672,8 @@ The analysis resulted in the following findings per module:
 
 === Analysis of Data Class Candidates per Module
 
+Analysis methods and interpretation: see <<data-class-candidates,Data class candidates>>.
+
 {{#if dataClassEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
@@ -669,6 +695,8 @@ The analysis resulted in the following findings per module:
 {{/if}}
 
 === Analysis of Boolean Parameter Abuse per Module
+
+Analysis methods and interpretation: see <<boolean-parameters,Boolean parameters>>.
 
 {{#if booleanParameterEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
@@ -692,6 +720,8 @@ The analysis resulted in the following findings per module:
 
 === Analysis of Annotation Usage per Module
 
+Analysis methods and interpretation: see <<annotation-usage,Annotation usage>>.
+
 {{#if annotationEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
@@ -713,6 +743,8 @@ The analysis resulted in the following findings per module:
 {{/if}}
 
 === Analysis of Package Tangles per Module
+
+Analysis methods and interpretation: see <<package-tangles,Package tangles>>.
 
 {{#if packageTangleEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
@@ -736,6 +768,8 @@ The analysis resulted in the following findings per module:
 
 === Analysis of Import Diversity per Module
 
+Analysis methods and interpretation: see <<import-diversity,Import diversity>>.
+
 {{#if importDiversityEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
@@ -757,6 +791,8 @@ The analysis resulted in the following findings per module:
 {{/if}}
 
 === Analysis of Inter-Module Dependencies
+
+Analysis methods and interpretation: see <<inter-module-dependencies,Inter-module dependencies>>.
 
 {{#if interModuleDependencyEvaluation}}
 A cross-module analysis of inter-module dependencies was performed, including fan-in (Ca), fan-out (Ce), and Instability metrics.
@@ -798,6 +834,8 @@ Skipped or errored modules:
 
 === Analysis of the Class Reference Structure per Module
 
+Analysis methods and interpretation: see <<class-reference-structure,Class reference structure>>.
+
 {{#if classDependencyGraphEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
 
@@ -822,10 +860,7 @@ No evaluation of the class reference structure was produced.
 
 === Dependency Diagrams per Module
 
-The diagrams below show the reference structure inside each module. The package overview aggregates the class
-level couplings between packages. The class detail diagrams show the groups of the cheapest separation, with
-the other groups drawn collapsed and weighted with the total coupling to them. Every diagram states in its
-caption how many classes it shows and how many edges it omits.
+Analysis methods and interpretation: see <<dependency-diagrams,Dependency diagrams>>.
 
 {{#if dependencyDiagrams}}
 {{~#each dependencyDiagrams}}
@@ -864,9 +899,8 @@ No package overview was generated for this module.
 {{#if notDrawn}}
 Not drawn:
 
-{{~#each notDrawn}}
-* {{this}}
-{{~/each}}
+{{#each notDrawn}}* {{this}}
+{{/each}}
 {{/if}}
 
 {{~/each}}
@@ -875,6 +909,8 @@ No dependency diagrams were generated.
 {{/if}}
 
 === God Class Candidates per Module
+
+Analysis methods and interpretation: see <<god-class-candidates,God class candidates>>.
 
 {{#if godClassEvaluationAll.moduleEvaluations}}
 The analysis resulted in the following findings per module:
@@ -898,3 +934,100 @@ The analysis resulted in the following findings per module:
 No god class ranking was produced, so no god class candidates are listed. A ranking needs a module report
 that carries the weighted reference record and the per-method access counters.
 {{/if}}
+
+=== Domain Language per Module
+
+Analysis methods and interpretation: see <<domain-language,Domain language>>.
+
+{{#if domainGlossary.terms}}
+The ubiquitous language of the project, as the glossary fixed it before the modules were judged:
+
+|===
+| Term | Classification | Meaning | Established by
+
+{{~#each domainGlossary.terms}}
+|{{term}} |{{classification}} |{{meaning}} |{{#each modules}}{{this}} {{/each}}
+{{~/each}}
+|===
+
+{{#if domainGlossary.ambiguousTerms}}
+Terms that different modules use with different meanings, which marks a boundary that carries no translation:
+
+|===
+| Term | Meaning | Used by
+
+{{~#each domainGlossary.ambiguousTerms}}
+{{~#each meanings}}
+|{{../term}} |{{meaning}} |{{#each modules}}{{this}} {{/each}}
+{{~/each}}
+{{~/each}}
+|===
+{{/if}}
+{{else}}
+No project glossary was produced, so the module findings below were judged without a term meaning that is
+fixed for the whole project.
+{{/if}}
+
+{{#if domainVocabularyEvaluationAll.moduleEvaluations}}
+The analysis of the vocabulary of the modules resulted in the following findings per module:
+
+{{~#each domainVocabularyEvaluationAll.moduleEvaluations}}
+
+==== Module "{{moduleName}}"
+
+{{reasoning}}
+
+|===
+| Aspect | Urgency | Criticality | Expectation | Reasoning | Finding | Recommendation
+
+{{~#each evaluations}}
+|{{aspect}} |{{urgency}} |{{criticality}} |{{expectation}} |{{reasoning}} |{{finding}} |{{recommendation}}
+{{~/each}}
+|===
+
+{{~/each}}
+{{else}}
+No domain vocabulary evaluation was produced, so no finding about the language of the modules is listed. An
+evaluation needs a raw module report and the domain lexicon of the analysis.
+{{/if}}
+
+=== Context Map
+
+Analysis methods and interpretation: see <<context-map,Context map>>.
+
+{{#if contextMap.contexts}}
+The language of the modules suggests the following bounded contexts:
+
+{{~#each contextMap.contexts}}
+==== Context "{{name}}"
+
+{{reasoning}}
+
+Modules: {{#each modules}}*{{this}}* {{/each}}
+
+Language: {{#each language}}*{{this}}* {{/each}}
+
+{{~/each}}
+{{#if contextMap.relations}}
+|===
+| From | To | Relation | Shared language | Structurally coupled | Evidence
+
+{{~#each contextMap.relations}}
+|{{fromContext}} |{{toContext}} |{{relation}} |{{sharedLanguage}} |{{structurallyCoupled}} |{{evidence}}
+{{~/each}}
+|===
+{{/if}}
+
+{{#if contextMap.unplacedModules}}
+The following modules were not placed in a context:
+
+{{#each contextMap.unplacedModules}}
+* {{module}}: {{reason}}
+{{/each}}
+{{/if}}
+{{else}}
+No context map was produced, so no boundary between contexts is drawn. A context map needs the counted
+vocabulary of the modules and the import matrix between them.
+{{/if}}
+
+{{> AnalysisReference.adoc}}

@@ -1,0 +1,407 @@
+# The domain language lexicon of the software architecture analysis.
+#
+# Every token the vocabulary analysis counts is classified here into one of three tiers:
+#
+#   technical  plumbing, infrastructure and framework vocabulary: a design pattern, a mechanism, a
+#              language or library concept. A name made of these words says how something works, not
+#              what it means.
+#   generic    words that carry shape rather than meaning: they name a placeholder, a container, a
+#              direction or a quality of a thing without naming the thing.
+#   noise      the boilerplate of the language and of English prose: keywords, accessors, and the
+#              function words of a sentence in a documentation comment.
+#
+# A token that is not listed here is 'unclassified', which is what the analysis calls a candidate
+# domain term. That is the point of the file: it cannot know the domain of a project it has never seen,
+# so it marks what it is sure about and leaves the rest to the reader and to the model.
+#
+# Correcting a tier here is the intended way to tune the analysis, and it needs no rebuild. The evidence
+# CSV of a module lists every term with the tier it got, so a misclassified term can be found and fixed.
+Version,1
+Term,Tier,Note
+
+# --- technical: mechanisms, patterns and structural vocabulary ---
+abstract,technical,language modifier used as a naming convention
+adapter,technical,design pattern
+aggregator,technical,structural role
+annotation,technical,language feature
+api,technical,interface boundary
+aspect,technical,structural concept of a cross cutting concern
+async,technical,execution mechanism
+attribute,technical,language construct
+base,technical,naming convention for a supertype
+bean,technical,framework component
+binding,technical,mechanism
+bootstrap,technical,startup mechanism
+bridge,technical,design pattern
+buffer,technical,memory mechanism
+builder,technical,construction mechanism
+callback,technical,inversion of control
+chain,technical,design pattern
+client,technical,transport role
+closure,technical,language construct
+collector,technical,algorithmic role
+command,technical,design pattern
+composite,technical,design pattern
+connector,technical,transport mechanism
+consumer,technical,transport role
+container,technical,runtime mechanism
+controller,technical,application layer role
+converter,technical,data transformation
+coordinator,technical,structural role
+cursor,technical,iteration mechanism
+dao,technical,persistence pattern
+decorator,technical,design pattern
+default,technical,naming convention for the fallback implementation
+delegate,technical,forwarding pattern
+descriptor,technical,metadata construct
+dto,technical,data transfer object
+encoder,technical,transformation mechanism
+file,technical,resource mechanism
+entity,technical,persistence concept
+enum,technical,language construct
+event,technical,notification mechanism
+exception,technical,error mechanism
+facade,technical,design pattern
+factory,technical,construction mechanism
+filter,technical,processing mechanism
+formatter,technical,text transformation
+framework,technical,infrastructure
+generator,technical,code or data production
+handler,technical,processing role
+hash,technical,data structure
+helper,technical,utility role
+impl,technical,implementation suffix
+implementation,technical,implementation suffix
+injector,technical,dependency injection
+interceptor,technical,processing mechanism
+interface,technical,language construct
+iterator,technical,iteration mechanism
+jdbc,technical,persistence technology
+json,technical,data format
+lambda,technical,language construct
+latch,technical,concurrency mechanism
+listener,technical,notification mechanism
+loader,technical,resource access
+lock,technical,concurrency mechanism
+logger,technical,logging infrastructure
+manager,technical,coordination role
+mapper,technical,data transformation
+mediator,technical,design pattern
+merge,technical,algorithmic operation
+message,technical,transport construct
+metadata,technical,data about data
+model,technical,structural role
+module,technical,structural role
+mutex,technical,concurrency mechanism
+observer,technical,design pattern
+optional,technical,library type
+parameter,technical,language construct
+parse,technical,text processing
+parser,technical,text processing
+pattern,technical,structural concept
+plugin,technical,extension mechanism
+pool,technical,resource management
+predicate,technical,functional interface
+processor,technical,processing role
+proxy,technical,design pattern
+provider,technical,service role
+queue,technical,data structure
+reader,technical,input mechanism
+record,technical,language construct
+registry,technical,lookup mechanism
+renderer,technical,output mechanism
+repository,technical,persistence role
+request,technical,transport construct
+resolver,technical,lookup mechanism
+response,technical,transport construct
+retry,technical,error handling
+runtime,technical,execution environment
+scanner,technical,input mechanism
+scheduler,technical,execution mechanism
+schema,technical,structure definition
+selector,technical,lookup mechanism
+serializer,technical,data transformation
+server,technical,runtime role
+service,technical,application layer role
+servlet,technical,web technology
+singleton,technical,design pattern
+sink,technical,data flow term
+source,technical,data flow term
+spi,technical,extension interface
+strategy,technical,design pattern
+stream,technical,processing mechanism
+supplier,technical,functional interface
+synchronized,technical,concurrency mechanism
+template,technical,structural mechanism
+thread,technical,concurrency concept
+token,technical,parsing concept
+transaction,technical,persistence concept
+transformer,technical,data transformation
+type,technical,language construct
+uri,technical,identifier
+url,technical,identifier
+util,technical,utility suffix
+utils,technical,utility suffix
+validation,technical,mechanism
+validator,technical,validation role
+visitor,technical,design pattern
+wrapper,technical,delegation construct
+xml,technical,data format
+
+# --- generic: shape without meaning ---
+amount,generic,quantity without a domain
+array,generic,container
+available,generic,state of a thing
+body,generic,container part
+bound,generic,bound
+child,generic,position in a structure
+children,generic,position in a structure
+collection,generic,container
+config,generic,configuration without a domain
+configuration,generic,configuration without a domain
+context,generic,situational container
+count,generic,quantity
+current,generic,point in time or order
+data,generic,anything
+detail,generic,level of information
+details,generic,level of information
+element,generic,member of a collection
+elements,generic,member of a collection
+entries,generic,member of a collection
+entry,generic,member of a collection
+first,generic,order
+flag,generic,switch
+id,generic,identity placeholder
+identifier,generic,identity placeholder
+index,generic,position
+info,generic,information
+information,generic,information
+input,generic,direction of data flow
+item,generic,member of a collection
+items,generic,member of a collection
+key,generic,data structure term
+last,generic,order
+level,generic,degree
+limit,generic,bound
+list,generic,container
+map,generic,container
+maximum,generic,bound
+minimum,generic,bound
+name,generic,label
+next,generic,order
+node,generic,position in a structure
+number,generic,quantity
+option,generic,choice
+options,generic,choice
+ordering,generic,order
+output,generic,direction of data flow
+parent,generic,position in a structure
+path,generic,location
+point,generic,position
+previous,generic,order
+properties,generic,configuration without a domain
+property,generic,configuration without a domain
+range,generic,interval
+result,generic,outcome without a domain
+scale,generic,degree
+settings,generic,configuration
+size,generic,quantity
+state,generic,condition
+standard,generic,degree
+status,generic,condition
+target,generic,direction
+text,generic,content
+threshold,generic,bound
+total,generic,quantity
+value,generic,anything
+values,generic,anything
+version,generic,label
+volume,generic,quantity
+weight,generic,degree
+
+# --- noise: language boilerplate, accessors and English prose ---
+about,noise,English function word
+after,noise,English function word
+all,noise,English quantifier
+also,noise,English function word
+an,noise,English article
+and,noise,English conjunction
+any,noise,English quantifier
+are,noise,English verb
+author,noise,javadoc block tag
+argument,noise,parameter
+arguments,noise,parameter
+args,noise,parameter
+as,noise,English function word
+assert,noise,test vocabulary
+at,noise,English preposition
+be,noise,English verb
+because,noise,English conjunction
+been,noise,English verb
+before,noise,English function word
+being,noise,English verb
+between,noise,English function word
+boolean,noise,language type
+both,noise,English quantifier
+but,noise,English conjunction
+by,noise,English preposition
+byte,noise,language type
+can,noise,English verb
+catch,noise,language construct
+char,noise,language type
+class,noise,language keyword
+clone,noise,language method
+compare,noise,comparison
+compareto,noise,language method
+constructor,noise,language construct
+could,noise,English verb
+deprecated,noise,language annotation
+does,noise,English verb
+double,noise,language type
+dummy,noise,test vocabulary
+during,noise,English function word
+each,noise,English quantifier
+else,noise,language keyword
+empty,noise,state of a container
+equals,noise,language method
+error,noise,failure
+even,noise,English function word
+every,noise,English quantifier
+expected,noise,test vocabulary
+false,noise,language literal
+field,noise,language construct
+final,noise,language keyword
+finally,noise,language construct
+float,noise,language type
+for,noise,language keyword and English preposition
+from,noise,English preposition
+get,noise,accessor
+getter,noise,accessor
+given,noise,English verb
+has,noise,accessor prefix
+hashcode,noise,language method
+have,noise,English verb
+here,noise,English adverb
+how,noise,English adverb
+however,noise,English conjunction
+if,noise,language keyword
+implements,noise,language keyword
+import,noise,language keyword
+in,noise,English preposition
+instance,noise,language construct
+instanceof,noise,language operator
+instead,noise,English adverb
+int,noise,language type
+integer,noise,language type
+into,noise,English preposition
+is,noise,accessor prefix
+it,noise,English pronoun
+its,noise,English pronoun
+junit,noise,test technology
+just,noise,English adverb
+less,noise,English quantifier
+like,noise,English function word
+li,noise,HTML element
+log,noise,logging
+long,noise,language type
+main,noise,language entry point
+many,noise,English quantifier
+may,noise,English verb
+method,noise,language construct
+mock,noise,test vocabulary
+more,noise,English quantifier
+most,noise,English quantifier
+much,noise,English quantifier
+must,noise,English verb
+new,noise,language keyword
+no,noise,English particle
+not,noise,English particle
+null,noise,language literal
+nullable,noise,language annotation
+object,noise,language type
+of,noise,English preposition
+on,noise,English preposition
+only,noise,English adverb
+or,noise,language keyword and English conjunction
+other,noise,English determiner
+others,noise,English determiner
+out,noise,English particle
+over,noise,English preposition
+override,noise,language annotation
+package,noise,language keyword
+param,noise,parameter
+params,noise,parameter
+print,noise,output
+println,noise,output
+pre,noise,HTML element
+private,noise,language keyword
+protected,noise,language keyword
+public,noise,language keyword
+return,noise,language keyword
+same,noise,English determiner
+see,noise,javadoc cross reference
+serial,noise,language concept
+set,noise,accessor
+setter,noise,accessor
+setup,noise,test vocabulary
+short,noise,language type
+should,noise,English verb
+so,noise,English conjunction
+some,noise,English quantifier
+spy,noise,test vocabulary
+static,noise,language keyword
+string,noise,language type
+stub,noise,test vocabulary
+such,noise,English determiner
+super,noise,language keyword
+teardown,noise,test vocabulary
+td,noise,HTML element
+test,noise,test vocabulary
+tests,noise,test vocabulary
+than,noise,English conjunction
+that,noise,English determiner
+the,noise,English article
+their,noise,English determiner
+them,noise,English pronoun
+then,noise,English adverb
+there,noise,English adverb
+these,noise,English determiner
+they,noise,English pronoun
+this,noise,language keyword and English determiner
+those,noise,English determiner
+throw,noise,language keyword
+throwable,noise,language type
+throws,noise,language keyword
+to,noise,English preposition
+tostring,noise,language method
+tmp,noise,temporary value
+transient,noise,language keyword
+true,noise,language literal
+try,noise,language keyword
+under,noise,English preposition
+unless,noise,English conjunction
+up,noise,English particle
+used,noise,English verb
+uses,noise,English verb
+using,noise,English verb
+verify,noise,test vocabulary
+very,noise,English adverb
+void,noise,language type
+volatile,noise,language keyword
+was,noise,English verb
+we,noise,English pronoun
+were,noise,English verb
+what,noise,English pronoun
+when,noise,English adverb
+where,noise,English adverb
+which,noise,English pronoun
+while,noise,language keyword and English conjunction
+who,noise,English pronoun
+why,noise,English adverb
+will,noise,English verb
+with,noise,English preposition
+without,noise,English preposition
+would,noise,English verb
+yes,noise,English particle
+you,noise,English pronoun
+your,noise,English pronoun

@@ -6,6 +6,8 @@ import com.fasterxml.jackson.annotation.JsonSetter;
 import com.framstag.llmaj.tools.java.GodClassRanking;
 import com.framstag.llmaj.tools.java.graph.DependencyDiagrams;
 import com.framstag.llmaj.tools.java.graph.MinimumCut;
+import com.framstag.llmaj.tools.java.language.DomainLanguageSettings;
+import com.framstag.llmaj.tools.java.language.overview.ContextMapSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +43,28 @@ public class Config {
 
     /** Number of ranked classes reported per module when all modules are reported at once. */
     public static final String GOD_CLASS_BATCH_RANKING_LIMIT_PROPERTY = "godClass.batchRankingLimit";
+
+    /** The file that classifies vocabulary terms into tiers. */
+    public static final String DOMAIN_LANGUAGE_LEXICON_PROPERTY = "domainLanguage.lexicon";
+
+    /** Candidate term count below which the vocabulary metrics of a module are not reported. */
+    public static final String DOMAIN_LANGUAGE_MINIMUM_CANDIDATE_TERMS_PROPERTY =
+            "domainLanguage.minimumCandidateTerms";
+
+    /** Number of leading terms per module the compact vocabulary result carries. */
+    public static final String DOMAIN_LANGUAGE_TOP_TERMS_PROPERTY = "domainLanguage.topTermsPerModule";
+
+    /** Number of leading candidate terms of a module that establish its domain in the project overview. */
+    public static final String CONTEXT_MAP_LEADING_TERMS_PROPERTY = "contextMap.leadingTerms";
+
+    /** Number of module pairs of one classification the compact context map result carries. */
+    public static final String CONTEXT_MAP_MAX_PAIRS_PROPERTY = "contextMap.maxPairsPerClassification";
+
+    /**
+     * Share of the modules above which a term counts as the vocabulary of the whole project rather than as the
+     * language of a boundary.
+     */
+    public static final String CONTEXT_MAP_UBIQUITOUS_SHARE_PROPERTY = "contextMap.ubiquitousModuleShare";
 
     private Path projectDirectory;
     private Path analysisDirectory;
@@ -105,6 +129,17 @@ public class Config {
                 Integer.toString(GodClassRanking.DEFAULT_RANKING_LIMIT));
         properties.put(GOD_CLASS_BATCH_RANKING_LIMIT_PROPERTY,
                 Integer.toString(GodClassRanking.DEFAULT_BATCH_RANKING_LIMIT));
+        properties.put(DOMAIN_LANGUAGE_MINIMUM_CANDIDATE_TERMS_PROPERTY,
+                Integer.toString(DomainLanguageSettings.DEFAULT_MINIMUM_CANDIDATE_TERMS));
+        properties.put(DOMAIN_LANGUAGE_TOP_TERMS_PROPERTY,
+                Integer.toString(DomainLanguageSettings.DEFAULT_TOP_TERMS));
+        properties.put(DOMAIN_LANGUAGE_LEXICON_PROPERTY, DomainLanguageSettings.DEFAULT_LEXICON_PATH);
+        properties.put(CONTEXT_MAP_LEADING_TERMS_PROPERTY,
+                Integer.toString(ContextMapSettings.DEFAULT_LEADING_TERMS));
+        properties.put(CONTEXT_MAP_MAX_PAIRS_PROPERTY,
+                Integer.toString(ContextMapSettings.DEFAULT_MAX_PAIRS_PER_CLASSIFICATION));
+        properties.put(CONTEXT_MAP_UBIQUITOUS_SHARE_PROPERTY,
+                Double.toString(ContextMapSettings.DEFAULT_UBIQUITOUS_MODULE_SHARE));
     }
 
     @JsonIgnore

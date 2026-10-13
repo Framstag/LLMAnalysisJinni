@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DomainGlossary",
+  "description": "The ubiquitous language of the project: one entry per term with its classification, its meaning and the modules that establish it",
+  "type": "object",
+  "properties": {
+    "reasoning": {
+      "type": "string",
+      "description": "Overall reasoning: what the glossary is built from, which terms were taken from the counted vocabulary, and why the terms that were left out were left out"
+    },
+    "terms": {
+      "type": "array",
+      "description": "One entry per term of the ubiquitous language that names a concept or a mechanism of the project",
+      "items": {
+        "type": "object",
+        "properties": {
+          "term": {
+            "type": "string",
+            "description": "The term as the vocabulary tool reported it, in lower case"
+          },
+          "classification": {
+            "type": "string",
+            "enum": [
+              "domain",
+              "technical",
+              "generic"
+            ],
+            "description": "domain for a term that belongs to the business domain of a module, technical for a mechanism or a pattern, generic for a word that carries no domain"
+          },
+          "meaning": {
+            "type": "string",
+            "description": "What the term means in this project, in one sentence"
+          },
+          "modules": {
+            "type": "array",
+            "description": "The modules that establish the term, that is the modules whose purpose and code make it part of their domain",
+            "items": {
+              "type": "string"
+            }
+          },
+          "synonyms": {
+            "type": "array",
+            "description": "Other terms that name the same concept in this project",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "term",
+          "classification",
+          "meaning",
+          "modules"
+        ]
+      }
+    },
+    "ambiguousTerms": {
+      "type": "array",
+      "description": "Terms that different modules use with different meanings, which marks a boundary that carries no translation",
+      "items": {
+        "type": "object",
+        "properties": {
+          "term": {
+            "type": "string",
+            "description": "The ambiguous term, in lower case"
+          },
+          "meanings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "meaning": {
+                  "type": "string",
+                  "description": "One meaning of the term in this project"
+                },
+                "modules": {
+                  "type": "array",
+                  "description": "The modules that use the term with this meaning",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "meaning",
+                "modules"
+              ]
+            }
+          }
+        },
+        "required": [
+          "term",
+          "meanings"
+        ]
+      }
+    }
+  },
+  "required": [
+    "reasoning",
+    "terms"
+  ]
+}

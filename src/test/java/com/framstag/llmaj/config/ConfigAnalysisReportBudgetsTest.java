@@ -40,7 +40,11 @@ class ConfigAnalysisReportBudgetsTest {
                 Config.DIAGRAM_MAX_GROUP_DIAGRAMS_PROPERTY,
                 Config.DIAGRAM_MIN_CUT_NODE_LIMIT_PROPERTY,
                 Config.GOD_CLASS_RANKING_LIMIT_PROPERTY,
-                Config.GOD_CLASS_BATCH_RANKING_LIMIT_PROPERTY}) {
+                Config.GOD_CLASS_BATCH_RANKING_LIMIT_PROPERTY,
+                Config.DOMAIN_LANGUAGE_MINIMUM_CANDIDATE_TERMS_PROPERTY,
+                Config.DOMAIN_LANGUAGE_TOP_TERMS_PROPERTY,
+                Config.CONTEXT_MAP_LEADING_TERMS_PROPERTY,
+                Config.CONTEXT_MAP_MAX_PAIRS_PROPERTY}) {
             assertTrue(config.getProperties().containsKey(property),
                     "a freshly created configuration has to state " + property);
             assertTrue(config.getBudget(property, -1) > 0,
@@ -59,6 +63,11 @@ class ConfigAnalysisReportBudgetsTest {
         assertEquals(7, loaded.getBudget(Config.DIAGRAM_MAX_NODES_PROPERTY, 40));
         assertEquals(Config.getBudget(config.getProperties(), Config.DIAGRAM_MIN_CUT_NODE_LIMIT_PROPERTY, 1),
                 loaded.getBudget(Config.DIAGRAM_MIN_CUT_NODE_LIMIT_PROPERTY, 1));
+        assertEquals("analysis/software-architecture/facts/domain_lexicon.csv",
+                loaded.getProperties().get(Config.DOMAIN_LANGUAGE_LEXICON_PROPERTY),
+                "the seeded lexicon path is part of the workspace configuration");
+        assertEquals("0.5", loaded.getProperties().get(Config.CONTEXT_MAP_UBIQUITOUS_SHARE_PROPERTY),
+                "the seeded project-wide share is part of the workspace configuration");
     }
 
     @Test

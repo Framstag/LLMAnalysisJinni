@@ -33,6 +33,23 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import com.framstag.llmaj.tools.common.CsvReportWriter;
+import com.framstag.llmaj.tools.java.language.DomainLanguageSettings;
+import com.framstag.llmaj.tools.java.language.DomainLexicon;
+import com.framstag.llmaj.tools.java.language.DomainVocabularyReports;
+import com.framstag.llmaj.tools.java.language.ModuleLanguageEvidence;
+import com.framstag.llmaj.tools.java.language.NamingCohesion;
+import com.framstag.llmaj.tools.java.language.TextAlignment;
+import com.framstag.llmaj.tools.java.language.VocabularyShares;
+import com.framstag.llmaj.tools.java.language.overview.ContextMapReports;
+import com.framstag.llmaj.tools.java.language.overview.ContextMapSettings;
+import com.framstag.llmaj.tools.java.language.overview.DomainLanguageOverview;
+import com.framstag.llmaj.tools.java.language.overview.ImportMatrix;
+import com.framstag.llmaj.tools.java.language.overview.LexicalOverlap;
+import com.framstag.llmaj.tools.java.language.overview.ProjectVocabulary;
+import com.framstag.llmaj.tools.java.language.overview.QuadrantRow;
+import com.framstag.llmaj.tools.java.language.overview.TermIntrusion;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -57,7 +74,7 @@ public class JavaTool {
     }
 
     private static String sanitizeModuleName(String moduleName) {
-        return moduleName.replaceAll("[^\\w.-]", "_");
+        return CsvReportWriter.sanitizeModuleName(moduleName);
     }
 
     private JsonNode getModuleNodeByName(ObjectNode analysisState, String moduleName) {
@@ -2979,6 +2996,558 @@ return List.of(pd, td, gd);
                 + " and carries no weighted reference record. Regenerate it as version "
                 + Module.CURRENT_REPORT_FORMAT_VERSION
                 + " by re-running the Java module report collection.";
+    }
+
+    /**
+     * The values the vocabulary analysis is steered by, read from the workspace configuration so that a
+     * reader of {@code config.json} sees what a report was produced with. The lexicon is a file of the
+     * analysis, so a relative path is taken from the directory the analysis runs in, and the path the run
+     * used is part of the tool result, so a wrong resolution is visible instead of silent.
+     */
+    DomainLanguageSettings domainLanguageSettings() {
+        return DomainLanguageSettings.from(context.getProperties());
+    }
+
+    /**
+     * Computes the language evidence of one module from its raw report, writes the CSV evidence and returns
+     * it. The module report is read through the cached access, so a run that computes both the per-module and
+     * the project-level view tokenizes a module once.
+     */
+    public ModuleLanguageEvidence getDomainVocabularyReport(String moduleName,
+                                                            Module module,
+                                                            DomainLanguageSettings settings,
+                                                            DomainLexicon lexicon) {
+        ModuleLanguageEvidence evidence = ModuleLanguageEvidence.of(moduleName,
+                module,
+                moduleDescription(moduleName),
+                lexicon,
+                settings.minimumCandidateTerms(),
+                settings.topTermsPerModule());
+
+        DomainVocabularyReports.write(context.getWorkingDirectory(), evidence);
+
+        return evidence;
+    }
+
+    /**
+     * Reads the raw report of a module and computes its language evidence.
+     */
+    public ModuleLanguageEvidence getDomainVocabularyReport(String moduleName,
+                                                            DomainLanguageSettings settings,
+                                                            DomainLexicon lexicon) throws IOException {
+        return getDomainVocabularyReport(moduleName, getModuleReport(moduleName), settings, lexicon);
+    }
+
+    @Tool(name = "java_get_all_domain_vocabulary_reports",
+            value = """
+                    Returns the counted vocabulary of every Java module: the shares of technical, generic and
+                    candidate domain terms, the leading candidate terms with their channels, how far the
+                    vocabulary agrees with the module description, and whether the names of a module follow its
+                    references.
+
+                    The counts are computed from the raw module reports; the full term list of each module is
+                    written as CSV evidence beside the other reports. A module without a raw report or whose raw
+                    report is outdated is named as skipped, and a module whose candidate vocabulary is below the
+                    configured minimum is reported as carrying insufficient evidence instead of metric values.
+                    """)
+    public Map<String, Object> getAllDomainVocabularyReports() throws IOException {
+        logger.info("## JavaGetAllDomainVocabularyReports()");
+
+        DomainLanguageSettings settings = domainLanguageSettings();
+        List<Map<String, Object>> reports = new ArrayList<>();
+        List<Map<String, Object>> skipped = new ArrayList<>();
+        DomainLexicon lexicon;
+
+        try {
+            lexicon = DomainLexicon.load(settings.lexiconPath());
+        } catch (IOException | RuntimeException e) {
+            // Without the lexicon no term can be classified, so every module is reported as skipped with the
+            // reason instead of being dropped from a result that would look complete.
+            for (JsonNode module : getModuleNodes(context.getAnalysisState())) {
+                skipped.add(moduleReportDescriptor(moduleNameOf(module),
+                        "SKIPPED",
+                        "",
+                        "The domain lexicon is not usable: " + e.getMessage()));
+            }
+
+            return domainVocabularyResult(settings,
+                    lexiconDescriptor(settings, "ERROR", e.getMessage()),
+                    reports,
+                    skipped);
+        }
+
+        for (JsonNode module : getModuleNodes(context.getAnalysisState())) {
+            String moduleName = moduleNameOf(module);
+
+            if (!isJavaModule(module)) {
+                skipped.add(moduleReportDescriptor(moduleName,
+                        "SKIPPED",
+                        "",
+                        "Module is not detected as Java, so no Java vocabulary exists for it."));
+                continue;
+            }
+
+            if (!reportFileExists(moduleName)) {
+                skipped.add(moduleReportDescriptor(moduleName,
+                        "SKIPPED",
+                        "",
+                        "No raw Java module report exists for the module."));
+                continue;
+            }
+
+            try {
+                Module moduleReport = getModuleReport(moduleName);
+
+                if (!moduleReport.isReportFormatCurrent()) {
+                    skipped.add(moduleReportDescriptor(moduleName,
+                            "SKIPPED",
+                            moduleNameToReportName(moduleName),
+                            outdatedLanguageReportReason(moduleReport)));
+                    continue;
+                }
+
+                ModuleLanguageEvidence evidence = getDomainVocabularyReport(moduleName, moduleReport, settings,
+                        lexicon);
+                reports.add(compactLanguageEvidence(evidence, settings.topTermsPerModule()));
+            } catch (IOException | RuntimeException e) {
+                logger.warn("Could not compute the vocabulary of '{}': {}", moduleName, e.getMessage());
+                skipped.add(moduleReportDescriptor(moduleName,
+                        "ERROR",
+                        "",
+                        "Could not compute the module vocabulary: " + e.getMessage()));
+            }
+        }
+
+        return domainVocabularyResult(settings,
+                lexiconDescriptor(settings, "OK", lexicon.size() + " term(s) classified"),
+                reports,
+                skipped);
+    }
+
+    /**
+     * The cohesion and the alignment of a module rest on the reference record and on the per-method data of
+     * the report, so a report written as an older version is named instead of measured: measuring it would
+     * quietly report a cohesion computed from references that the report does not carry.
+     */
+    private String outdatedLanguageReportReason(Module module) {
+        String recordedVersion = module.getReportFormatVersion() == 0
+                ? "no report format version"
+                : "report format version " + module.getReportFormatVersion();
+
+        return "The raw module report records " + recordedVersion + " and was not written as version "
+                + Module.CURRENT_REPORT_FORMAT_VERSION
+                + ", so no vocabulary evidence was computed. Regenerate the report by re-running the Java"
+                + " module report collection.";
+    }
+
+    private String moduleNameOf(JsonNode module) {
+        JsonNode nameNode = module.get("name");
+
+        return nameNode == null || nameNode.isNull() ? "unknown" : nameNode.asText();
+    }
+
+    private Map<String, Object> domainVocabularyResult(DomainLanguageSettings settings,
+                                                       Map<String, Object> lexicon,
+                                                       List<Map<String, Object>> reports,
+                                                       List<Map<String, Object>> skipped) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("metric", "Domain vocabulary");
+        result.put("lexicon", lexicon);
+        result.put("minimumCandidateTerms", settings.minimumCandidateTerms());
+        result.put("topTermsPerModule", settings.topTermsPerModule());
+        result.put("reports", reports);
+        result.put("skipped", skipped);
+
+        return result;
+    }
+
+    private Map<String, Object> lexiconDescriptor(DomainLanguageSettings settings, String status, String reason) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("file", settings.lexiconPath() == null ? "" : settings.lexiconPath().toString());
+        descriptor.put("status", status);
+        descriptor.put("reason", reason);
+
+        return descriptor;
+    }
+
+    /**
+     * The evidence of a module without the per-term rows, which stay in the CSV: the model judges meaning and
+     * cannot count, so it needs the values and the leading terms rather than the whole corpus.
+     */
+    private Map<String, Object> compactLanguageEvidence(ModuleLanguageEvidence evidence, int topTermLimit) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("moduleName", evidence.moduleName());
+        descriptor.put("lexiconVersion", evidence.lexiconVersion());
+        descriptor.put("candidateTerms", evidence.candidateTerms());
+        descriptor.put("sufficientEvidence", evidence.sufficientEvidence());
+        descriptor.put("leadingTerms", leadingTermDescriptors(evidence, topTermLimit));
+
+        if (!evidence.sufficientEvidence()) {
+            // The module is too small to be judged, but a reader and the model still see which few terms it
+            // has, so that "not judged" is a fact about the size and not about the analysis.
+            return descriptor;
+        }
+
+        VocabularyShares shares = evidence.shares();
+        TextAlignment alignment = evidence.alignment();
+        NamingCohesion cohesion = evidence.cohesion();
+
+        descriptor.put("tierOccurrences", evidence.namedTierOccurrences());
+        descriptor.put("technicalShare", shares.technicalShare());
+        descriptor.put("genericShare", shares.genericShare());
+        descriptor.put("topTermShare", shares.topTermShare());
+        descriptor.put("namingPairs", cohesion.pairs().size());
+        descriptor.put("namingCohesion", cohesion.value());
+        descriptor.put("namingCohesionLinked", cohesion.linkedOverlap());
+        descriptor.put("namingCohesionUnlinked", cohesion.unlinkedOverlap());
+        descriptor.put("purposeCoverage", alignment.purposeCoverage());
+        descriptor.put("codeCoverage", alignment.codeCoverage());
+        descriptor.put("documentationOverlap", alignment.documentationOverlap());
+        descriptor.put("absentPurposeTerms", alignment.absentPurposeTerms());
+        descriptor.put("absentCodeTerms", alignment.absentCodeTerms());
+
+        return descriptor;
+    }
+
+    private List<Map<String, Object>> leadingTermDescriptors(ModuleLanguageEvidence evidence, int limit) {
+        List<String> leadingTerms = evidence.leadingTerms(limit);
+        List<Map<String, Object>> descriptors = new ArrayList<>(leadingTerms.size());
+
+        for (String leadingTerm : leadingTerms) {
+            for (ModuleLanguageEvidence.TermEvidence term : evidence.terms()) {
+                if (!term.term().equals(leadingTerm)) {
+                    continue;
+                }
+
+                Map<String, Object> descriptor = new LinkedHashMap<>();
+                descriptor.put("term", term.term());
+                descriptor.put("occurrences", term.occurrences());
+                descriptor.put("channels", DomainVocabularyReports.namedChannelOccurrences(term));
+                descriptors.add(descriptor);
+            }
+        }
+
+        return descriptors;
+    }
+
+    /**
+     * @return the purpose and the architecture findings of a module as one text, or null when the module was
+     * never described, because a missing description is not a coverage of zero
+     */
+    private String moduleDescription(String moduleName) {
+        for (JsonNode module : getModuleNodes(context.getAnalysisState())) {
+            if (!moduleName.equals(moduleNameOf(module))) {
+                continue;
+            }
+
+            StringBuilder description = new StringBuilder();
+
+            appendText(description, module.path("purpose").path("purpose"));
+
+            for (JsonNode element : module.path("architecture").path("architectureElements")) {
+                appendText(description, element.path("aspect"));
+                appendText(description, element.path("finding"));
+            }
+
+            return description.isEmpty() ? null : description.toString();
+        }
+
+        return null;
+    }
+
+    private void appendText(StringBuilder text, JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return;
+        }
+
+        String value = node.asText();
+
+        if (value == null || value.isBlank()) {
+            return;
+        }
+
+        if (!text.isEmpty()) {
+            text.append(' ');
+        }
+
+        text.append(value.trim());
+    }
+
+    /**
+     * The bounds of the project-level language overview, read from the workspace configuration.
+     */
+    ContextMapSettings contextMapSettings() {
+        return ContextMapSettings.from(context.getProperties());
+    }
+
+    /**
+     * Builds the project-level language overview: the vocabulary of every Java module, the language the
+     * modules share, the terms one module established and another one uses, and the quadrant of language and
+     * imports. Writes the project-level CSV evidence and returns the overview.
+     *
+     * <p>The per-module evidence is computed by the vocabulary analysis, so a run that computes both pays for
+     * the tokenization once per module. A module without a raw report is left out, exactly like in the
+     * per-module tool, and named as skipped by the tool that reports the overview.
+     */
+    public DomainLanguageOverview getDomainLanguageOverview(List<ModuleLanguageEvidence> evidence,
+                                                            ContextMapSettings settings) {
+        ProjectVocabulary vocabulary = ProjectVocabulary.of(evidence);
+        Set<String> ubiquitousTerms = vocabulary.ubiquitousTerms(
+                settings.ubiquitousModuleCount(vocabulary.modules().size()));
+        LexicalOverlap overlap = LexicalOverlap.of(vocabulary, ubiquitousTerms);
+        ImportMatrix importMatrix = ImportMatrix.read(context.getWorkingDirectory());
+        List<TermIntrusion> intrusions = TermIntrusion.of(vocabulary,
+                moduleDescriptions(),
+                settings.leadingTerms(),
+                ubiquitousTerms);
+
+        DomainLanguageOverview overview = new DomainLanguageOverview(vocabulary,
+                overlap,
+                intrusions,
+                QuadrantRow.of(vocabulary, overlap, importMatrix, settings.leadingTerms(), ubiquitousTerms),
+                vocabulary.ubiquitousSpanTerms(settings.ubiquitousModuleCount(vocabulary.modules().size())),
+                importMatrix);
+
+        ContextMapReports.write(context.getWorkingDirectory(), overview);
+
+        return overview;
+    }
+
+    /**
+     * @return the purpose and architecture text of every module of the analysis state, keyed by module name,
+     * without the modules that were never described
+     */
+    private Map<String, String> moduleDescriptions() {
+        Map<String, String> descriptions = new LinkedHashMap<>();
+
+        for (JsonNode module : getModuleNodes(context.getAnalysisState())) {
+            String description = moduleDescription(moduleNameOf(module));
+
+            if (description != null) {
+                descriptions.put(moduleNameOf(module), description);
+            }
+        }
+
+        return descriptions;
+    }
+
+    @Tool(name = "java_get_domain_language_overview",
+            value = """
+                    Returns the language of the whole project: how many modules use each candidate domain term,
+                    how much language two modules share, which terms one module established and another module
+                    uses, and the quadrant that joins the shared language of two modules with the imports
+                    between them.
+
+                    The module pairs are reported with an import count and a lexical overlap, classified as a
+                    candidate domain leak (shared language, no import), a translation (import, no shared
+                    language), coupled, independent, or as carrying no structural evidence when the
+                    inter-module dependency analysis has not written its matrix. Two modules that share a domain
+                    vocabulary without importing each other are the finding this overview exists for.
+
+                    The full evidence is written as CSV files beside the module reports. The result carries the
+                    leading terms with their span, the intruding terms with their owners, the most significant
+                    pairs per classification, the number of pairs per classification, and the modules that could
+                    not be processed.
+                    """)
+    public Map<String, Object> getDomainLanguageOverview() throws IOException {
+        logger.info("## JavaGetDomainLanguageOverview()");
+
+        DomainLanguageSettings settings = domainLanguageSettings();
+        ContextMapSettings contextMapSettings = contextMapSettings();
+        List<Map<String, Object>> skipped = new ArrayList<>();
+        List<ModuleLanguageEvidence> evidence = new ArrayList<>();
+        DomainLexicon lexicon;
+
+        try {
+            lexicon = DomainLexicon.load(settings.lexiconPath());
+        } catch (IOException | RuntimeException e) {
+            for (JsonNode module : getModuleNodes(context.getAnalysisState())) {
+                skipped.add(moduleReportDescriptor(moduleNameOf(module),
+                        "SKIPPED",
+                        "",
+                        "The domain lexicon is not usable: " + e.getMessage()));
+            }
+
+            return languageOverviewResult(null, skipped, contextMapSettings, settings,
+                    lexiconDescriptor(settings, "ERROR", e.getMessage()));
+        }
+
+        for (JsonNode module : getModuleNodes(context.getAnalysisState())) {
+            String moduleName = moduleNameOf(module);
+
+            if (!isJavaModule(module)) {
+                skipped.add(moduleReportDescriptor(moduleName,
+                        "SKIPPED",
+                        "",
+                        "Module is not detected as Java, so it has no Java vocabulary."));
+                continue;
+            }
+
+            if (!reportFileExists(moduleName)) {
+                skipped.add(moduleReportDescriptor(moduleName,
+                        "SKIPPED",
+                        "",
+                        "No raw Java module report exists for the module."));
+                continue;
+            }
+
+            try {
+                Module moduleReport = getModuleReport(moduleName);
+
+                if (!moduleReport.isReportFormatCurrent()) {
+                    skipped.add(moduleReportDescriptor(moduleName,
+                            "SKIPPED",
+                            moduleNameToReportName(moduleName),
+                            outdatedLanguageReportReason(moduleReport)));
+                    continue;
+                }
+
+                evidence.add(getDomainVocabularyReport(moduleName, moduleReport, settings, lexicon));
+            } catch (IOException | RuntimeException e) {
+                logger.warn("Could not compute the vocabulary of '{}': {}", moduleName, e.getMessage());
+                skipped.add(moduleReportDescriptor(moduleName,
+                        "ERROR",
+                        "",
+                        "Could not compute the module vocabulary: " + e.getMessage()));
+            }
+        }
+
+        DomainLanguageOverview overview = getDomainLanguageOverview(evidence, contextMapSettings);
+
+        return languageOverviewResult(overview, skipped, contextMapSettings, settings,
+                lexiconDescriptor(settings, "OK", lexicon.size() + " term(s) classified"));
+    }
+
+    private Map<String, Object> languageOverviewResult(DomainLanguageOverview overview,
+                                                       List<Map<String, Object>> skipped,
+                                                       ContextMapSettings contextMapSettings,
+                                                       DomainLanguageSettings settings,
+                                                       Map<String, Object> lexicon) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("metric", "Domain language overview");
+        result.put("lexicon", lexicon);
+        result.put("leadingTerms", contextMapSettings.leadingTerms());
+        result.put("maxPairsPerClassification", contextMapSettings.maxPairsPerClassification());
+
+        if (overview == null) {
+            result.put("reports", List.of());
+            result.put("skipped", skipped);
+
+            return result;
+        }
+
+        result.put("moduleCount", overview.vocabulary().modules().size());
+        result.put("importMatrix", Map.of("file", overview.importMatrix().file(),
+                "status", overview.importMatrix().available() ? "OK" : "MISSING",
+                "reason", overview.importMatrix().available()
+                        ? "The import counts of the inter-module dependency analysis were read."
+                        : "The inter-module dependency analysis has not written its matrix, so the structural"
+                        + " side of the quadrant is unknown and no pair was classified by it."));
+        result.put("classificationCounts", overview.classificationCounts());
+        result.put("ubiquitousTermCount", overview.ubiquitousTerms().size());
+        result.put("ubiquitousTerms", ubiquitousTermDescriptors(overview, contextMapSettings.leadingTerms()));
+        result.put("termSpan", leadingTermSpan(overview, contextMapSettings.leadingTerms()));
+        result.put("intrusions", boundedIntrusions(overview, contextMapSettings.maxPairsPerClassification()));
+        result.put("pairs", boundedPairs(overview, contextMapSettings.maxPairsPerClassification()));
+        result.put("skipped", skipped);
+        result.put("minimumCandidateTerms", settings.minimumCandidateTerms());
+
+        return result;
+    }
+
+    /**
+     * @return the vocabulary of the whole project, which the lexical axis of the quadrant leaves out and the
+     * evidence reports as a view of its own
+     */
+    private List<Map<String, Object>> ubiquitousTermDescriptors(DomainLanguageOverview overview, int limit) {
+        List<Map<String, Object>> descriptors = new ArrayList<>();
+
+        for (ProjectVocabulary.TermSpan span : overview.ubiquitousTerms()) {
+            if (descriptors.size() >= limit) {
+                break;
+            }
+
+            Map<String, Object> descriptor = new LinkedHashMap<>();
+            descriptor.put("term", span.term());
+            descriptor.put("occurrences", span.occurrences());
+            descriptor.put("moduleCount", span.moduleCount());
+            descriptors.add(descriptor);
+        }
+
+        return descriptors;
+    }
+
+    /**
+     * @return the candidate terms more than one module uses, most widely used first, which is the shortlist a
+     * project glossary settles first
+     */
+    private List<Map<String, Object>> leadingTermSpan(DomainLanguageOverview overview, int limit) {
+        List<Map<String, Object>> descriptors = new ArrayList<>();
+
+        for (ProjectVocabulary.TermSpan span : overview.vocabulary().sharedCandidateTerms(ubiquitousTermsOf(overview))) {
+            if (descriptors.size() >= limit) {
+                break;
+            }
+
+            Map<String, Object> descriptor = new LinkedHashMap<>();
+            descriptor.put("term", span.term());
+            descriptor.put("occurrences", span.occurrences());
+            descriptor.put("moduleCount", span.moduleCount());
+            descriptor.put("modules", span.modules());
+            descriptors.add(descriptor);
+        }
+
+        return descriptors;
+    }
+
+    private List<Map<String, Object>> boundedIntrusions(DomainLanguageOverview overview, int limit) {
+        List<Map<String, Object>> descriptors = new ArrayList<>();
+
+        for (TermIntrusion intrusion : overview.intrusions()) {
+            if (descriptors.size() >= limit) {
+                break;
+            }
+
+            Map<String, Object> descriptor = new LinkedHashMap<>();
+            descriptor.put("module", intrusion.module());
+            descriptor.put("term", intrusion.term());
+            descriptor.put("ownerModules", intrusion.ownerModules());
+            descriptor.put("occurrences", intrusion.occurrences());
+            descriptor.put("domainShare", intrusion.domainShare());
+            descriptor.put("ownersCarryTerm", intrusion.ownersCarryTerm());
+            descriptors.add(descriptor);
+        }
+
+        return descriptors;
+    }
+
+    private List<Map<String, Object>> boundedPairs(DomainLanguageOverview overview, int limit) {
+        List<Map<String, Object>> descriptors = new ArrayList<>();
+
+        for (String classification : QuadrantRow.classifications()) {
+            for (QuadrantRow row : overview.pairsOf(classification, limit)) {
+                Map<String, Object> descriptor = new LinkedHashMap<>();
+                descriptor.put("firstModule", row.firstModule());
+                descriptor.put("secondModule", row.secondModule());
+                descriptor.put("importCount", row.importCount());
+                descriptor.put("lexicalOverlap", row.overlap());
+                descriptor.put("sharedLeadingTerms", row.sharedLeadingTerms());
+                descriptor.put("classification", row.classification());
+                descriptors.add(descriptor);
+            }
+        }
+
+        return descriptors;
+    }
+
+    private static Set<String> ubiquitousTermsOf(DomainLanguageOverview overview) {
+        Set<String> terms = new LinkedHashSet<>();
+
+        for (ProjectVocabulary.TermSpan span : overview.ubiquitousTerms()) {
+            terms.add(span.term());
+        }
+
+        return terms;
     }
 
     private Map<String, Object> classDependencyGraphDescriptor(IntraModuleGraph graph) {
