@@ -2933,6 +2933,11 @@ return List.of(pd, td, gd);
                     A structural relation, a superclass, an implemented interface or a declared field type,
                     is listed separately: it is a fact about the type system rather than a measured coupling,
                     so it carries no separation cost.
+
+                    The listed nodes and edges are bounded, so that the graph of a module with thousands of
+                    classes still fits into a conversation. The complete number of the classes, the reference
+                    edges and the structural relations is reported beside the lists, and the listed reference
+                    edges are the strongest ones, the ones with the greatest API width.
                     """)
     public Map<String, Object> getClassDependencyGraph(@P("The name of the module to analyse")
                                                        String moduleName) throws IOException {
@@ -3570,6 +3575,7 @@ return List.of(pd, td, gd);
         descriptor.put("projectNamespace", graph.projectNamespace());
         descriptor.put("nodeCount", graph.nodes().size());
         descriptor.put("nodes", graph.nodes().stream()
+                .limit(CLASS_GRAPH_MAX_NODES)
                 .map(node -> {
                     Map<String, Object> nodeDescriptor = new LinkedHashMap<>();
                     nodeDescriptor.put("name", node.name());
@@ -3580,11 +3586,14 @@ return List.of(pd, td, gd);
                 .toList());
         descriptor.put("referenceEdgeCount", graph.couplings().size());
         descriptor.put("referenceEdges", graph.couplings().stream()
+                .sorted(CLASS_GRAPH_COUPLING_STRENGTH)
+                .limit(CLASS_GRAPH_MAX_REFERENCE_EDGES)
                 .map(coupling -> couplingDescriptor(coupling.from(), coupling.to(),
                         coupling.apiWidth(), coupling.traffic()))
                 .toList());
         descriptor.put("structuralEdgeCount", graph.structuralLinks().size());
         descriptor.put("structuralEdges", graph.structuralLinks().stream()
+                .limit(CLASS_GRAPH_MAX_STRUCTURAL_EDGES)
                 .map(link -> couplingDescriptor(link.from(), link.to(), 0, 0))
                 .toList());
         descriptor.put("excludedNodeCount", graph.excludedNodes());
@@ -3620,6 +3629,25 @@ return List.of(pd, td, gd);
     }
 
     private static final int CLASS_GRAPH_STRONGEST_COUPLINGS = 10;
+
+    /** How many classes of a module the single module graph lists. */
+    public static final int CLASS_GRAPH_MAX_NODES = 200;
+
+    /** How many reference edges of a module the single module graph lists. */
+    public static final int CLASS_GRAPH_MAX_REFERENCE_EDGES = 200;
+
+    /** How many structural relations of a module the single module graph lists. */
+    public static final int CLASS_GRAPH_MAX_STRUCTURAL_EDGES = 100;
+
+    /**
+     * The order the couplings are listed in: the greatest API width first, so the listed edges are the
+     * strongest ones of the module. It is the same order the compact descriptor sorts by, so both tools
+     * agree on what the strongest couplings of a module are.
+     */
+    private static final Comparator<IntraModuleGraph.Coupling> CLASS_GRAPH_COUPLING_STRENGTH =
+            Comparator.comparingInt(IntraModuleGraph.Coupling::apiWidth).reversed()
+                    .thenComparing(IntraModuleGraph.Coupling::from)
+                    .thenComparing(IntraModuleGraph.Coupling::to);
 
     private Map<String, Object> couplingDescriptor(String from, String to, int apiWidth, int traffic) {
         Map<String, Object> descriptor = new LinkedHashMap<>();

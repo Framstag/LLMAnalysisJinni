@@ -10,6 +10,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -24,6 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * omission is visible instead of silent.
  */
 class ClassDependencyGraphToolTest {
+    /** More classes, reference edges and structural relations than the tool lists. */
+    private static final int LARGE_CLASS_COUNT = 250;
+
     private final ObjectMapper objectMapper = ObjectMapperFactory.getJSONObjectMapperInstance();
 
     @TempDir
@@ -69,6 +73,30 @@ class ClassDependencyGraphToolTest {
         module.addPackage(core);
         module.addPackage(api);
         module.addPackage(shaded);
+
+        return module;
+    }
+
+    private static String largeClassName(int index) {
+        return String.format("demo.big.C%03d", index);
+    }
+
+    /**
+     * A module with more classes, reference edges and structural relations than the tool lists. Every class
+     * references its successor, which gives one coupling per class with an API width of its own, and every
+     * class declares a field of the class ten steps ahead, which gives one structural relation per class.
+     */
+    private static Module largeModule() {
+        Package pck = new Package("demo.big");
+
+        for (int index = 0; index < LARGE_CLASS_COUNT; index++) {
+            pck.addBuildUnit(buildUnit(largeClassName(index),
+                    new ClassReference(largeClassName((index + 1) % LARGE_CLASS_COUNT), index + 1, 1, false),
+                    new ClassReference(largeClassName((index + 10) % LARGE_CLASS_COUNT), 0, 0, true)));
+        }
+
+        Module module = new Module("core");
+        module.addPackage(pck);
 
         return module;
     }
@@ -218,6 +246,80 @@ class ClassDependencyGraphToolTest {
                 "the reason must name the missing version, got: " + reasoning);
         assertTrue(reasoning.contains("Regenerate"),
                 "the reason must name the regeneration step, got: " + reasoning);
+    }
+
+    @Test
+    void theListedListsStayWithinTheBound() throws Exception {
+        writeReport("core", largeModule());
+
+        Map<String, Object> graph = javaTool().getClassDependencyGraph("core");
+
+        assertEquals(Math.min(JavaTool.CLASS_GRAPH_MAX_NODES, LARGE_CLASS_COUNT),
+                ((List<?>) graph.get("nodes")).size(),
+                "the listed classes of a module are bounded");
+        assertEquals(Math.min(JavaTool.CLASS_GRAPH_MAX_REFERENCE_EDGES, LARGE_CLASS_COUNT),
+                ((List<?>) graph.get("referenceEdges")).size(),
+                "the listed reference edges of a module are bounded");
+        assertEquals(Math.min(JavaTool.CLASS_GRAPH_MAX_STRUCTURAL_EDGES, LARGE_CLASS_COUNT),
+                ((List<?>) graph.get("structuralEdges")).size(),
+                "the listed structural relations of a module are bounded");
+    }
+
+    @Test
+    void theCompleteCountsAreReportedBesideTheBoundedLists() throws Exception {
+        writeReport("core", largeModule());
+
+        Map<String, Object> graph = javaTool().getClassDependencyGraph("core");
+
+        assertEquals(LARGE_CLASS_COUNT, graph.get("nodeCount"),
+                "the complete number of the classes is reported, not the number of the listed ones");
+        assertEquals(LARGE_CLASS_COUNT, graph.get("referenceEdgeCount"));
+        assertEquals(LARGE_CLASS_COUNT, graph.get("structuralEdgeCount"));
+    }
+
+    @Test
+    void theStrongestCouplingsAreAmongTheListedReferenceEdges() throws Exception {
+        writeReport("core", largeModule());
+
+        Map<String, Object> graph = javaTool().getClassDependencyGraph("core");
+
+        List<Map<String, Object>> referenceEdges = edges(graph, "referenceEdges");
+
+        List<Integer> listedWidths = referenceEdges.stream()
+                .map(edge -> (Integer) edge.get("apiWidth"))
+                .sorted()
+                .toList();
+        assertEquals(strongestWidths(), listedWidths,
+                "the listed reference edges are the strongest ones of the module");
+
+        assertTrue(referenceEdges.stream()
+                        .anyMatch(edge -> Integer.valueOf(LARGE_CLASS_COUNT).equals(edge.get("apiWidth"))),
+                "the heaviest coupling of the module must be among the listed edges");
+    }
+
+    /** The API widths of the couplings the tool lists: the strongest ones of the module. */
+    private static List<Integer> strongestWidths() {
+        List<Integer> widths = new ArrayList<>();
+        int weakest = Math.max(1, LARGE_CLASS_COUNT - JavaTool.CLASS_GRAPH_MAX_REFERENCE_EDGES + 1);
+
+        for (int width = weakest; width <= LARGE_CLASS_COUNT; width++) {
+            widths.add(width);
+        }
+
+        return widths;
+    }
+
+    @Test
+    void aModuleWithinTheBoundListsEveryNode() throws Exception {
+        writeReport("core", fixtureModule());
+
+        Map<String, Object> graph = javaTool().getClassDependencyGraph("core");
+
+        assertEquals(10, ((List<?>) graph.get("nodes")).size());
+        assertEquals(graph.get("nodeCount"), ((List<?>) graph.get("nodes")).size(),
+                "a module within the bound lists every class of the module");
+        assertEquals(graph.get("referenceEdgeCount"), ((List<?>) graph.get("referenceEdges")).size());
+        assertEquals(graph.get("structuralEdgeCount"), ((List<?>) graph.get("structuralEdges")).size());
     }
 
     @Test
