@@ -5,7 +5,7 @@
 
 ## Facts
 
-{{> macros/list_of_modules.md}}
+{{> macros/list_of_all_modules.md}}
 
 The glossary that fixes the meaning of a term for the whole project:
 

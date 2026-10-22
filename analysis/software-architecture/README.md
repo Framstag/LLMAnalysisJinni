@@ -109,6 +109,7 @@ analysis/software-architecture/
 │   └── ...
 ├── macros/             # Shared Handlebars partials
 │   ├── list_of_modules.md
+│   ├── list_of_all_modules.md
 │   ├── current_loop_module.md
 │   └── ...
 ├── facts/              # Static knowledge (e.g., build system wildcards)

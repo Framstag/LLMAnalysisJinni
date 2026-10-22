@@ -3,12 +3,19 @@ package com.framstag.llmaj.tasks;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.framstag.llmaj.config.Config;
+import com.framstag.llmaj.handlebars.HandlebarsFactory;
+import com.framstag.llmaj.json.JsonNodeModelWrapper;
+import com.github.jknack.handlebars.Template;
+import com.github.jknack.handlebars.io.FileTemplateLoader;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -39,6 +46,55 @@ class SoftwareArchitectureTaskConfigTest {
             "ModulePackageTangleEvaluation",
             "ModuleImportDiversityEvaluation"
     );
+
+    /**
+     * The prompts that analyse one module at a time. They name the module of the step and the number of the
+     * modules of the project, and they do not carry the list of all the modules.
+     */
+    private static final List<String> PER_MODULE_PROMPTS = List.of(
+            "prompts/module_analysis_buildfiles.md",
+            "prompts/module_purpose.md",
+            "prompts/module_architecture.md",
+            "prompts/class_dependency_graph_evaluation_all.md");
+
+    /**
+     * The prompts that reason about the whole project. They need the list of all the modules.
+     */
+    private static final List<String> WHOLE_PROJECT_PROMPTS = List.of(
+            "prompts/context_map_evaluation.md",
+            "prompts/domain_glossary.md");
+
+    private static final String MODULE_STATE_JSON = """
+            {
+              "modules": {
+                "modules": [
+                  {
+                    "name": "module-one",
+                    "path": "one",
+                    "root": false
+                  },
+                  {
+                    "name": "module-two",
+                    "path": "two",
+                    "root": false
+                  },
+                  {
+                    "name": "module-three",
+                    "path": "three",
+                    "root": false
+                  }
+                ]
+              },
+              "build": {
+                "buildsystems": [
+                  {
+                    "name": "Maven",
+                    "variant": ""
+                  }
+                ]
+              }
+            }
+            """;
 
     @Test
     void analysisReadmePointsToTheAnalysisReference() throws Exception {
@@ -333,6 +389,86 @@ class SoftwareArchitectureTaskConfigTest {
                 requiredFields(contextMap.path("properties").path("relations").path("items")));
         assertEquals(List.of("module", "reason"),
                 requiredFields(contextMap.path("properties").path("unplacedModules").path("items")));
+    }
+
+    @Test
+    void aPerModulePromptNamesTheModuleAndTheNumberOfTheModules() throws Exception {
+        for (String prompt : PER_MODULE_PROMPTS) {
+            String rendered = renderPrompt(prompt, 1);
+
+            assertTrue(rendered.contains("The following 3 modules have been identified:"),
+                    prompt + " must state how many modules the project has, got:\n" + rendered);
+            assertTrue(rendered.contains("module-two"),
+                    prompt + " must name the module of the step, got:\n" + rendered);
+        }
+    }
+
+    @Test
+    void aPerModulePromptCarriesNoListOfTheModules() throws Exception {
+        for (String prompt : PER_MODULE_PROMPTS) {
+            String rendered = renderPrompt(prompt, 1);
+
+            assertFalse(rendered.contains("* Module \""),
+                    prompt + " must not carry the list of the modules, got:\n" + rendered);
+            assertFalse(rendered.contains("module-one"),
+                    prompt + " must not name a module other than the one of the step, got:\n" + rendered);
+            assertFalse(rendered.contains("module-three"),
+                    prompt + " must not name a module other than the one of the step, got:\n" + rendered);
+        }
+    }
+
+    @Test
+    void aWholeProjectPromptCarriesTheListOfTheModules() throws Exception {
+        for (String prompt : WHOLE_PROJECT_PROMPTS) {
+            String rendered = renderPrompt(prompt, null);
+
+            assertTrue(rendered.contains("The following 3 modules have been identified:"),
+                    prompt + " must state how many modules the project has, got:\n" + rendered);
+            for (String module : List.of("module-one", "module-two", "module-three")) {
+                assertTrue(rendered.contains("* Module \"" + module + "\""),
+                        prompt + " must list the module " + module + ", got:\n" + rendered);
+            }
+        }
+    }
+
+    @Test
+    void theListOfTheModulesLivesInItsOwnMacro() throws Exception {
+        String countMacro = Files.readString(ANALYSIS_DIR.resolve("macros/list_of_modules.md"));
+        String listMacro = Files.readString(ANALYSIS_DIR.resolve("macros/list_of_all_modules.md"));
+
+        assertFalse(countMacro.contains("modules.modules~"),
+                "the macro that states the number of the modules must not hold the list");
+        assertTrue(listMacro.contains("{{#modules.modules~}}"),
+                "the macro that holds the list renders one line per module");
+        assertTrue(listMacro.contains("* Module \"{{name}}\" in directory \"{{path}}\""),
+                "the macro that holds the list names every module with its directory");
+
+        for (String prompt : PER_MODULE_PROMPTS) {
+            assertTrue(Files.readString(ANALYSIS_DIR.resolve(prompt)).contains("macros/list_of_modules.md"),
+                    prompt + " must use the macro that states the number of the modules");
+        }
+        for (String prompt : WHOLE_PROJECT_PROMPTS) {
+            assertTrue(Files.readString(ANALYSIS_DIR.resolve(prompt)).contains("macros/list_of_all_modules.md"),
+                    prompt + " must use the macro that holds the list of the modules");
+        }
+    }
+
+    private String renderPrompt(String prompt, Integer loopIndex) throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode state = mapper.readTree(MODULE_STATE_JSON);
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("modules", new JsonNodeModelWrapper(state.path("modules")));
+        model.put("build", new JsonNodeModelWrapper(state.path("build")));
+        if (loopIndex != null) {
+            model.put("loopIndex", loopIndex);
+        }
+
+        var handlebars = HandlebarsFactory.create()
+                .with(new FileTemplateLoader(ANALYSIS_DIR.toString(), ""));
+        Template template = handlebars.compileInline(Files.readString(ANALYSIS_DIR.resolve(prompt)));
+
+        return template.apply(model);
     }
 
     private String extractBlock(String yaml, String marker) {
