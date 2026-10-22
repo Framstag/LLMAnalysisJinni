@@ -194,14 +194,25 @@ class SoftwareArchitectureTaskConfigTest {
     }
 
     @Test
-    void theBuildFileAnalysisCanListTheFilesOfADirectory() throws Exception {
+    void theBuildFileAnalysisReadsOnlyTheBuildFileOfTheModule() throws Exception {
         String tasksYaml = Files.readString(ANALYSIS_DIR.resolve("tasks.yaml"));
         String task = extractBlock(tasksYaml, "id: ModuleBuildfileAnalysis");
+        String prompt = Files.readString(ANALYSIS_DIR.resolve("prompts/module_analysis_buildfiles.md"));
 
-        assertTrue(task.contains("filesystem_get_matching_files_in_dir_recursively"),
-                "the task must be able to find the build files of a module in one call, got:\n" + task);
+        assertFalse(task.contains("filesystem_get_matching_files_in_dir_recursively"),
+                "the task must not list the files of a directory, it reads the one build file, got:\n" + task);
         assertTrue(task.contains("fileio_read_file"),
                 "the task must still be able to read a build file, got:\n" + task);
+        assertTrue(prompt.contains("This is the build file to read and to analyse."),
+                "the prompt must tell the model that the build file of the module is the one to read, got:\n" + prompt);
+        assertFalse(prompt.contains("filesystem_get_matching_files_in_dir_recursively"),
+                "the prompt must not ask the model to find the build files of the modules below, got:\n" + prompt);
+        assertFalse(prompt.contains("the directories below"),
+                "the prompt must not ask the model to read the build files of the modules below, got:\n" + prompt);
+
+        String purposeTask = extractBlock(tasksYaml, "id: ModulePurpose");
+        assertTrue(purposeTask.contains("filesystem_get_matching_files_in_dir_recursively"),
+                "the tool stays available for the tasks that need it, got:\n" + purposeTask);
     }
 
     @Test

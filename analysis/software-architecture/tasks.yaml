@@ -86,7 +86,6 @@ loopOn: /modules/modules
 toolWhitelist:
   - fileio_read_file
   - filesystem_file_exists
-  - filesystem_get_matching_files_in_dir_recursively
 ---
 id: ModulePurpose
 name: Get a purpose for each module

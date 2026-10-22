@@ -16,9 +16,8 @@
 
 ## Solution Strategy
 
-* The build file of the current module is the file of the build system of the project, at the path of the current module.
+* The build file of the current module is the file of the build system of the project, at the path of the current module. This is the build file to read and to analyse.
 * Read that build file.
-* Use the 'filesystem_get_matching_files_in_dir_recursively' tool to find the build files of the directories below the current module, so that the build files of the submodules are known as well.
 * Analyze the quality of the build files you read.
 
 ## Hints
