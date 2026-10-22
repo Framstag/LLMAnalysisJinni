@@ -24,6 +24,29 @@ The result SHALL include the node list, the edge list, and the count of structur
 - **WHEN** the raw module report for the module carries no reference records
 - **THEN** the tool reports that the report must be regenerated and returns no graph, instead of returning an empty or unweighted graph
 
+### Requirement: The graph of a single module is bounded
+
+The system SHALL bound the number of the nodes and the edges it lists, and SHALL report the
+complete counts beside the listed ones, so that the graph of a module with thousands of classes
+still fits into a conversation. The edges that are listed SHALL be the strongest ones, because they
+are the ones that describe the structure of the module.
+
+#### Scenario: A large module lists only the strongest edges
+
+- **WHEN** the graph of a module holds more edges than the tool lists
+- **THEN** the tool lists the strongest edges of that module
+- **AND** it reports the complete number of the nodes, the reference edges and the structural edges beside the lists
+
+#### Scenario: The listed nodes are bounded as well
+
+- **WHEN** the graph of a module holds more top level classes than the tool lists
+- **THEN** the tool lists the nodes it can and reports the complete number of the nodes beside the list
+
+#### Scenario: The heaviest couplings are always among the listed edges
+
+- **WHEN** the tool lists the edges of a module
+- **THEN** the listed edges include the couplings with the greatest API width of that module
+
 ### Requirement: Reference strength counters
 
 The system SHALL measure the strength of a directed reference from one class to another as two independent counters:

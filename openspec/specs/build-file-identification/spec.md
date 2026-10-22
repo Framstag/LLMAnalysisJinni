@@ -33,6 +33,10 @@ The system SHALL NOT ask the analysis of a module to check whether a file exists
 it, and SHALL NOT ask it to search the project for the build file of a module, because the name of
 that file is known.
 
+The system SHALL ask the analysis of a module to read the build file of that module and only that
+build file. The build files of the modules below are known from the module list, and every one of
+those modules has an analysis of its own.
+
 #### Scenario: The analysis is not asked to check a file before reading it
 - **WHEN** the analysis of a module is prepared
 - **THEN** it is not told to check whether a file exists before it reads that file
@@ -42,16 +46,13 @@ that file is known.
 - **THEN** it is not told to locate the build file of the module
 - **AND** it is told which build file to read
 
-### Requirement: The build file analysis can list the files of a directory
+#### Scenario: The analysis reads only the build file of the module
 
-The system SHALL give the analysis of a module the tool that lists the files of a directory that
-match a wildcard, so that the build files of a module and of the directories below it can be found
-in one call.
+- **WHEN** the analysis of a module is prepared
+- **THEN** it is told to read the build file of the module and not the build files of the modules below it
 
-#### Scenario: The directory listing tool is available
-- **WHEN** the tools of the build file analysis are determined
-- **THEN** the tool that lists the files of a directory that match a wildcard is among them
+#### Scenario: The modules below are not read again
 
-#### Scenario: The build file analysis can still read a file
-- **WHEN** the tools of the build file analysis are determined
-- **THEN** the tool that reads the content of a file is among them
+- **WHEN** the analysis of a module reads a build file
+- **THEN** the build file it reads is the one of the module that is analysed
+- **AND** it does not read the build file of another module
