@@ -137,9 +137,13 @@ public class FilesystemTool {
                                                                    String path,
                                                                    @P("An array of filename wildcards for matching files to scan for. Make sure that the wildcards do not contain any path elements! Hand over an array, even if you call the method with only one wildcard!")
                                                                    List<String> wildcards,
-                                                                   @P("Skip directories starting with '.'. Default ist 'true'")
-                                                                   boolean skipDotDirs) throws IOException {
-        logger.info("## GetMatchingFilesInDirRecursively('{}', {}, {})", path, wildcards, skipDotDirs);
+                                                                   @P("Skip directories starting with '.'. Defaults to 'true'")
+                                                                   Optional<Boolean> skipDotDirs) throws IOException {
+        // The parameter is optional, so the model may leave it out. The default of the description
+        // is the default of the tool, and the default is what applies when the model leaves it out.
+        boolean skipDotDirectories = skipDotDirs.orElse(Boolean.TRUE);
+
+        logger.info("## GetMatchingFilesInDirRecursively('{}', {}, {})", path, wildcards, skipDotDirectories);
 
         Map<String,Set<String>> result = new HashMap<>();
 
@@ -156,7 +160,7 @@ public class FilesystemTool {
         FileVisitor<Path> matcherVisitor = new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                if (skipDotDirs && dir.getFileName().toString().startsWith(".")) {
+                if (skipDotDirectories && dir.getFileName().toString().startsWith(".")) {
                     return SKIP_SUBTREE;
                 }
                 return CONTINUE;            }

@@ -10,6 +10,7 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -62,7 +63,7 @@ public class FileToolTest {
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools", List.of("ToolServiceFactoryTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/common", List.of("CsvReportWriterTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/file", List.of("FileIOToolTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/filesystem", List.of("FileToolTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/filesystem", List.of("FileToolTest.java", "MatchingFilesInDirToolTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/java", List.of("ClassDependencyGraphToolTest.java", "ClassFileParserReferenceTest.java", "ContextMapToolTest.java", "DependencyDiagramStatePersistenceTest.java", "DependencyDiagramToolTest.java", "DomainVocabularyToolTest.java", "DomainVocabularyWorkspaceTest.java", "ExistingMetricReportCompatibilityTest.java", "GodClassRankingToolTest.java", "JavaToolTest.java", "RawModuleReportFormatTest.java", "RegenerateWorkspaceReportsTest.java", "SplitCandidateToolTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/java/graph", List.of("MaximumSpanningForestTest.java", "MinimumCutTest.java", "PercentilesTest.java", "RealModuleDiagramTest.java", "SeparationLadderTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/java/language", List.of("DomainLexiconTest.java", "IdentifierTokenizerTest.java", "ModuleVocabularyTest.java", "NamingCohesionTest.java", "ProseTextTest.java", "ShippedDomainLexiconTest.java", "TextAlignmentTest.java", "VocabularySharesTest.java", "VocabularyTestData.java")),
@@ -98,7 +99,7 @@ public class FileToolTest {
 
     @Test
     void findMatchingFileInRootDir() throws IOException {
-        List<FilesInDirectory> result = filesystemTool.getMatchingFilesInDirRecursively("",List.of("pom.xml"),true);
+        List<FilesInDirectory> result = filesystemTool.getMatchingFilesInDirRecursively("",List.of("pom.xml"),Optional.of(true));
 
         assertEquals(1, result.size());
         assertEquals("", result.getFirst().directory());
@@ -107,7 +108,7 @@ public class FileToolTest {
 
     @Test
     void findMatchingFileInSubDir() throws IOException {
-        List<FilesInDirectory> result = filesystemTool.getMatchingFilesInDirRecursively("",List.of("Main.java"),true);
+        List<FilesInDirectory> result = filesystemTool.getMatchingFilesInDirRecursively("",List.of("Main.java"),Optional.of(true));
 
         assertEquals(1, result.size());
         assertEquals("src/main/java/com/framstag/llmaj", result.getFirst().directory());
@@ -116,7 +117,7 @@ public class FileToolTest {
 
     @Test
     void findExactlyMatchingFileInSubDir() throws IOException {
-        List<FilesInDirectory> result = filesystemTool.getMatchingFilesInDirRecursively("src",List.of("logback.xml"),true);
+        List<FilesInDirectory> result = filesystemTool.getMatchingFilesInDirRecursively("src",List.of("logback.xml"),Optional.of(true));
 
         assertEquals(1, result.size());
         assertEquals("src/main/resources", result.getFirst().directory());
