@@ -41,12 +41,12 @@
 ## 6. Apply the change and check the result
 
 - [x] 6.1 Run `openspec validate split-the-long-requirements --strict` and confirm the change validates; verified: the command reports the change as valid
-- [ ] 6.2 Run `openspec archive split-the-long-requirements --yes` and confirm the archive applies the deltas; verified: the archive names the ten capabilities, reports the modified, added and removed requirements, and the retired requirement of the logger capability is absent afterwards
-- [ ] 6.3 Run `openspec validate --all --strict` and confirm that every specification of the project validates; verified: the command reports all fifty-four specifications as valid, and no specification reports a requirement text longer than 500 characters
-- [ ] 6.4 Confirm that no scenario was lost by the archive, by comparing the scenarios of the changed capabilities before and after the archive; verified: every scenario of the twelve long requirements is present afterwards, and the scenarios that the change adds are present as well
+- [x] 6.2 Run `openspec archive split-the-long-requirements --yes` and confirm the archive applies the deltas; verified: the archive names the ten capabilities, reports the modified, added and removed requirements, and the retired requirement of the logger capability is absent afterwards
+- [x] 6.3 Run `openspec validate --all --strict` and confirm that every specification of the project validates; verified: the command reports all fifty-four specifications and the change in flight as valid, and no specification reports a requirement text longer than 500 characters. The first run after the archive reported two specifications as failed, `batch-java-metric-evaluation` and `batch-java-report-collection`, because both still carried the placeholder Purpose that the archive of the change `batch-java-module-evaluation` had written into them. Their Purpose was replaced directly in the main specifications, because the Purpose of an existing capability cannot be reached by a delta. The second run reports 55 passed, 0 failed.
+- [x] 6.4 Confirm that no scenario was lost by the archive, by comparing the scenarios of the changed capabilities before and after the archive; verified: every scenario of the twelve long requirements is present afterwards, and the scenarios that the change adds are present as well
 
 ## Workflow follow-up
 
-- Archive the change after the project's review requirements are satisfied.
-- Verify the archived result: the twelve long requirements are under the length the strict validation allows, the three corrected capabilities describe the code, and the execution trace rule is stated once per concern.
-- The change that puts the strict validation into the continuous integration run starts after this change is archived, because the validation fails on the specifications as long as this change is not applied.
+- Archive the change after the project's review requirements are satisfied. — done: archived as `2026-10-22-split-the-long-requirements`
+- Verify the archived result: the twelve long requirements are under the length the strict validation allows, the three corrected capabilities describe the code, and the execution trace rule is stated once per concern. — done: the archive reported `+ 5, ~ 11, - 1, → 0`, the comparison of the scenarios before and after the archive reports none lost, and `openspec validate --all --strict` reports 55 passed, 0 failed
+- The change that puts the strict validation into the continuous integration run starts after this change is archived, because the validation fails on the specifications as long as this change is not applied. — the change `gate-the-specifications-in-ci` is written and waits for this change to be archived

@@ -1,7 +1,7 @@
 # batch-java-metric-evaluation Specification
 
 ## Purpose
-TBD - created by archiving change batch-java-module-evaluation. Update Purpose after archive.
+Evaluates every Java metric of every module of the project in one batch task per metric, instead of one task per module, so that a project with many modules does not pay one model call per module and per metric. It states the shape of a batch evaluation, the rules for grouping the findings that affect several modules, and the fallbacks that keep the per-module evaluation available.
 
 ## Requirements
 

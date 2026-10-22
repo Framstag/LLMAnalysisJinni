@@ -1,7 +1,8 @@
 # batch-java-report-collection Specification
 
 ## Purpose
-TBD - created by archiving change batch-java-module-evaluation. Update Purpose after archive.
+Collects the raw Java module reports of every module of the project in one task, so that the batch evaluations of the Java metrics read a report per module without one task per module. It states how the modules are selected, how a report that already exists is reused, and that the raw report stays the source of truth for every later analysis.
+
 ## Requirements
 ### Requirement: All-module Java raw report collection task
 The system SHALL provide a non-loop analysis task named `CollectJavaModuleReportsAll` that generates or reuses Java raw module analysis reports for all Java build modules in one task invocation.
