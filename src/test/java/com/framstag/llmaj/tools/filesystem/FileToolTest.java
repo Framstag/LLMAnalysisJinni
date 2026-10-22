@@ -55,7 +55,7 @@ public class FileToolTest {
 
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/documentation", List.of("AnalysisReferenceTest.java", "DocumentationTemplateTest.java", "IntraModuleDocumentationTemplateTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/json", List.of("JsonHelperSchemaDescriptionTest.java", "JsonHelperTest.java", "ResponsePayloadParserTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/lc4j", List.of("ChatExecutionLoggingTest.java", "ChatExecutorOutcomeTest.java", "ChatExecutorToolErrorTest.java", "ChatExecutorToolRoundBoundTest.java", "SchemaViolationReportTest.java", "TaskChatMemoryTest.java", "TaskStepFailureTest.java", "TaskStepOutcomeTest.java", "TaskStepRetrierTest.java", "ToolArgumentsErrorHandlerTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/lc4j", List.of("ChatExecutionLoggingTest.java", "ChatExecutorOutcomeTest.java", "ChatExecutorToolErrorTest.java", "ChatExecutorToolRoundBoundTest.java", "ModelCallFailureTest.java", "SchemaViolationReportTest.java", "TaskChatMemoryTest.java", "TaskStepFailureTest.java", "TaskStepOutcomeTest.java", "TaskStepRetrierTest.java", "ToolArgumentsErrorHandlerTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/logging", List.of("EngineLogRoutingTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/smoke", List.of("JarSmokeIT.java", "JarSmokeProbe.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/state", List.of("StateManagerLoopCursorTest.java")),

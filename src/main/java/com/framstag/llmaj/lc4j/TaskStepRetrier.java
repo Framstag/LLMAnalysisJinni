@@ -83,6 +83,23 @@ public class TaskStepRetrier {
 
             try {
                 outcome = step.attempt(attempt, lastFailure == null ? null : lastFailure.repairHint());
+            } catch (ModelCallFailure e) {
+                // The model call failed. The calls that succeeded before it cost tokens, and those
+                // tokens are spent, so the usage travels with the failure.
+                Throwable cause = e.getCause();
+
+                if (cause instanceof RetriableException) {
+                    outcome = TaskStepOutcome.rejected(TaskStepFailure.of(
+                            StepFailureReason.RETRIABLE_MODEL_ERROR,
+                            e.getMessage() == null ? cause.getClass().getName() : e.getMessage()),
+                            e.tokenUsage());
+                } else {
+                    // Another attempt cannot repair this, so the step ends here. The usage of the
+                    // step so far is carried out with the failure, so the caller can record it.
+                    totalUsage = StepTokenUsage.sum(totalUsage, e.tokenUsage());
+
+                    throw new ModelCallFailure(e.getMessage(), cause, totalUsage);
+                }
             } catch (RetriableException e) {
                 outcome = TaskStepOutcome.rejected(TaskStepFailure.of(
                         StepFailureReason.RETRIABLE_MODEL_ERROR,

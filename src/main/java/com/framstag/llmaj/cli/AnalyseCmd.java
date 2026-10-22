@@ -19,6 +19,7 @@ import com.framstag.llmaj.logging.ForwardingLogLineSink;
 import com.framstag.llmaj.lc4j.ChatExecutionContext;
 import com.framstag.llmaj.lc4j.ChatExecutor;
 import com.framstag.llmaj.lc4j.ChatModelFactory;
+import com.framstag.llmaj.lc4j.ModelCallFailure;
 import com.framstag.llmaj.lc4j.TaskStepOutcome;
 import com.framstag.llmaj.lc4j.TaskStepRetrier;
 import com.framstag.llmaj.lc4j.ToolFilter;
@@ -501,6 +502,16 @@ public class AnalyseCmd implements Callable<Integer> {
                                     displayManager.getCallback().onWorkerError(taskId, currentIndex,
                                             taskName + "[" + currentIndex + "]", failure);
                                 }
+                            } catch (ModelCallFailure e) {
+                                // The model call failed for a reason another attempt cannot repair.
+                                // The calls that succeeded before it cost tokens, so the usage of
+                                // the index is recorded even though it produced no result.
+                                logger.error("Error processing loop index {}: {}", currentIndex, e.getMessage(), e);
+                                anyIndexFailed.set(true);
+
+                                synchronized (taskManager) {
+                                    taskManager.recordStepTokenUsage(task, currentIndex, e.tokenUsage());
+                                }
                             } catch (Exception e) {
                                 logger.error("Error processing loop index {}: {}", currentIndex, e.getMessage(), e);
                                 anyIndexFailed.set(true);
@@ -583,6 +594,18 @@ public class AnalyseCmd implements Callable<Integer> {
                         displayManager.onTaskError(taskId, taskName, failure);
                     }
                 }
+            } catch (ModelCallFailure e) {
+                // The model call failed for a reason another attempt cannot repair. The calls that
+                // succeeded before it cost tokens, so the usage of the step is recorded even
+                // though the step produced no result.
+                logger.error("Error executing task {}: {}", taskId, e.getMessage(), e);
+
+                synchronized (taskManager) {
+                    taskManager.recordStepTokenUsage(task, null, e.tokenUsage());
+                    taskManager.markTaskAsFailed(task);
+                }
+
+                displayManager.onTaskError(taskId, taskName, e.getMessage());
             } catch (Exception e) {
                 logger.error("Error executing task {}: {}", taskId, e.getMessage(), e);
                 synchronized (taskManager) {

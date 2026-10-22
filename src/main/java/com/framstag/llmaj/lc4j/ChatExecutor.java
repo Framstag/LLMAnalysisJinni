@@ -331,7 +331,7 @@ public class ChatExecutor {
                         responseSchema))
                 .build();
 
-        ChatResponse chatResponse = executionContext.getChatModel().chat(request);
+        ChatResponse chatResponse = callModel(executionContext, request, null);
 
         callback.onResponseReceived(taskId, loopIndex);
 
@@ -429,7 +429,7 @@ public class ChatExecutor {
                             responseSchema))
                     .build();
 
-            chatResponse = executionContext.getChatModel().chat(chatRequest);
+            chatResponse = callModel(executionContext, chatRequest, aggregateTokenUsage);
 
             callback.onResponseReceived(taskId, loopIndex);
 
@@ -453,7 +453,7 @@ public class ChatExecutor {
 
             callback.onRequestSent(taskId, loopIndex);
 
-            chatResponse = executionContext.getChatModel().chat(request);
+            chatResponse = callModel(executionContext, request, aggregateTokenUsage);
 
             callback.onResponseReceived(taskId, loopIndex);
 
@@ -566,6 +566,32 @@ public class ChatExecutor {
         }
 
         return TaskStepOutcome.accepted(result, usage);
+    }
+
+    /**
+     * Calls the model and carries the usage of the calls that succeeded before a failure out of it.
+     * <p>
+     * A model call that fails does not end the step of its own accord: the caller decides whether
+     * another attempt may get past it. But the calls that succeeded before the failure cost tokens,
+     * and those tokens are spent. The failure therefore carries them, so that a step which failed
+     * reports what it really cost.
+     *
+     * @param executionContext  the context of the step
+     * @param request           the request to send
+     * @param usageSoFar        the usage of the calls that succeeded so far, may be null
+     * @return the response of the model
+     */
+    private ChatResponse callModel(ChatExecutionContext executionContext,
+                                   ChatRequest request,
+                                   TokenUsage usageSoFar) {
+        try {
+            return executionContext.getChatModel().chat(request);
+        } catch (RuntimeException e) {
+            throw new ModelCallFailure(
+                    e.getMessage() == null ? e.getClass().getName() : e.getMessage(),
+                    e,
+                    StepTokenUsage.from(usageSoFar));
+        }
     }
 
     /**
