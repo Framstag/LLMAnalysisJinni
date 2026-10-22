@@ -27,8 +27,6 @@ analysis that describes what each documented analysis measures and how its resul
 
 The reference document SHALL hold one entry per analysis, and SHALL hold an entry for each of the java metric evaluations, the inter-module dependency analysis, the class reference structure and split candidates, the god class ranking, the dependency diagrams, the domain vocabulary and domain language evaluations, and the context map analysis.
 
-This delta is written against the requirement as it reads after the change `2026-10-13-add-domain-vocabulary-analysis` has been archived, because that change adds the domain vocabulary analyses to the same enumeration.
-
 #### Scenario: All documented analyses have an entry
 
 - **WHEN** the reference document is compared with the evaluation sections of the generated report

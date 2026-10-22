@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Ensures that all active analysis evaluation properties produced by the analysis pipeline have corresponding rendering sections in the documentation template (`Documentation.md.hbs`). This prevents a gap where evaluation data exists in the analysis state but is never displayed in generated reports.
+Ensures that all active analysis evaluation properties produced by the analysis pipeline have corresponding rendering sections in the documentation template (`Documentation.adoc.hbs`). This prevents a gap where evaluation data exists in the analysis state but is never displayed in generated reports.
 
 ## Requirements
 

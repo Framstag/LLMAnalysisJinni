@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines how evaluation results are rendered in the generated documentation output (`Documentation.md`). The template uses Handlebars to transform analysis state into a structured markdown report.
+Defines how evaluation results are rendered in the generated documentation output (`Documentation.adoc`). The template uses Handlebars to transform analysis state into a structured AsciiDoc report.
 
 ## Requirements
 
@@ -19,7 +19,7 @@ The template assumes all `evaluations[]` items are JSON objects with all 7 requi
 
 #### Scenario: Template has no conditional fallbacks
 
-- **WHEN** inspecting the template source
+- **WHEN** inspecting `analysis/software-architecture/documentation/Documentation.adoc.hbs`
 - **THEN** the evaluation table row rendering SHALL NOT contain `{{#if aspect}}` or `{{#if finding}}` conditional branches
 
 #### Scenario: Malformed data produces empty cells
