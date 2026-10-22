@@ -2664,6 +2664,15 @@ return List.of(pd, td, gd);
                 .toList();
         int listedGroupCount = Math.min(SPLIT_GROUP_LIMIT, largestGroups.size());
 
+        // The severed edges are listed for the strongest ones only. A separation can sever
+        // hundreds of edges, and one module can offer a whole ladder of separations, so the whole
+        // list of every module does not fit into the context of the model. The price of the
+        // separation is carried by the weight of the edges, and that is reported in full.
+        List<GraphEdge> severedEdges = separation.severedEdges();
+        int listedSeveredEdgeCount = Math.min(SEVERED_EDGE_LIMIT, severedEdges.size());
+        List<GraphEdge> listedSeveredEdges = severedEdges.subList(
+                severedEdges.size() - listedSeveredEdgeCount, severedEdges.size());
+
         Map<String, Object> descriptor = new LinkedHashMap<>();
         descriptor.put("cost", separation.cost());
         descriptor.put("groupCount", separation.groups().size());
@@ -2671,7 +2680,10 @@ return List.of(pd, td, gd);
         descriptor.put("weakestSeveredWeight", separation.weakestSeveredWeight());
         descriptor.put("strongestSeveredWeight", separation.strongestSeveredWeight());
         descriptor.put("totalSeveredWeight", separation.totalSeveredWeight());
-        descriptor.put("severedEdges", separation.severedEdges().stream()
+        descriptor.put("severedEdgeCount", severedEdges.size());
+        descriptor.put("listedSeveredEdgeCount", listedSeveredEdgeCount);
+        descriptor.put("severedEdgeLimit", SEVERED_EDGE_LIMIT);
+        descriptor.put("severedEdges", listedSeveredEdges.stream()
                 .map(edge -> {
                     Map<String, Object> edgeDescriptor = new LinkedHashMap<>();
                     edgeDescriptor.put("from", edge.from());
@@ -2752,6 +2764,7 @@ return List.of(pd, td, gd);
 
     private static final int SPLIT_CANDIDATE_LIMIT = 5;
     private static final int SPLIT_GROUP_LIMIT = 10;
+    private static final int SEVERED_EDGE_LIMIT = 10;
 
     private int minimumCutNodeLimit() {
         return Config.getBudget(context.getProperties(), Config.DIAGRAM_MIN_CUT_NODE_LIMIT_PROPERTY,

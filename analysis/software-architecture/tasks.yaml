@@ -528,10 +528,11 @@ dependsOn:
   - module_analysis_reports_all
 tags:
   - class_dependency_graph_evaluation_all
+loopOn: /modules/modules
 toolWhitelist:
-  - java_generate_all_dependency_diagrams
-  - java_get_all_class_dependency_graphs
-  - java_get_all_split_candidates
+  - java_generate_dependency_diagrams
+  - java_get_class_dependency_graph
+  - java_get_split_candidates
 
 ---
 id: GodClassEvaluationAll

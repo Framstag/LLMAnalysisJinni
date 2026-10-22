@@ -251,6 +251,48 @@ class SplitCandidateToolTest {
     }
 
     @Test
+    void theSeveredEdgesAreBoundedAndTheStrongestOnesAreKept() throws Exception {
+        Map<String, Object> descriptor = splitCandidates(chainModule(401));
+
+        for (Map<String, Object> separation : separations(descriptor)) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> severedEdges =
+                    (List<Map<String, Object>>) separation.get("severedEdges");
+
+            int limit = (int) separation.get("severedEdgeLimit");
+            int total = (int) separation.get("severedEdgeCount");
+            int listed = (int) separation.get("listedSeveredEdgeCount");
+
+            assertTrue(severedEdges.size() <= limit,
+                    "the listed edges must stay within the limit, but there were " + severedEdges.size());
+            assertEquals(listed, severedEdges.size(),
+                    "the listed count must describe the listed edges");
+            assertTrue(total >= listed, "the total cannot be smaller than the listed count");
+        }
+    }
+
+    @Test
+    void aSeparationThatSeversManyEdgesStillReportsItsPriceInFull() throws Exception {
+        Map<String, Object> descriptor = splitCandidates(chainModule(401));
+
+        for (Map<String, Object> separation : separations(descriptor)) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> severedEdges =
+                    (List<Map<String, Object>>) separation.get("severedEdges");
+
+            int weightOfTheListedEdges = severedEdges.stream()
+                    .mapToInt(edge -> (int) edge.get("weight"))
+                    .sum();
+
+            assertTrue(weightOfTheListedEdges <= (int) separation.get("totalSeveredWeight"),
+                    "the listed edges cannot weigh more than the whole separation");
+            assertEquals((int) separation.get("strongestSeveredWeight"),
+                    severedEdges.stream().mapToInt(edge -> (int) edge.get("weight")).max().orElse(0),
+                    "the strongest edge of the separation must be among the listed ones");
+        }
+    }
+
+    @Test
     void aModuleWithoutCouplingsHasNoStepToPropose() throws Exception {
         Package demo = new Package("demo");
         demo.addBuildUnit(buildUnit("demo.A"));
