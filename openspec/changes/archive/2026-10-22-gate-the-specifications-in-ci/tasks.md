@@ -29,6 +29,6 @@
 
 ## Workflow follow-up
 
-- Archive the change after the project's review requirements are satisfied.
-- The change `split-the-long-requirements` has to be archived first, because the strict validation fails on the specifications as long as the twelve long requirements are in place.
+- Archive the change after the project's review requirements are satisfied. — done: archived as `2026-10-22-gate-the-specifications-in-ci`
+- The change `split-the-long-requirements` has to be archived first, because the strict validation fails on the specifications as long as the twelve long requirements are in place. — done: archived as `2026-10-22-split-the-long-requirements`, and the strict validation reports 54 passed, 0 failed
 - A later change can complete the task lists of the four archived changes that report an unfinished task, and the gate can then be extended to the archived changes.
