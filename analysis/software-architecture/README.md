@@ -55,7 +55,7 @@ Tasks execute in dependency order, roughly: **project-wide information** → **m
 | 34 | Detect package-level tangles | `PackageTangleEvaluationAll` | Java, all modules | ✅ Stable |
 | 35 | Evaluate import diversity | `ImportDiversityEvaluationAll` | Java, all modules | ✅ Stable |
 | 36 | Evaluate inter-module dependencies | `InterModuleDependencyEvaluation` | General, cross-module | ⚡ Beta |
-| 37 | Evaluate the class reference structure and propose module splits; the diagrams it stores are drawn by the reader's preview toolchain, see [Previewing the generated documentation](../../README.md#previewing-the-generated-documentation) | `ClassDependencyGraphEvaluationAll` | Java, all modules | ⚡ Beta |
+| 37 | Evaluate the class reference structure and propose module splits; every module is evaluated in a step of its own, so the request the model is asked with holds the data of one module; the diagrams it stores are drawn by the reader's preview toolchain, see [Previewing the generated documentation](../../README.md#previewing-the-generated-documentation) | `ClassDependencyGraphEvaluationAll` | Java, per module | ⚡ Beta |
 | 38 | Evaluate god class candidates | `GodClassEvaluationAll` | Java, all modules | ⚡ Beta |
 | 39 | Build the ubiquitous language glossary of the project | `DomainGlossary` | Java, cross-module | ⏳ Experimental |
 | 40 | Evaluate the domain language of all Java modules | `DomainVocabularyEvaluationAll` | Java, all modules | ⏳ Experimental |
