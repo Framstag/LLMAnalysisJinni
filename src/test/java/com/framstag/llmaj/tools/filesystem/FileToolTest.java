@@ -49,6 +49,7 @@ public class FileToolTest {
         List<FilesInDirectory> result = filesystemTool.getAllFilesInDirRecursively("src/test/java/com/framstag/llmaj");
 
         assertEquals(List.of(
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/ci", List.of("ContinuousIntegrationGateTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/cli", List.of("AnalyseCmdLoopTaskTest.java", "AnalyseCmdOptionParsingTest.java", "AnalyseCmdRetryTest.java", "AnalyseCmdTokenUsageTest.java", "StateTokensCmdTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/config", List.of("ConfigAnalysisReportBudgetsTest.java", "ConfigMaxToolRoundTripsTest.java", "ConfigOverridesTest.java", "ConfigRetriesTest.java", "ConfigStorerTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/display", List.of("AnsiTest.java", "DisplayDecisionTest.java", "DisplayManagerTest.java", "LoopWorkerRowTest.java", "ProgressDisplayTest.java", "SimpleOutputTest.java", "TaskRowTest.java", "TokenUsageTrackerTest.java")),

@@ -1,7 +1,11 @@
 [tools]
 java = "openjdk-25"
 maven = "3"
+node = "22"
+
+# The validation tool of the OpenSpec specifications. The continuous integration run uses the
+# same version, and a test keeps the two pins equal.
+"npm:@fission-ai/openspec" = "1.14.3"
 
 # For usage in JetBrains IntelliJ
 pandoc = "latest"
-

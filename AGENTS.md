@@ -61,6 +61,9 @@ Do not duplicate project rules here. Use:
 mise install
 ```
 
+`mise install` also provides the OpenSpec validation tool in the pinned version, so that the developer validates
+the specifications with the version the CI run uses.
+
 Stack:
 
 - Java 25
@@ -77,7 +80,9 @@ mvn verify
 
 The aggregate SBOM of the project is generated in the `process-classes` phase, before the tests run, so `mvn package` and `mvn verify` work in a single run on a clean checkout. The SBOM tests parse `target/bom.json` and fail if the generation is moved back behind the test phase.
 
-The same gate runs in CI. The `CI` workflow (`.github/workflows/ci.yml`) runs `mvn -B verify` on every push to `main`, on every pull request, and on demand. It runs the documented gate rather than a reduced substitute, so a run that only compiles or only runs the tests on the full classpath is not accepted as verification. The check is advisory until branch protection on `main` requires it; enabling that is a repository setting, not part of the workflow file.
+The same gate runs in CI. The `CI` workflow (`.github/workflows/ci.yml`) validates the OpenSpec specifications and then runs `mvn -B verify` on every push to `main`, on every pull request, and on demand. It runs the documented gate rather than a reduced substitute, so a run that only compiles or only runs the tests on the full classpath is not accepted as verification. The check is advisory until branch protection on `main` requires it; enabling that is a repository setting, not part of the workflow file.
+
+The specification validation runs the strict mode, so a specification that reports a warning fails the run as well. The version of the validation tool is pinned in `mise.toml` and in the workflow, and a test keeps the two pins equal.
 
 `mvn verify` also runs the artefact smoke test (`smoke/JarSmokeIT`) against the packaged
 `target/LLMAnalysisJinni-jar-with-dependencies.jar`. It checks that the jar reports

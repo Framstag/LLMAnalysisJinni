@@ -39,7 +39,9 @@ None.
 - `.github/workflows/ci.yml`: one step is added, and the Node runtime it needs is provisioned.
 - `mise.toml`: the validation tool is pinned, so that the version the developer validates with is the version
   the runner validates with.
-- `src/test/java/`: one test is added that keeps the two pins equal.
+- `src/test/java/`: one test is added that keeps the two pins equal. The fixture of `FileToolTest` lists the
+  test tree of the repository and is updated for the package of the new test.
+- `AGENTS.md`: the description of the continuous integration run names the new step.
 - The verification run now depends on the network, because the validation tool is fetched from the npm
   registry. The build gate does not depend on it.
 - The specifications of the project have to validate in the strict mode when this change lands, which is the
