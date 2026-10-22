@@ -12,13 +12,16 @@
 {{> macros/programming_languages_for_module.md}}
 {{/with}}
 
+{{> facts/build_system_wildcards.md}}
+
 ## Solution Strategy
 
-* Locate the build files for the current module based on the knowledge regarding the used build systems.
-* Read the located build files.
-* Analyze the quality of the build files.
+* The build file of the current module is the file of the build system of the project, at the path of the current module.
+* Read that build file.
+* Use the 'filesystem_get_matching_files_in_dir_recursively' tool to find the build files of the directories below the current module, so that the build files of the submodules are known as well.
+* Analyze the quality of the build files you read.
 
 ## Hints
 
 * Do only analyze the files belonging to the detected build systems. Do not analyze further files loaded from the build system but which are not part of the build system but belong to quality tools or similar that are triggered by the build system.
-* Make sure that files you try to load actually exist by checking the directory before or by using the 'filesystem_file_exists' tool.
+* If the current module is the root module, its build file is at the root of the project.

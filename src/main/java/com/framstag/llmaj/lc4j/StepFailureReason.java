@@ -12,6 +12,8 @@ public enum StepFailureReason {
     NO_RESPONSE("no response text"),
     /** The response carries no locatable JSON payload. */
     NO_PAYLOAD("no JSON payload in the response"),
+    /** The model stopped in the middle of its answer, so the response is cut short. */
+    RESPONSE_TRUNCATED("the response was truncated"),
     /** A JSON payload was located, but it does not parse. */
     PAYLOAD_NOT_PARSEABLE("the located JSON payload does not parse"),
     /** The response parses, but it does not conform to the declared response schema. */

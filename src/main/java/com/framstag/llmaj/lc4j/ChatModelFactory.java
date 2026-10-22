@@ -31,7 +31,7 @@ public class ChatModelFactory {
                     .temperature(0.0)
                     .topP(0.9)
                     .think(false)
-                    .returnThinking(false)
+                    .returnThinking(true)
                     .logRequests(config.isLogRequests())
                     .logResponses(config.isLogResponses())
                     .numCtx(config.getMaximumTokens());

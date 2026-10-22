@@ -14,8 +14,6 @@ import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.internal.Utils;
 import dev.langchain4j.invocation.InvocationContext;
-import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.ChatRequestParameters;
 import dev.langchain4j.model.chat.request.ResponseFormat;
@@ -23,6 +21,7 @@ import dev.langchain4j.model.chat.request.ToolChoice;
 import dev.langchain4j.model.chat.request.json.JsonRawSchema;
 import dev.langchain4j.model.chat.request.json.JsonSchema;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.model.output.TokenUsage;
 import dev.langchain4j.service.tool.*;
 import org.slf4j.Logger;
@@ -34,6 +33,7 @@ import com.networknt.schema.serialization.DefaultNodeReader;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -297,7 +297,10 @@ public class ChatExecutor {
         String taskId = executionContext.getTaskId();
         Integer loopIndex = executionContext.getLoopIndex();
 
-        ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(config.getChatWindowSize());
+        // The task messages are kept out of the window: a step that needs many tool rounds would
+        // otherwise push the task out of the context, and the model would answer without knowing
+        // what it was asked to do.
+        TaskChatMemory chatMemory = new TaskChatMemory(config.getChatWindowSize());
 
         InvocationContext invocationContext = InvocationContext.builder()
                 .build();
@@ -309,7 +312,7 @@ public class ChatExecutor {
             messages.addLast(patchUserMessage(um, responseSchema, executionContext.getRepairHint()));
         }
 
-        chatMemory.add(messages);
+        chatMemory.addTask(messages);
 
         // Log the initial request messages to console
         if (config.isExecutionTrace()) {
@@ -337,8 +340,16 @@ public class ChatExecutor {
         // While the initial request triggers requests for further tool execution...loop
         int toolRounds = 0;
 
+        // The tools the model asked for, so that a step that reached the bound by asking for the
+        // same thing over and over is recognisable as such in the report.
+        Map<String, Integer> requestedTools = new LinkedHashMap<>();
+
         while (chatResponse.aiMessage().hasToolExecutionRequests()) {
             chatMemory.add(chatResponse.aiMessage());
+
+            for (var toolRequest : chatResponse.aiMessage().toolExecutionRequests()) {
+                requestedTools.merge(toolRequest.name(), 1, Integer::sum);
+            }
 
             if (toolRounds >= toolPolicy.maxToolRoundTrips()) {
                 // The round that asks beyond the bound is not executed. The attempt ends as a
@@ -346,7 +357,8 @@ public class ChatExecutor {
                 // log is written first because the transcript of a runaway attempt is what a
                 // further attempt is told about.
                 String message = "the model requested more than " + toolPolicy.maxToolRoundTrips()
-                        + " tool round(s) in one attempt";
+                        + " tool round(s) in one attempt"
+                        + describeRequestedTools(requestedTools);
 
                 logger.warn("Task '{}'{} reached the tool round bound of {} and was rejected",
                         taskId, loopIndex, toolPolicy.maxToolRoundTrips());
@@ -447,10 +459,11 @@ public class ChatExecutor {
             callback.onTokenUsage(taskId, loopIndex, aggregateTokenUsage);
         }
 
-        logger.info("Token usage: IN {} OUT {} TOTAL {}",
+        logger.info("Token usage: IN {} OUT {} TOTAL {} (finish reason: {})",
                 aggregateTokenUsage.inputTokenCount(),
                 aggregateTokenUsage.outputTokenCount(),
-                aggregateTokenUsage.totalTokenCount());
+                aggregateTokenUsage.totalTokenCount(),
+                chatResponse.finishReason());
 
         // Add final AI response to chat memory so it appears in logs
         chatMemory.add(chatResponse.aiMessage());
@@ -470,13 +483,13 @@ public class ChatExecutor {
      * Writes the conversation of the attempt so far to its own log file.
      */
     private void writeChatLog(ChatExecutionContext executionContext,
-                              ChatMemory chatMemory,
+                              TaskChatMemory chatMemory,
                               TokenUsage aggregateTokenUsage) throws IOException {
         chatLogger.writeLogFile(executionContext.getWorkspacePath(),
                 executionContext.getTaskId(),
                 executionContext.getLoopIndex(),
                 executionContext.getAttemptNumber(),
-                chatMemory.messages(),
+                chatMemory.fullMessages(),
                 aggregateTokenUsage);
     }
 
@@ -487,13 +500,35 @@ public class ChatExecutor {
     private TaskStepOutcome evaluateResponse(ChatExecutionContext executionContext,
                                              ChatResponse chatResponse,
                                              JsonNode responseSchema) {
+
         String taskResultString = chatResponse.aiMessage().text();
 
         if (taskResultString == null || taskResultString.isBlank()) {
+            // A response the model cut short has no text either, so the reason it stopped is what
+            // tells the two apart.
+            if (isTruncated(chatResponse)) {
+                logger.warn("The model stopped in the middle of its answer for task '{}'",
+                        executionContext.getTaskId());
+
+                return TaskStepOutcome.rejected(TaskStepFailure.of(StepFailureReason.RESPONSE_TRUNCATED,
+                        truncatedMessage(chatResponse)));
+            }
+
             logger.warn("The model returned no response text for task '{}'", executionContext.getTaskId());
 
             return TaskStepOutcome.rejected(TaskStepFailure.of(StepFailureReason.NO_RESPONSE,
                     "the model returned no response text"));
+        }
+
+        if (isTruncated(chatResponse)) {
+            // The model stopped in the middle of its answer. The text that is there is a part of the
+            // answer, not the answer, so it is reported as truncated and not as a payload that does
+            // not parse: the condition of a half answer is not the condition of a wrong one.
+            logger.warn("The model stopped in the middle of its answer for task '{}'",
+                    executionContext.getTaskId());
+
+            return TaskStepOutcome.rejected(TaskStepFailure.of(StepFailureReason.RESPONSE_TRUNCATED,
+                    truncatedMessage(chatResponse)));
         }
 
         JsonNode result;
@@ -527,6 +562,75 @@ public class ChatExecutor {
         }
 
         return TaskStepOutcome.accepted(result);
+    }
+
+    /**
+     * Names the tools the model asked for and how often it asked for them, so that a step that
+     * reached the bound by asking for one file after another is recognisable as such.
+     * <p>
+     * The description is bounded, because the reason is shown on a line of the display that holds
+     * one line only.
+     *
+     * @param requestedTools the tools the model asked for, with their counts
+     * @return the description of the tools, or an empty string when the model asked for none
+     */
+    private static String describeRequestedTools(Map<String, Integer> requestedTools) {
+        if (requestedTools.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder("; it asked for ");
+
+        int remaining = MAX_TOOL_NAMES_IN_ANSWER;
+        boolean first = true;
+
+        for (Map.Entry<String, Integer> entry : requestedTools.entrySet()) {
+            if (remaining <= 0) {
+                sb.append(", and ").append(requestedTools.size() - MAX_TOOL_NAMES_IN_ANSWER)
+                        .append(" more tool(s)");
+                break;
+            }
+
+            if (!first) {
+                sb.append(", ");
+            }
+
+            sb.append(entry.getKey()).append(" x").append(entry.getValue());
+
+            first = false;
+            remaining--;
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * True when the model stopped in the middle of its answer, so the response is cut short.
+     * <p>
+     * A model that ran out of output budget says so in the reason it stopped. A response that was
+     * cut short is not a wrong answer, it is a part of an answer, and the two are reported
+     * differently.
+     *
+     * @param chatResponse the response of the model
+     * @return true when the model did not finish its answer
+     */
+    private static boolean isTruncated(ChatResponse chatResponse) {
+        FinishReason finishReason = chatResponse.finishReason();
+
+        return finishReason == FinishReason.LENGTH;
+    }
+
+    /**
+     * The message of a truncated response, naming the reason the model gave for stopping.
+     *
+     * @param chatResponse the response of the model
+     * @return the message that is reported for the truncated response
+     */
+    private static String truncatedMessage(ChatResponse chatResponse) {
+        FinishReason finishReason = chatResponse.finishReason();
+
+        return "the model stopped before it finished its answer (reason: "
+                + (finishReason == null ? "unknown" : finishReason.name().toLowerCase(Locale.ROOT)) + ")";
     }
 
     /**

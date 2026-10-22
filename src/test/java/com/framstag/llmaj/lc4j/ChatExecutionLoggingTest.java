@@ -285,6 +285,31 @@ class ChatExecutionLoggingTest {
     }
 
     @Test
+    void testWriteLogFileHoldsTheReasoningOfTheModel(@TempDir Path tempDir) throws IOException {
+        // Given: an answer that carries the reasoning of the model
+        ChatLogger chatLogger = new ChatLogger();
+        AiMessage answer = AiMessage.builder()
+                .text("{\"answer\":\"ok\"}")
+                .thinking("The model explains why it asked for the file it asked for.")
+                .build();
+
+        List<ChatMessage> messages = List.of(
+                SystemMessage.from("You are a bot"),
+                UserMessage.from("Hello"),
+                answer
+        );
+        TokenUsage tokenUsage = new TokenUsage(100, 50, 150);
+
+        // When: writing log file
+        chatLogger.writeLogFile(tempDir, "TestTask", null, 1, messages, tokenUsage);
+
+        // Then: the reasoning is in the log, so a failed step can be read
+        String content = Files.readString(tempDir.resolve("logs").resolve("TestTask.log"));
+        assertTrue(content.contains("The model explains why it asked"),
+                "the reasoning of the model must be in the log of the step, got:\n" + content);
+    }
+
+    @Test
     void testWriteLogFileOverwritesExisting(@TempDir Path tempDir) throws IOException {
         // Given: an existing log file
         ChatLogger chatLogger = new ChatLogger();

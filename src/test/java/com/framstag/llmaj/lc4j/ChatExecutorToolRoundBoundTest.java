@@ -206,6 +206,33 @@ public class ChatExecutorToolRoundBoundTest {
     }
 
     @Test
+    void theRejectionNamesTheToolsTheModelAskedFor() throws IOException {
+        WildcardTool tool = new WildcardTool();
+        ScriptedModel model = new ScriptedModel(toolCall("a"), toolCall("b"), toolCall("c"));
+
+        TaskStepOutcome outcome = run(config(2), toolService(tool, 2), model);
+
+        assertTrue(outcome.failure().message().contains(TOOL_NAME),
+                "the rejection must name the tool the model asked for, got: "
+                        + outcome.failure().message());
+        assertTrue(outcome.failure().message().contains("x3"),
+                "the rejection must name how often the model asked for it, got: "
+                        + outcome.failure().message());
+    }
+
+    @Test
+    void theRejectionStaysBoundedInLength() throws IOException {
+        WildcardTool tool = new WildcardTool();
+        ScriptedModel model = new ScriptedModel(toolCall("a"), toolCall("b"), toolCall("c"));
+
+        TaskStepOutcome outcome = run(config(2), toolService(tool, 2), model);
+
+        assertTrue(outcome.failure().message().length() <= TaskStepFailure.MAX_DISPLAY_LENGTH,
+                "the reason is shown on one line of the display, but was "
+                        + outcome.failure().message().length() + " characters long");
+    }
+
+    @Test
     void refusedRoundIsWrittenToTheChatLog() throws IOException {
         WildcardTool tool = new WildcardTool();
         ScriptedModel model = new ScriptedModel(toolCall("a"), toolCall("b"), toolCall("refused"));

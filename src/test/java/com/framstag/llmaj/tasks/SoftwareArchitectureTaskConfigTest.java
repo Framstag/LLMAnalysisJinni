@@ -180,6 +180,31 @@ class SoftwareArchitectureTaskConfigTest {
     }
 
     @Test
+    void theBuildFilePromptNamesTheBuildFileOfTheModule() throws Exception {
+        String prompt = Files.readString(ANALYSIS_DIR.resolve("prompts/module_analysis_buildfiles.md"));
+
+        assertTrue(prompt.contains("facts/build_system_wildcards.md"),
+                "the prompt must use the fact that names the build file of the build system");
+        assertTrue(prompt.contains("The build file of the current module"),
+                "the prompt must tell the model which build file to read, got:\n" + prompt);
+        assertFalse(prompt.contains("filesystem_file_exists"),
+                "the prompt must not ask the model to check a file before it reads it, got:\n" + prompt);
+        assertFalse(prompt.contains("Locate the build files"),
+                "the prompt must not ask the model to search for the build file, got:\n" + prompt);
+    }
+
+    @Test
+    void theBuildFileAnalysisCanListTheFilesOfADirectory() throws Exception {
+        String tasksYaml = Files.readString(ANALYSIS_DIR.resolve("tasks.yaml"));
+        String task = extractBlock(tasksYaml, "id: ModuleBuildfileAnalysis");
+
+        assertTrue(task.contains("filesystem_get_matching_files_in_dir_recursively"),
+                "the task must be able to find the build files of a module in one call, got:\n" + task);
+        assertTrue(task.contains("fileio_read_file"),
+                "the task must still be able to read a build file, got:\n" + task);
+    }
+
+    @Test
     void legacyModuleAnalysisPromptMapsToolIdToReportDescriptorFields() throws Exception {
         String prompt = Files.readString(ANALYSIS_DIR.resolve("prompts/module_analysis_reports.md"));
 

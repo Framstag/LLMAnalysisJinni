@@ -10,6 +10,7 @@ import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.model.output.TokenUsage;
 import dev.langchain4j.service.tool.ToolService;
 import org.junit.jupiter.api.Test;
@@ -65,6 +66,29 @@ public class ChatExecutorOutcomeTest {
 
         List<ChatRequest> requests() {
             return requests;
+        }
+    }
+
+    /**
+     * A model that answers with a text and a reason it stopped, so a truncated answer can be
+     * distinguished from a complete one.
+     */
+    private static final class CannedModelWithFinishReason implements ChatModel {
+        private final String answer;
+        private final FinishReason finishReason;
+
+        CannedModelWithFinishReason(String answer, FinishReason finishReason) {
+            this.answer = answer;
+            this.finishReason = finishReason;
+        }
+
+        @Override
+        public ChatResponse chat(ChatRequest chatRequest) {
+            return ChatResponse.builder()
+                    .aiMessage(AiMessage.from(answer))
+                    .tokenUsage(new TokenUsage(10, 5, 15))
+                    .finishReason(finishReason)
+                    .build();
         }
     }
 
@@ -128,6 +152,62 @@ public class ChatExecutorOutcomeTest {
         assertFalse(outcome.isAccepted());
         assertEquals(StepFailureReason.NO_PAYLOAD, outcome.failure().reason());
         assertNotNull(outcome.failure().excerpt());
+    }
+
+    @Test
+    void aTruncatedAnswerIsReportedAsTruncatedAndNotAsAParseFailure() throws IOException {
+        // A model that ran out of output budget stops in the middle of its answer. The text that is
+        // there is a part of the answer, not the answer.
+        String cutOff = "{\"answer\": \"a value that stops right";
+
+        TaskStepOutcome outcome = run(context(
+                new CannedModelWithFinishReason(cutOff, FinishReason.LENGTH)), "Answer the question");
+
+        assertFalse(outcome.isAccepted());
+        assertEquals(StepFailureReason.RESPONSE_TRUNCATED, outcome.failure().reason(),
+                "a cut answer is not a payload that does not parse");
+        assertNotEquals(StepFailureReason.PAYLOAD_NOT_PARSEABLE, outcome.failure().reason());
+    }
+
+    @Test
+    void aTruncatedAnswerWithoutAnyTextIsReportedAsTruncated() throws IOException {
+        TaskStepOutcome outcome = run(context(
+                new CannedModelWithFinishReason("", FinishReason.LENGTH)), "Answer the question");
+
+        assertFalse(outcome.isAccepted());
+        assertEquals(StepFailureReason.RESPONSE_TRUNCATED, outcome.failure().reason(),
+                "the reason the model stopped tells a cut answer from a model that said nothing");
+    }
+
+    @Test
+    void theReportOfATruncatedAnswerNamesTheReasonTheModelStopped() throws IOException {
+        TaskStepOutcome outcome = run(context(
+                new CannedModelWithFinishReason("{\"answer\": \"cut", FinishReason.LENGTH)),
+                "Answer the question");
+
+        assertTrue(outcome.failure().message().contains("length"),
+                "the report must name the reason the model gave, got: " + outcome.failure().message());
+    }
+
+    @Test
+    void aCompleteAnswerIsNotReportedAsTruncated() throws IOException {
+        TaskStepOutcome outcome = run(context(
+                new CannedModelWithFinishReason("{\"answer\":\"ok\"}", FinishReason.STOP)),
+                "Answer the question");
+
+        assertTrue(outcome.isAccepted(),
+                "a complete answer must not be rejected because of the reason the model stopped");
+    }
+
+    @Test
+    void theRepairHintOfATruncatedAnswerTellsTheModelToFinish() throws IOException {
+        TaskStepOutcome outcome = run(context(
+                new CannedModelWithFinishReason("{\"answer\": \"cut", FinishReason.LENGTH)),
+                "Answer the question");
+
+        assertTrue(outcome.failure().repairHint().contains("truncated"),
+                "the next attempt must be told that the answer was cut, got: "
+                        + outcome.failure().repairHint());
     }
 
     @Test

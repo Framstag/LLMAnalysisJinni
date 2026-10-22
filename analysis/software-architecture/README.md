@@ -25,7 +25,7 @@ Tasks execute in dependency order, roughly: **project-wide information** → **m
 | 4 | Detect used build systems | `BuildSystems` | General, project-wide | ✅ Stable |
 | 5 | Locate code modules | `LocateModules` | General, project-wide | ✅ Stable |
 | 6 | Detect programming languages per module | `ProgrammingLanguages` | General, per-module | ✅ Stable |
-| 7 | Analyze build files per module | `ModuleBuildfileAnalysis` | General, per-module | ✅ Stable |
+| 7 | Analyze build files per module; the build file of a module is named from the build system of the project, so the model reads it instead of searching for it | `ModuleBuildfileAnalysis` | General, per-module | ✅ Stable |
 | 8 | Determine module purpose | `ModulePurpose` | General, per-module | ✅ Stable |
 | 9 | Determine module architecture pattern | `ModuleArchitecture` | General, per-module | ✅ Stable |
 | 10 | Locate SBOM file | `SBOMLocation` | General, project-wide | ✅ Stable |
