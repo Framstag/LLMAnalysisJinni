@@ -1,5 +1,7 @@
 package com.framstag.llmaj.display;
 
+import java.util.Locale;
+
 /**
  * ANSI escape code constants and helpers for terminal output.
  */
@@ -107,12 +109,21 @@ public final class Ansi {
 
     /**
      * Format token count in human-readable form (e.g., "1.2K").
+     * <p>
+     * A count the provider did not report is not a count of zero, so it is shown as a dash instead
+     * of a number.
+     *
+     * @param count the count to format, or null when the provider reported none
+     * @return the formatted count
      */
-    public static String formatTokenCount(int count) {
+    public static String formatTokenCount(Integer count) {
+        if (count == null) {
+            return "-";
+        }
         if (count < 1000) {
             return String.valueOf(count);
         }
-        return String.format("%.1fK", count / 1000.0);
+        return String.format(Locale.ROOT, "%.1fK", count / 1000.0);
     }
 
     /**

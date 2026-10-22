@@ -3,6 +3,7 @@ package com.framstag.llmaj.display;
 import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.logging.LogLine;
 import com.framstag.llmaj.tasks.TaskDefinition;
+import dev.langchain4j.model.output.TokenUsage;
 import org.jline.terminal.Size;
 import org.jline.terminal.impl.DumbTerminal;
 import org.junit.jupiter.api.Test;
@@ -384,6 +385,122 @@ public class ProgressDisplayTest {
 
             assertFalse(frame.contains("attempt "),
                     "a task that was not retried must not claim an attempt, got:\n" + frame);
+        } finally {
+            display.close();
+        }
+    }
+
+    @Test
+    public void testTheTokenUsageOfATaskIsShownOnItsRow() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ProgressDisplay display = new ProgressDisplay(config(), new FixedSizeTerminal(output), true, true);
+
+        try {
+            display.addTasks(tasks("First Task"));
+            display.onTaskStart("first-task", "First Task");
+
+            output.reset();
+            display.onTokenUsage("first-task", null, new TokenUsage(1234, 567, 1801));
+
+            awaitOutputGrowth(output, 0, 3000);
+
+            String frame = output.toString(StandardCharsets.UTF_8);
+
+            assertTrue(frame.contains("IN:1.2K"),
+                    "the task row must show the input count of the task, got:\n" + frame);
+            assertTrue(frame.contains("OUT:567"),
+                    "the task row must show the output count of the task, got:\n" + frame);
+        } finally {
+            display.close();
+        }
+    }
+
+    @Test
+    public void testTheTokenUsageOfALoopIndexIsShownOnItsWorkerRow() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ProgressDisplay display = new ProgressDisplay(config(), new FixedSizeTerminal(output), true, true);
+
+        try {
+            display.addTasks(tasks("First Task"));
+            display.onTaskStart("first-task", "First Task");
+            display.onWorkerStart("first-task", 4, "First Task[4]");
+
+            output.reset();
+            display.onTokenUsage("first-task", 4, new TokenUsage(1234, 567, 1801));
+
+            awaitOutputGrowth(output, 0, 3000);
+
+            String frame = output.toString(StandardCharsets.UTF_8);
+
+            assertTrue(frame.contains("IN:1.2K"),
+                    "the worker row must show the input count of the index, got:\n" + frame);
+            assertTrue(frame.contains("OUT:567"),
+                    "the worker row must show the output count of the index, got:\n" + frame);
+        } finally {
+            display.close();
+        }
+    }
+
+    @Test
+    public void testTheTaskRowAndTheFooterAgree() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ProgressDisplay display = new ProgressDisplay(config(), new FixedSizeTerminal(output), true, true);
+
+        try {
+            display.addTasks(tasks("First Task"));
+            display.onTaskStart("first-task", "First Task");
+
+            output.reset();
+            display.onTokenUsage("first-task", null, new TokenUsage(1000, 500, 1500));
+
+            awaitOutputGrowth(output, 0, 3000);
+
+            String frame = output.toString(StandardCharsets.UTF_8);
+
+            assertTrue(frame.contains("Token: IN 1.0K  OUT 500  TOTAL 1.5K"),
+                    "the footer must show the same counts as the task row, got:\n" + frame);
+        } finally {
+            display.close();
+        }
+    }
+
+    @Test
+    public void testTheFooterCountsEveryResponseOfAStepOnce() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ProgressDisplay display = new ProgressDisplay(config(), new FixedSizeTerminal(output), true, true);
+
+        try {
+            display.addTasks(tasks("First Task"));
+            display.onTaskStart("first-task", "First Task");
+
+            output.reset();
+            // The engine reports the running aggregate of the step every time a model answered.
+            display.onTokenUsage("first-task", null, new TokenUsage(100, 10, 110));
+            display.onTokenUsage("first-task", null, new TokenUsage(300, 30, 330));
+
+            awaitOutputGrowth(output, 0, 3000);
+
+            String frame = output.toString(StandardCharsets.UTF_8);
+
+            assertTrue(frame.contains("Token: IN 300  OUT 30  TOTAL 330"),
+                    "the running aggregate must not be counted twice, got:\n" + frame);
+        } finally {
+            display.close();
+        }
+    }
+
+    @Test
+    public void testATaskWithoutAnyTokenUsageShowsNoCount() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ProgressDisplay display = new ProgressDisplay(config(), new FixedSizeTerminal(output), true, true);
+
+        try {
+            display.addTasks(tasks("First Task"));
+
+            String frame = output.toString(StandardCharsets.UTF_8);
+
+            assertFalse(frame.contains("IN:"),
+                    "a task that reported no usage must not show a count, got:\n" + frame);
         } finally {
             display.close();
         }

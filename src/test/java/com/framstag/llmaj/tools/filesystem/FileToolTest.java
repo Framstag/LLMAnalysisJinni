@@ -48,9 +48,9 @@ public class FileToolTest {
         List<FilesInDirectory> result = filesystemTool.getAllFilesInDirRecursively("src/test/java/com/framstag/llmaj");
 
         assertEquals(List.of(
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/cli", List.of("AnalyseCmdLoopTaskTest.java", "AnalyseCmdOptionParsingTest.java", "AnalyseCmdRetryTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/cli", List.of("AnalyseCmdLoopTaskTest.java", "AnalyseCmdOptionParsingTest.java", "AnalyseCmdRetryTest.java", "AnalyseCmdTokenUsageTest.java", "StateTokensCmdTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/config", List.of("ConfigAnalysisReportBudgetsTest.java", "ConfigMaxToolRoundTripsTest.java", "ConfigOverridesTest.java", "ConfigRetriesTest.java", "ConfigStorerTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/display", List.of("DisplayDecisionTest.java", "DisplayManagerTest.java", "LoopWorkerRowTest.java", "ProgressDisplayTest.java", "SimpleOutputTest.java", "TaskRowTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/display", List.of("AnsiTest.java", "DisplayDecisionTest.java", "DisplayManagerTest.java", "LoopWorkerRowTest.java", "ProgressDisplayTest.java", "SimpleOutputTest.java", "TaskRowTest.java", "TokenUsageTrackerTest.java")),
 
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/documentation", List.of("AnalysisReferenceTest.java", "DocumentationTemplateTest.java", "IntraModuleDocumentationTemplateTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/json", List.of("JsonHelperSchemaDescriptionTest.java", "JsonHelperTest.java", "ResponsePayloadParserTest.java")),
@@ -58,7 +58,7 @@ public class FileToolTest {
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/logging", List.of("EngineLogRoutingTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/smoke", List.of("JarSmokeIT.java", "JarSmokeProbe.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/state", List.of("StateManagerLoopCursorTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/tasks", List.of("AnalysisResponseSchemaTest.java", "SoftwareArchitectureTaskConfigTest.java", "TaskDefinitionTest.java", "TaskManagerTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/tasks", List.of("AnalysisResponseSchemaTest.java", "SoftwareArchitectureTaskConfigTest.java", "StepTokenUsageTest.java", "TaskDefinitionTest.java", "TaskManagerTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools", List.of("ToolServiceFactoryTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/common", List.of("CsvReportWriterTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/file", List.of("FileIOToolTest.java")),

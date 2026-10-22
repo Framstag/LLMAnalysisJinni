@@ -359,6 +359,218 @@ class TaskManagerTest {
         return workspace;
     }
 
+    private static StepTokenUsage usage(int input, int output) {
+        return new StepTokenUsage(input, output, input + output);
+    }
+
+    @Test
+    void theUsageOfANonLoopTaskIsRecorded() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(taskManager);
+
+        taskManager.recordStepTokenUsage(taskById(taskManager, "TaskA"), null, usage(100, 10));
+
+        StepTokenUsage recorded = taskManager.getTokenUsage("TaskA");
+
+        assertNotNull(recorded, "the usage of a step must be recorded");
+        assertEquals(100, recorded.inputTokens());
+        assertEquals(10, recorded.outputTokens());
+        assertEquals(110, recorded.totalTokens());
+    }
+
+    @Test
+    void theUsageOfALoopIndexIsRecordedPerIndex() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(taskManager);
+
+        TaskDefinition taskA = taskById(taskManager, "TaskA");
+
+        taskManager.recordStepTokenUsage(taskA, 0, usage(100, 10));
+        taskManager.recordStepTokenUsage(taskA, 1, usage(200, 20));
+
+        assertEquals(100, taskManager.getIndexTokenUsage("TaskA").get(0).inputTokens());
+        assertEquals(200, taskManager.getIndexTokenUsage("TaskA").get(1).inputTokens());
+    }
+
+    @Test
+    void theUsageOfALoopTaskIsTheSumOfItsIndices() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(taskManager);
+
+        TaskDefinition taskA = taskById(taskManager, "TaskA");
+
+        taskManager.recordStepTokenUsage(taskA, 0, usage(100, 10));
+        taskManager.recordStepTokenUsage(taskA, 1, usage(200, 20));
+
+        StepTokenUsage recorded = taskManager.getTokenUsage("TaskA");
+
+        assertNotNull(recorded);
+        assertEquals(300, recorded.inputTokens(),
+                "the usage of a loop task is the sum of the usages of its indices");
+        assertEquals(30, recorded.outputTokens());
+        assertEquals(330, recorded.totalTokens());
+    }
+
+    @Test
+    void theUsageSurvivesTheStateOfTheTaskBeingReplaced() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(taskManager);
+
+        TaskDefinition taskA = taskById(taskManager, "TaskA");
+
+        taskManager.recordStepTokenUsage(taskA, 0, usage(100, 10));
+
+        taskManager.markIndexSuccessful(taskA, 0);
+
+        assertNotNull(taskManager.getTokenUsage("TaskA"),
+                "marking an index successful must not lose the recorded usage");
+
+        taskManager.markTaskAsSuccessful(taskA);
+
+        assertNotNull(taskManager.getTokenUsage("TaskA"),
+                "marking a task successful must not lose the recorded usage");
+
+        taskManager.markTaskAsFailed(taskA);
+
+        assertNotNull(taskManager.getTokenUsage("TaskA"),
+                "marking a task failed must not lose the recorded usage");
+    }
+
+    @Test
+    void theUsageOfAStepThatRunsAgainReplacesTheOldOne() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(taskManager);
+
+        TaskDefinition taskA = taskById(taskManager, "TaskA");
+
+        taskManager.recordStepTokenUsage(taskA, 0, usage(100, 10));
+        taskManager.recordStepTokenUsage(taskA, 0, usage(50, 5));
+
+        assertEquals(50, taskManager.getIndexTokenUsage("TaskA").get(0).inputTokens(),
+                "a step that runs again reports the usage of its last execution");
+        assertEquals(50, taskManager.getTokenUsage("TaskA").inputTokens());
+    }
+
+    @Test
+    void theUsageOfAStepThatIsNotExecutedAgainStaysTheSame() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(taskManager);
+
+        TaskDefinition taskA = taskById(taskManager, "TaskA");
+
+        taskManager.recordStepTokenUsage(taskA, 0, usage(100, 10));
+        taskManager.recordStepTokenUsage(taskA, 1, usage(200, 20));
+
+        assertEquals(100, taskManager.getIndexTokenUsage("TaskA").get(0).inputTokens(),
+                "a step that is skipped keeps the usage of its last execution");
+        assertEquals(300, taskManager.getTokenUsage("TaskA").inputTokens());
+    }
+
+    @Test
+    void aStepWithoutAnyReportedUsageIsNotRecorded() throws Exception {        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(taskManager);
+
+        taskManager.recordStepTokenUsage(taskById(taskManager, "TaskA"), null, null);
+
+        assertNull(taskManager.getTokenUsage("TaskA"),
+                "a step whose provider reported no count has no recorded usage");
+        assertTrue(taskManager.getTokenUsages().isEmpty());
+    }
+
+    @Test
+    void theRecordedUsageSurvivesTheReloadOfTheState() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(taskManager);
+
+        TaskDefinition taskA = taskById(taskManager, "TaskA");
+
+        taskManager.recordStepTokenUsage(taskA, 0, usage(100, 10));
+
+        TaskManager reloaded = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(reloaded);
+
+        StepTokenUsage recorded = reloaded.getTokenUsage("TaskA");
+
+        assertNotNull(recorded, "the recorded usage must be read back from the state file");
+        assertEquals(100, recorded.inputTokens());
+        assertEquals(10, recorded.outputTokens());
+        assertEquals(100, reloaded.getIndexTokenUsage("TaskA").get(0).inputTokens());
+    }
+
+    @Test
+    void theIndicesOfATaskThatIsNoLongerALoopTaskAreDropped() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+        TaskManager taskManager = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(taskManager);
+
+        TaskDefinition taskA = taskById(taskManager, "TaskA");
+
+        taskManager.recordStepTokenUsage(taskA, 0, usage(100, 10));
+        taskManager.recordStepTokenUsage(taskA, null, usage(50, 5));
+
+        assertTrue(taskManager.getIndexTokenUsage("TaskA").isEmpty(),
+                "a task that is not a loop task must not keep the indices of an earlier run");
+        assertEquals(50, taskManager.getTokenUsage("TaskA").inputTokens());
+    }
+
+    @Test
+    void aStateFileWithoutUsagesStillLoads() throws Exception {
+        writeDependencyTasks();
+        writeSharedTaskFiles();
+
+        Path workspace = workspaceDirectory();
+
+        // A state file written before the token usage was recorded.
+        Files.writeString(workspace.resolve("state.json"), """
+                [ {
+                  "taskId" : "TaskA",
+                  "lastExecution" : "2026-10-06T20:02:52.891+0000",
+                  "state" : "SUCCESSFUL"
+                } ]
+                """);
+
+        TaskManager reloaded = TaskManager.initializeTasks(tempDir, workspace, Set.of());
+        assertNotNull(reloaded, "a state file without the new fields must still load");
+
+        assertNull(reloaded.getTokenUsage("TaskA"));
+        assertTrue(reloaded.getTokenUsages().isEmpty());
+    }
+
     private TaskDefinition taskById(TaskManager taskManager, String taskId) {
         return taskManager.getAllTasks().stream()
                 .filter(task -> task.getId().equals(taskId))

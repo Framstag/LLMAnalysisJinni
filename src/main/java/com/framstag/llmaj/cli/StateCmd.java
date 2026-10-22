@@ -8,6 +8,7 @@ import picocli.CommandLine.Command;
                 StateDumpCmd.class,
                 StateDropCmd.class,
                 StateClearCmd.class,
+                StateTokensCmd.class,
                 CommandLine.HelpCommand.class
         },
         mixinStandardHelpOptions = true)

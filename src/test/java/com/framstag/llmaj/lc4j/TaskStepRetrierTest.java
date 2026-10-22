@@ -1,6 +1,7 @@
 package com.framstag.llmaj.lc4j;
 
 import com.framstag.llmaj.display.ProgressCallback;
+import com.framstag.llmaj.tasks.StepTokenUsage;
 import dev.langchain4j.exception.AuthenticationException;
 import dev.langchain4j.exception.NonRetriableException;
 import dev.langchain4j.exception.TimeoutException;
@@ -76,6 +77,71 @@ public class TaskStepRetrierTest {
 
     private static TaskStepOutcome rejected(StepFailureReason reason, String message) {
         return TaskStepOutcome.rejected(TaskStepFailure.of(reason, message));
+    }
+
+    private static TaskStepOutcome acceptedWithUsage(int input, int output) {
+        return TaskStepOutcome.accepted(
+                com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.textNode("ok"),
+                new StepTokenUsage(input, output, input + output));
+    }
+
+    private static TaskStepOutcome rejectedWithUsage(StepFailureReason reason, int input, int output) {
+        return TaskStepOutcome.rejected(TaskStepFailure.of(reason, "rejected"),
+                new StepTokenUsage(input, output, input + output));
+    }
+
+    @Test
+    void aStepReportsTheUsageOfItsAcceptedAttempt() throws IOException {
+        ScriptedAttempt attempt = new ScriptedAttempt(acceptedWithUsage(10, 5));
+
+        TaskStepOutcome outcome = new TaskStepRetrier(3, new RecordingCallback(), "TestTask", null).run(attempt);
+
+        assertNotNull(outcome.tokenUsage(), "an accepted attempt reports what it cost");
+        assertEquals(10, outcome.tokenUsage().inputTokens());
+        assertEquals(5, outcome.tokenUsage().outputTokens());
+        assertEquals(15, outcome.tokenUsage().totalTokens());
+    }
+
+    @Test
+    void aRetriedStepReportsTheSumOfItsAttempts() throws IOException {
+        ScriptedAttempt attempt = new ScriptedAttempt(
+                rejectedWithUsage(StepFailureReason.NO_PAYLOAD, 100, 10),
+                rejectedWithUsage(StepFailureReason.SCHEMA_VIOLATION, 200, 20),
+                acceptedWithUsage(300, 30));
+
+        TaskStepOutcome outcome = new TaskStepRetrier(3, new RecordingCallback(), "TestTask", null).run(attempt);
+
+        assertTrue(outcome.isAccepted());
+        assertNotNull(outcome.tokenUsage(), "a retried step reports what it really cost");
+        assertEquals(600, outcome.tokenUsage().inputTokens(),
+                "the usage of a retried step is the sum of its attempts");
+        assertEquals(60, outcome.tokenUsage().outputTokens());
+        assertEquals(660, outcome.tokenUsage().totalTokens());
+    }
+
+    @Test
+    void aFailedStepKeepsTheUsageOfItsAttempts() throws IOException {
+        ScriptedAttempt attempt = new ScriptedAttempt(
+                rejectedWithUsage(StepFailureReason.NO_PAYLOAD, 100, 10),
+                rejectedWithUsage(StepFailureReason.NO_PAYLOAD, 200, 20));
+
+        TaskStepOutcome outcome = new TaskStepRetrier(2, new RecordingCallback(), "TestTask", null).run(attempt);
+
+        assertFalse(outcome.isAccepted());
+        assertNotNull(outcome.tokenUsage(), "a rejected attempt cost tokens as well");
+        assertEquals(300, outcome.tokenUsage().inputTokens());
+        assertEquals(30, outcome.tokenUsage().outputTokens());
+    }
+
+    @Test
+    void aStepWithoutAnyReportedUsageHasNoUsage() throws IOException {
+        ScriptedAttempt attempt = new ScriptedAttempt(
+                TaskStepOutcome.accepted(com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.textNode("ok")));
+
+        TaskStepOutcome outcome = new TaskStepRetrier(3, new RecordingCallback(), "TestTask", null).run(attempt);
+
+        assertTrue(outcome.isAccepted());
+        assertNull(outcome.tokenUsage(), "a step whose provider reported no count has no usage");
     }
 
     @Test

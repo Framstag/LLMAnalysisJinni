@@ -1,6 +1,7 @@
 package com.framstag.llmaj.lc4j;
 
 import com.framstag.llmaj.display.ProgressCallback;
+import com.framstag.llmaj.tasks.StepTokenUsage;
 import dev.langchain4j.exception.RetriableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,12 +66,17 @@ public class TaskStepRetrier {
 
     /**
      * Attempts the step until it produces an accepted outcome or its attempts are used.
+     * <p>
+     * The returned outcome carries the token usage of all attempts of the step, so a step that was
+     * attempted more than once reports what it really cost. The usage of a rejected attempt is
+     * part of it, because a rejected attempt cost tokens as well.
      *
      * @return the accepted outcome, or the failure of the last attempt
      * @throws IOException when an attempt failed for a reason another attempt cannot repair
      */
     public TaskStepOutcome run(StepAttempt step) throws IOException {
         TaskStepFailure lastFailure = null;
+        StepTokenUsage totalUsage = null;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             TaskStepOutcome outcome;
@@ -83,6 +89,8 @@ public class TaskStepRetrier {
                         e.getMessage() == null ? e.getClass().getName() : e.getMessage()));
             }
 
+            totalUsage = StepTokenUsage.sum(totalUsage, outcome.tokenUsage());
+
             if (outcome.isAccepted()) {
                 if (attempt > 1) {
                     logger.info("Task '{}'{} produced an accepted answer on attempt {}/{}",
@@ -91,7 +99,7 @@ public class TaskStepRetrier {
 
                 callback.onComplete(taskId, loopIndex);
 
-                return outcome;
+                return outcome.withTokenUsage(totalUsage);
             }
 
             lastFailure = outcome.failure();
@@ -106,7 +114,7 @@ public class TaskStepRetrier {
             }
         }
 
-        return TaskStepOutcome.rejected(lastFailure);
+        return TaskStepOutcome.rejected(lastFailure, totalUsage);
     }
 
     private String stepLabel() {

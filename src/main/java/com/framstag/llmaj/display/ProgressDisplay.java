@@ -17,8 +17,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -59,9 +57,11 @@ public class ProgressDisplay implements ProgressCallback, LogLineSink, AutoClose
     private final Map<String, TaskRow> taskMap = new LinkedHashMap<>();
     private final List<TaskRow> taskOrder = new ArrayList<>();
     private final Map<String, List<LoopWorkerRow>> workerMap = new LinkedHashMap<>();
-    private final AtomicInteger aggregateInputTokens = new AtomicInteger(0);
-    private final AtomicInteger aggregateOutputTokens = new AtomicInteger(0);
-    private final AtomicInteger aggregateTotalTokens = new AtomicInteger(0);
+    /**
+     * Adds up the token counts of the run. The engine reports the running aggregate of a step every
+     * time a model answered, so the tracker adds only what a step has spent since its last report.
+     */
+    private final TokenUsageTracker tokenTracker = new TokenUsageTracker();
     private final Instant startTime = Instant.now();
     private final AtomicReference<String> currentTaskId = new AtomicReference<>(null);
 
@@ -258,15 +258,24 @@ public class ProgressDisplay implements ProgressCallback, LogLineSink, AutoClose
 
     @Override
     public synchronized void onTokenUsage(String taskId, Integer loopIndex, TokenUsage tokenUsage) {
-        if (tokenUsage != null) {
-            if (tokenUsage.inputTokenCount() != null) {
-                aggregateInputTokens.addAndGet(tokenUsage.inputTokenCount());
+        if (tokenUsage == null) {
+            return;
+        }
+
+        tokenTracker.report(taskId, loopIndex, tokenUsage);
+
+        // The usage belongs to the task it was spent for, so it goes on the row of that task and
+        // on the row of that worker. A non-loop task shows the usage of its one step, which is what
+        // that step contributed to the aggregate of the footer.
+        if (loopIndex != null) {
+            var worker = findWorker(taskId, loopIndex);
+            if (worker != null) {
+                worker.setTokenUsage(tokenUsage);
             }
-            if (tokenUsage.outputTokenCount() != null) {
-                aggregateOutputTokens.addAndGet(tokenUsage.outputTokenCount());
-            }
-            if (tokenUsage.totalTokenCount() != null) {
-                aggregateTotalTokens.addAndGet(tokenUsage.totalTokenCount());
+        } else {
+            var task = taskMap.get(taskId);
+            if (task != null) {
+                task.setTokenUsage(tokenUsage);
             }
         }
     }
@@ -305,6 +314,10 @@ public class ProgressDisplay implements ProgressCallback, LogLineSink, AutoClose
         // The attempt that just failed is over and the next one is running, so the row returns to
         // RUNNING and carries the attempt it is now on.
         int runningAttempt = attempt + 1;
+
+        // A further attempt starts its own aggregate, so the tracker must not treat the counts the
+        // new attempt reports as a continuation of the counts of the attempt that failed.
+        tokenTracker.forgetLastReported(taskId, loopIndex);
 
         if (loopIndex != null) {
             var worker = findWorker(taskId, loopIndex);
@@ -414,13 +427,6 @@ public class ProgressDisplay implements ProgressCallback, LogLineSink, AutoClose
         if (worker != null) {
             worker.setStatus(LoopWorkerRow.Status.FAILED);
             worker.setErrorMessage(errorMessage);
-        }
-    }
-
-    public synchronized void updateTokenUsage(String taskId, TokenUsage tokenUsage) {
-        var task = taskMap.get(taskId);
-        if (task != null) {
-            task.setTokenUsage(tokenUsage);
         }
     }
 
@@ -774,6 +780,17 @@ public class ProgressDisplay implements ProgressCallback, LogLineSink, AutoClose
             sb.append("]");
         }
 
+        // Token usage of this index
+        if (worker.getTokenUsage() != null) {
+            var tu = worker.getTokenUsage();
+            String tokenStr = "IN:" + Ansi.formatTokenCount(tu.inputTokenCount())
+                    + " OUT:" + Ansi.formatTokenCount(tu.outputTokenCount());
+            if (ansiSupported) {
+                tokenStr = Ansi.dim(tokenStr);
+            }
+            sb.append("  ").append(tokenStr);
+        }
+
         // Error message
         if (worker.getErrorMessage() != null) {
             String err = worker.getErrorMessage();
@@ -837,9 +854,9 @@ public class ProgressDisplay implements ProgressCallback, LogLineSink, AutoClose
     private void renderFooter(int width) {
         writer.println();
         StringBuilder sb = new StringBuilder();
-        sb.append("Token: IN ").append(Ansi.formatTokenCount(aggregateInputTokens.get()))
-                .append("  OUT ").append(Ansi.formatTokenCount(aggregateOutputTokens.get()))
-                .append("  TOTAL ").append(Ansi.formatTokenCount(aggregateTotalTokens.get()));
+        sb.append("Token: IN ").append(Ansi.formatTokenCount(tokenTracker.totalInputTokens()))
+                .append("  OUT ").append(Ansi.formatTokenCount(tokenTracker.totalOutputTokens()))
+                .append("  TOTAL ").append(Ansi.formatTokenCount(tokenTracker.totalTokenCount()));
         if (ansiSupported) {
             sb.insert(0, Ansi.DIM);
             sb.append(Ansi.RESET);
@@ -901,9 +918,9 @@ public class ProgressDisplay implements ProgressCallback, LogLineSink, AutoClose
             writer.println("  " + icon + " " + task.getName() + time);
         }
         writer.println();
-        writer.println("Token: IN " + Ansi.formatTokenCount(aggregateInputTokens.get())
-                + "  OUT " + Ansi.formatTokenCount(aggregateOutputTokens.get())
-                + "  TOTAL " + Ansi.formatTokenCount(aggregateTotalTokens.get()));
+        writer.println("Token: IN " + Ansi.formatTokenCount(tokenTracker.totalInputTokens())
+                + "  OUT " + Ansi.formatTokenCount(tokenTracker.totalOutputTokens())
+                + "  TOTAL " + Ansi.formatTokenCount(tokenTracker.totalTokenCount()));
         writer.println("Total time: " + Ansi.formatElapsedSeconds(Duration.between(startTime, Instant.now()).toMillis()));
         writer.flush();
     }

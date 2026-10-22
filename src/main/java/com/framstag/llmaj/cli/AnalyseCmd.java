@@ -470,6 +470,13 @@ public class AnalyseCmd implements Callable<Integer> {
                                         jsonResponseRawSchema, jsonResponseSchema,
                                         taskId, currentIndex);
 
+                                // The usage of the step is recorded before the outcome is acted on,
+                                // because a step that was rejected in every attempt cost tokens as
+                                // well, and that cost must not be lost.
+                                synchronized (taskManager) {
+                                    taskManager.recordStepTokenUsage(task, currentIndex, stepOutcome.tokenUsage());
+                                }
+
                                 if (stepOutcome.isAccepted()) {
                                     JsonNode taskResultJson = stepOutcome.payload();
 
@@ -539,6 +546,12 @@ public class AnalyseCmd implements Callable<Integer> {
                             execContext, messages,
                             jsonResponseRawSchema, jsonResponseSchema,
                             taskId, null);
+
+                    // The usage of the step is recorded before the outcome is acted on, because a
+                    // step that was rejected in every attempt cost tokens as well.
+                    synchronized (taskManager) {
+                        taskManager.recordStepTokenUsage(task, null, stepOutcome.tokenUsage());
+                    }
 
                     if (stepOutcome.isAccepted()) {
                         JsonNode taskResultJson = stepOutcome.payload();

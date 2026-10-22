@@ -7,8 +7,8 @@ import java.io.PrintWriter;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Simple sequential output for non-TTY environments (piped output, CI).
@@ -19,9 +19,7 @@ public class SimpleOutput implements ProgressCallback, AutoCloseable {
     private final PrintWriter writer;
     private final Config config;
     private final Instant startTime = Instant.now();
-    private final AtomicInteger aggregateInputTokens = new AtomicInteger(0);
-    private final AtomicInteger aggregateOutputTokens = new AtomicInteger(0);
-    private final AtomicInteger aggregateTotalTokens = new AtomicInteger(0);
+    private final TokenUsageTracker tokenTracker = new TokenUsageTracker();
     private final Map<String, Long> taskTimes = new LinkedHashMap<>();
     private final Map<String, String> taskStatus = new LinkedHashMap<>();
 
@@ -82,17 +80,7 @@ public class SimpleOutput implements ProgressCallback, AutoCloseable {
 
     @Override
     public void onTokenUsage(String taskId, Integer loopIndex, TokenUsage tokenUsage) {
-        if (tokenUsage != null) {
-            if (tokenUsage.inputTokenCount() != null) {
-                aggregateInputTokens.addAndGet(tokenUsage.inputTokenCount());
-            }
-            if (tokenUsage.outputTokenCount() != null) {
-                aggregateOutputTokens.addAndGet(tokenUsage.outputTokenCount());
-            }
-            if (tokenUsage.totalTokenCount() != null) {
-                aggregateTotalTokens.addAndGet(tokenUsage.totalTokenCount());
-            }
-        }
+        tokenTracker.report(taskId, loopIndex, tokenUsage);
     }
 
     @Override
@@ -111,6 +99,10 @@ public class SimpleOutput implements ProgressCallback, AutoCloseable {
 
     @Override
     public void onRetry(String taskId, Integer loopIndex, int attempt, int maxAttempts, String reason) {
+        // A further attempt starts its own aggregate, so the tracker must not treat the counts the
+        // new attempt reports as a continuation of the counts of the attempt that failed.
+        tokenTracker.forgetLastReported(taskId, loopIndex);
+
         // One line per retry, so a step that is attempted again is visible in piped output too.
         String step = loopIndex != null ? taskId + "[" + loopIndex + "]" : taskId;
 
@@ -164,9 +156,9 @@ public class SimpleOutput implements ProgressCallback, AutoCloseable {
             writer.println("  " + icon + " " + entry.getKey() + timeStr);
         }
         writer.println();
-        writer.println("Token: IN " + formatTokenCount(aggregateInputTokens.get())
-                + "  OUT " + formatTokenCount(aggregateOutputTokens.get())
-                + "  TOTAL " + formatTokenCount(aggregateTotalTokens.get()));
+        writer.println("Token: IN " + formatTokenCount(tokenTracker.totalInputTokens())
+                + "  OUT " + formatTokenCount(tokenTracker.totalOutputTokens())
+                + "  TOTAL " + formatTokenCount(tokenTracker.totalTokenCount()));
         writer.println("Total time: " + formatElapsed(Duration.between(startTime, Instant.now()).toMillis()));
         writer.flush();
     }
@@ -188,6 +180,5 @@ public class SimpleOutput implements ProgressCallback, AutoCloseable {
         if (count < 1000) {
             return String.valueOf(count);
         }
-        return String.format("%.1fK", count / 1000.0);
-    }
-}
+        return String.format(Locale.ROOT, "%.1fK", count / 1000.0);
+    }}

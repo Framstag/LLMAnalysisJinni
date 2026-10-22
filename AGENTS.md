@@ -143,6 +143,9 @@ mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- state clear <workspa
 # drop selected task states
 mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- state drop <workspace-dir> TaskId
 
+# report the token usage of a workspace (table, or JSON with --json)
+mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- state tokens <workspace-dir>
+
 # run selected active tasks only (`-o` is a single value: repeat it or use a comma-separated list;
 # the workspace directory may be given before or after the option)
 mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- analyse -o TaskId <workspace-dir>
@@ -278,6 +281,17 @@ retry is reported in the TUI, the piped output and the engine log.
 `state dump` marks a task as `x` when it was successful, `!` when it failed, ` ` when it is pending, `/`
 when it is inactive, and `-` otherwise. A failed task is not marked `x`, so the next run executes it
 again.
+
+### Token usage
+
+`state.json` carries the token usage of every executed step: `tokenUsage` for the task and
+`indexTokenUsage` for the loop indices of a loop task. The figure of a step is the sum of the
+attempts of its last execution, so a retried step reports what it really cost. No per-attempt
+history is kept, and the usage of a failed step is kept because the tokens were spent.
+
+`state tokens <workspace>` reports the total of a workspace, the usage per task and the usage per
+loop index; `--json` writes the same data as JSON. The recorded figure describes the last execution
+of a step, not the sum of all runs of the workspace.
 
 ## Add analysis domain
 

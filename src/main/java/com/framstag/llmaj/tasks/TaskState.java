@@ -11,6 +11,8 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.ZonedDateTime;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 public record TaskState(String taskId,
@@ -18,7 +20,16 @@ public record TaskState(String taskId,
                         ZonedDateTime lastExecution,
                         @JsonInclude(JsonInclude.Include.NON_EMPTY)
                         Set<Integer> successfulIndices,
-                        TaskStatus state) {
+                        TaskStatus state,
+                        @JsonInclude(JsonInclude.Include.NON_NULL)
+                        StepTokenUsage tokenUsage,
+                        @JsonInclude(JsonInclude.Include.NON_EMPTY)
+                        Map<Integer, StepTokenUsage> indexTokenUsage) {
+
+    public TaskState {
+        successfulIndices = successfulIndices == null ? null : new HashSet<>(successfulIndices);
+        indexTokenUsage = indexTokenUsage == null ? null : new LinkedHashMap<>(indexTokenUsage);
+    }
 
     @JsonIgnore
     public boolean isSuccessful() {
@@ -28,6 +39,18 @@ public record TaskState(String taskId,
     @JsonIgnore
     public boolean isFailed() {
         return state==TaskStatus.FAILED;
+    }
+
+    /**
+     * The usage recorded for a loop index, or null when that index has no recorded usage.
+     */
+    @JsonIgnore
+    public StepTokenUsage usageOfIndex(int index) {
+        if (indexTokenUsage == null) {
+            return null;
+        }
+
+        return indexTokenUsage.get(index);
     }
 
     public static TaskState[] loadTaskState(Path path) throws IOException {

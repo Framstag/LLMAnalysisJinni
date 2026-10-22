@@ -122,6 +122,38 @@ Whenever the TUI is not used, the run reports the display mode it uses instead a
 
 If a loop task fails on some indices, the task is marked as failed and will be re-executed on the next run. Already successful indices are preserved and skipped on retry.
 
+A step that is rejected is reported with the reason it was rejected. The reasons are:
+
+| Reason | Meaning |
+|--------|---------|
+| `no response text` | The model returned no text at all. |
+| `the response was truncated` | The model stopped in the middle of its answer, so the response is only a part of an answer. |
+| `no JSON payload in the response` | The response carries no JSON payload. |
+| `the located JSON payload does not parse` | A payload was found, but it is not valid JSON. |
+| `schema violation` | The payload parses, but it does not conform to the declared response schema. |
+| `tool round bound exceeded` | The model asked for more tool rounds than one attempt may use. The reason names the tools it asked for. |
+| `retriable model error` | The model call failed with an error another attempt may get past. |
+
+The chat log of a step (`logs/<taskId>[_<loopIndex>][.attempt<N>].log`) holds the whole conversation of the attempt, including the reasoning of the model, so a failed step can be read.
+
+#### Token Usage
+
+The engine records what every task step costs in the `state.json` of the workspace. A step is a non-loop task, or one loop index of a loop task, and the recorded figure is the sum of the attempts of the last execution of that step, so a retried task reports what it really cost. A loop task carries the usage of each of its indices and the sum of them. The usage of a step that failed is kept, because the tokens were spent as well.
+
+The usage of a workspace is reported with:
+
+```
+state tokens <workspace directory>
+```
+
+The report names the total over all tasks, the usage of every task, and the usage of every loop index of a loop task. The same data is available as JSON for scripts:
+
+```
+state tokens <workspace directory> --json
+```
+
+The figures are the ones recorded in the execution state, so they describe the last execution of each step and not the sum of all runs of the workspace. A step that was not executed again keeps the figure of its last execution. Dropping a task with `state drop` also drops its recorded usage, and clearing the state with `state clear` drops every recorded usage.
+
 For generating a documentation of the analysis results, a possible command line could be:
 
 ```

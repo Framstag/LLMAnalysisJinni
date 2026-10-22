@@ -381,11 +381,14 @@ public class TaskManager {
 
         indices.add(index);
 
+        // The token usage is a cost, not progress, so it survives the replacement of the entry.
         taskStateMap.put(taskId,
                 new TaskState(taskId,
                         ZonedDateTime.now(),
                         indices,
-                        TaskStatus.PROCESSING));
+                        TaskStatus.PROCESSING,
+                        currentState == null ? null : currentState.tokenUsage(),
+                        currentState == null ? null : currentState.indexTokenUsage()));
 
         saveState();
     }
@@ -407,11 +410,17 @@ public class TaskManager {
         successfullyProcessedTaskIds.add(taskId);
         scheduledTags.addAll(task.getTags());
 
+        // The successful indices are dropped here, because a finished task no longer needs them.
+        // The token usage is kept: it is what the task cost, and the cost does not end with the task.
+        TaskState currentState = taskStateMap.get(taskId);
+
         taskStateMap.put(taskId,
                 new TaskState(taskId,
                         ZonedDateTime.now(),
                         null,
-                        TaskStatus.SUCCESSFUL));
+                        TaskStatus.SUCCESSFUL,
+                        currentState == null ? null : currentState.tokenUsage(),
+                        currentState == null ? null : currentState.indexTokenUsage()));
 
         saveState();
     }
@@ -424,7 +433,7 @@ public class TaskManager {
             return;
         }
 
-        // Preserve any successful loop indices from current state
+        // Preserve any successful loop indices and the token usage from current state
         TaskState currentState = taskStateMap.get(taskId);
         Set<Integer> successfulIndices = currentState != null ? currentState.successfulIndices() : null;
 
@@ -434,9 +443,105 @@ public class TaskManager {
                 new TaskState(taskId,
                         ZonedDateTime.now(),
                         successfulIndices,
-                        TaskStatus.FAILED));
+                        TaskStatus.FAILED,
+                        currentState == null ? null : currentState.tokenUsage(),
+                        currentState == null ? null : currentState.indexTokenUsage()));
 
         saveState();
+    }
+
+    /**
+     * Records the token usage of one step of a task.
+     * <p>
+     * A step is a non-loop task, or one loop index of a loop task. The usage replaces the usage the
+     * step had before, so the recorded figure is the usage of the last execution of that step and
+     * not a running total over several runs. The usage of a step that is not executed again stays
+     * the one of its last execution.
+     * <p>
+     * For a loop task the usage of the task itself is the sum of the usages of its indices, written
+     * from the same computation as the indices, so the two cannot disagree. For a non-loop task the
+     * usage of the task is the usage of its one step.
+     *
+     * @param task  the task the step belongs to
+     * @param index the loop index of the step, or null for a non-loop task
+     * @param usage the token usage of the step, or null when the provider reported no count
+     */
+    public synchronized void recordStepTokenUsage(TaskDefinition task, Integer index, StepTokenUsage usage) {
+        if (usage == null) {
+            return;
+        }
+
+        String taskId = task.getId();
+
+        TaskState currentState = taskStateMap.get(taskId);
+        Map<Integer, StepTokenUsage> indexUsages = currentState == null || currentState.indexTokenUsage() == null
+                ? new LinkedHashMap<>()
+                : new LinkedHashMap<>(currentState.indexTokenUsage());
+
+        if (index != null) {
+            indexUsages.put(index, usage);
+        } else {
+            // A task that is not a loop task has no indices. The entries of a run in which it was
+            // one are dropped, so the report does not name indices of a task that has none.
+            indexUsages.clear();
+        }
+
+        // The task usage of a loop task is the sum of its indices, so a reader does not have to add
+        // them up and the two figures cannot drift apart.
+        StepTokenUsage taskUsage = index != null
+                ? StepTokenUsage.sum(indexUsages.values())
+                : usage;
+
+        taskStateMap.put(taskId,
+                new TaskState(taskId,
+                        currentState == null ? ZonedDateTime.now() : currentState.lastExecution(),
+                        currentState == null ? null : currentState.successfulIndices(),
+                        currentState == null ? TaskStatus.PROCESSING : currentState.state(),
+                        taskUsage,
+                        indexUsages.isEmpty() ? null : indexUsages));
+
+        saveState();
+    }
+
+    /**
+     * The token usage recorded for a task, or null when the task has no recorded usage.
+     */
+    public synchronized StepTokenUsage getTokenUsage(String taskId) {
+        TaskState state = taskStateMap.get(taskId);
+
+        return state == null ? null : state.tokenUsage();
+    }
+
+    /**
+     * The token usage recorded for the loop indices of a task, or an empty map when the task has
+     * no recorded usage.
+     */
+    public synchronized Map<Integer, StepTokenUsage> getIndexTokenUsage(String taskId) {
+        TaskState state = taskStateMap.get(taskId);
+
+        if (state == null || state.indexTokenUsage() == null) {
+            return Map.of();
+        }
+
+        return state.indexTokenUsage();
+    }
+
+    /**
+     * The recorded token usage of every task, keyed by task id. Tasks without a recorded usage are
+     * not part of the map.
+     */
+    public synchronized Map<String, StepTokenUsage> getTokenUsages() {
+        Map<String, StepTokenUsage> usages = new LinkedHashMap<>();
+
+        for (Map.Entry<String, TaskState> entry : taskStateMap.entrySet()) {
+            StepTokenUsage usage = entry.getValue().tokenUsage();
+
+            if (usage != null) {
+                usages.put(entry.getKey(), usage);
+            }
+        }
+
+        return usages;
     }
 
     public static TaskManager initializeTasks(Path analyseDirectory,

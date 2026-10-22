@@ -7,6 +7,7 @@ import com.framstag.llmaj.display.ProgressCallback;
 import com.framstag.llmaj.json.JsonHelper;
 import com.framstag.llmaj.json.ResponsePayloadException;
 import com.framstag.llmaj.json.ResponsePayloadParser;
+import com.framstag.llmaj.tasks.StepTokenUsage;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.ChatMessage;
@@ -366,7 +367,8 @@ public class ChatExecutor {
                 writeChatLog(executionContext, chatMemory, aggregateTokenUsage);
 
                 return TaskStepOutcome.rejected(
-                        TaskStepFailure.of(StepFailureReason.TOOL_ROUND_TRIPS_EXCEEDED, message));
+                        TaskStepFailure.of(StepFailureReason.TOOL_ROUND_TRIPS_EXCEEDED, message),
+                        StepTokenUsage.from(aggregateTokenUsage));
             }
 
             toolRounds++;
@@ -476,7 +478,7 @@ public class ChatExecutor {
         // a rejected attempt is not lost when the step is attempted again.
         writeChatLog(executionContext, chatMemory, aggregateTokenUsage);
 
-        return evaluateResponse(executionContext, chatResponse, responseSchema);
+        return evaluateResponse(executionContext, chatResponse, responseSchema, aggregateTokenUsage);
     }
 
     /**
@@ -499,7 +501,9 @@ public class ChatExecutor {
      */
     private TaskStepOutcome evaluateResponse(ChatExecutionContext executionContext,
                                              ChatResponse chatResponse,
-                                             JsonNode responseSchema) {
+                                             JsonNode responseSchema,
+                                             TokenUsage aggregateTokenUsage) {
+        StepTokenUsage usage = StepTokenUsage.from(aggregateTokenUsage);
 
         String taskResultString = chatResponse.aiMessage().text();
 
@@ -511,13 +515,13 @@ public class ChatExecutor {
                         executionContext.getTaskId());
 
                 return TaskStepOutcome.rejected(TaskStepFailure.of(StepFailureReason.RESPONSE_TRUNCATED,
-                        truncatedMessage(chatResponse)));
+                        truncatedMessage(chatResponse)), usage);
             }
 
             logger.warn("The model returned no response text for task '{}'", executionContext.getTaskId());
 
             return TaskStepOutcome.rejected(TaskStepFailure.of(StepFailureReason.NO_RESPONSE,
-                    "the model returned no response text"));
+                    "the model returned no response text"), usage);
         }
 
         if (isTruncated(chatResponse)) {
@@ -528,7 +532,7 @@ public class ChatExecutor {
                     executionContext.getTaskId());
 
             return TaskStepOutcome.rejected(TaskStepFailure.of(StepFailureReason.RESPONSE_TRUNCATED,
-                    truncatedMessage(chatResponse)));
+                    truncatedMessage(chatResponse)), usage);
         }
 
         JsonNode result;
@@ -547,7 +551,7 @@ public class ChatExecutor {
             logger.warn("The response of task '{}' cannot be used: {}",
                     executionContext.getTaskId(), e.getMessage());
 
-            return TaskStepOutcome.rejected(TaskStepFailure.of(reason, e.getMessage(), e.getExcerpt()));
+            return TaskStepOutcome.rejected(TaskStepFailure.of(reason, e.getMessage(), e.getExcerpt()), usage);
         }
 
         List<String> violations = validateAgainstSchema(executionContext, result, responseSchema);
@@ -558,10 +562,10 @@ public class ChatExecutor {
                 logger.warn("  Schema violation: {}", violation);
             }
 
-            return TaskStepOutcome.rejected(TaskStepFailure.schemaViolation(violations));
+            return TaskStepOutcome.rejected(TaskStepFailure.schemaViolation(violations), usage);
         }
 
-        return TaskStepOutcome.accepted(result);
+        return TaskStepOutcome.accepted(result, usage);
     }
 
     /**

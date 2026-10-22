@@ -1,5 +1,7 @@
 package com.framstag.llmaj.display;
 
+import dev.langchain4j.model.output.TokenUsage;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +32,10 @@ public class LoopWorkerRow {
     private int roundCount;
     private String errorMessage;
     /**
+     * The token usage of this index, or null when the index reported none.
+     */
+    private TokenUsage tokenUsage;
+    /**
      * The attempt of this step that is running, and how many it may use. 1 means no retry yet.
      */
     private int attempt;
@@ -46,6 +52,7 @@ public class LoopWorkerRow {
         this.errorMessage = null;
         this.attempt = 1;
         this.maxAttempts = 1;
+        this.tokenUsage = null;
     }
 
     public String getTaskId() { return taskId; }
@@ -58,10 +65,12 @@ public class LoopWorkerRow {
     public String getErrorMessage() { return errorMessage; }
     public int getAttempt() { return attempt; }
     public int getMaxAttempts() { return maxAttempts; }
+    public TokenUsage getTokenUsage() { return tokenUsage; }
 
     public void setStatus(Status status) { this.status = status; }
     public void setElapsedMillis(long elapsedMillis) { this.elapsedMillis = elapsedMillis; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public void setTokenUsage(TokenUsage tokenUsage) { this.tokenUsage = tokenUsage; }
 
     /**
      * Records that a further attempt of this step is running.
