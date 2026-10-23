@@ -1165,3 +1165,200 @@ count and its overlap.
 |`contextMap.maxPairsPerClassification` |how many module pairs of one classification the tool result carries per classification; the CSV evidence keeps every pair |config.json, seeded 25
 |`contextMap.ubiquitousModuleShare` |the share of the modules above which a term is the vocabulary of the whole project rather than the language of a boundary; below three modules nothing is project-wide |config.json, seeded 0.5
 |===
+
+[[modernisation-anchors]]
+=== Modernisation anchors
+
+Ranked by the task `ModernisationAnchors`, which joins the counted evidence of the Java modules, the context map and
+the dependency list of the project.
+
+==== What is measured
+
+An anchor is a place of the project a modernisation could attach to. The analysis names the anchors per anchor type,
+and every anchor rests on counted evidence of an analysis of the project:
+
+* `entry-point`: the classes the entry point analysis counts as candidates, that is the classes with a `main` method,
+  the classes that carry one of the annotations that mark an entry point and the classes that implement one of the
+  service provider interfaces. The evidence names the class, its module, its code category and the marker that
+  names it.
+* `seam`: the interfaces the seam analysis counts. The evidence names the number of implementors, the modules that
+  import the interface, the classes of the declaring module that reference the interface without implementing it
+  and the port candidate decision.
+* `domain`: the relations of the context map. The evidence names both contexts, the relation and the shared
+  language the relation rests on.
+* `build-unit`: the modules the inter module dependency analysis counts. The evidence names the efferent coupling,
+  the afferent coupling and the instability of the module.
+* `cut-point`: the places where a module can be cut, taken from the separation ladder and the minimum cut of the
+  class reference structure. The evidence names the module, the cost of the step and the severed weight.
+* `test-coverage`: the modules whose test coverage the test coverage analysis counts. The evidence names the
+  coverage values of the module.
+* `technology-marker`: the dependencies of the application that the marker knowledge marks, that is the
+  dependencies under a legacy namespace and the dependencies whose version lies in a range at the end of the life
+  of a dependency. The evidence names the dependency, its version and the marker that applies.
+
+An anchor type whose input analysis did not run is reported as absent, with the reason.
+
+==== How to read it
+
+* The strength of an anchor is its RANK among the anchors of its type in this project, 1 being the anchor that
+  rests on the strongest evidence. The rank is a position and not a threshold, and no anchor is good or bad: an
+  anchor that stands out from its peers is reported, not judged.
+* A candidate pattern is a pattern of the catalogue that fits the evidence of the anchor, and not a decision. The
+  reader decides which pattern fits the place, and the reasoning of the anchor states what would make the pattern
+  the wrong choice, so that the analysis can be disagreed with instead of taken as it stands.
+* The candidate patterns come from the catalogue of the marker facts
+  (`analysis/software-architecture/facts/modernisation_markers.md`), and only from it. A pattern that is not in
+  the catalogue is not used, so a pattern a reader knows but the catalogue does not hold does not appear here.
+* An anchor type that is reported as absent is not a finding that the project holds no such place. It says that the
+  analysis that would have counted it did not run.
+
+==== Weights
+
+None. The rank of an anchor is a position among the anchors of its type and not a weight, and every anchor names
+the counted evidence it rests on.
+
+==== Caveats
+
+* The anchors rest on the counted evidence of the Java modules alone. A module of another language and a class the
+  parser did not see are not part of the evidence.
+* The analysis holds no change frequency, no age of the code and no ownership. The history of the project is not
+  read, so an anchor says nothing about how often a place changes or who owns it.
+* The marker knowledge is a snapshot of a date, so a namespace that was renamed after that date is not noticed.
+* The order of the anchors is the order the analysis gives them, and the evidence beside every anchor is what a
+  reader checks. A reader who weighs the same evidence differently gets a different order, and nothing in the
+  report decides between the two.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|`analysis/software-architecture/facts/modernisation_markers.md` |the marker knowledge and the catalogue of the patterns the anchors are matched against |analysis knowledge
+|eight anchors per anchor type |the number of anchors the analysis reports for one anchor type |analysis knowledge
+|===
+
+[[hotspots]]
+=== Hotspots
+
+Ranked by the task `HotspotEvaluation`, which joins the counted version history of the project with the counted
+complexity of the classes of the raw Java module reports.
+
+==== What is measured
+
+The hotspot of a class is the join of two counted figures:
+
+* the change frequency of the class, meaning the number of commits of the counted window of the history that
+  changed the file the class is declared in, and
+* the complexity of the class, meaning the counted cyclomatic complexity of its methods.
+
+The classes are ranked by the two figures together, and every rank names both of them, so a reader who weighs
+them differently can reorder the list without counting anything again. A class whose file never changed holds no
+rank, because the join needs both figures.
+
+==== How to read it
+
+* Neither figure alone makes a hotspot. A class that changes often but is simple is not a hotspot, and a class
+  that is complicated but whose file never changed is not a hotspot either.
+* The change frequency counts the commits of the counted window of the history, and it is bound to that window.
+  The class of a file carries the change count of that file, so a file that holds a class and much other code
+  gives that class the change count of the whole file, and a class that is changed together with another class
+  of the same file changes with it.
+* A truncated history leaves the classes that were changed before the counted window out of the ranking. The
+  ranking is then the ranking of the counted window and not of the whole history.
+* The strength of a hotspot is its RANK among the classes of the project, 1 being the class that comes first. The
+  rank is a position and not a threshold, and no class is good or bad: a class that stands out from its peers is
+  reported, not judged.
+* An absent history is a result of the analysis and not an empty list of hotspots. A project whose history cannot
+  be read holds no counted hotspots, which is not the same as a project without hotspots.
+
+==== Weights
+
+None. The rank of a class is a position among the classes of the project and not a weight, and every row names
+the two counted figures the position rests on.
+
+==== Caveats
+
+* The history is read from a copy of the repository, so a copy that holds only the recent commits yields a
+  truncated history, and the ranking then covers the counted window alone.
+* A class that was moved to another file carries the history of its new file, because the join follows the file
+  the class is declared in now.
+* The analysis holds no ownership and no age of the code. The counted history holds the authors, but the
+  hotspot does not rank by author, and the age of a class is not counted at all.
+* Only the classes of the Java modules are ranked. A module of another language and a module without a raw
+  report are named as skipped, so the ranking of a project is the ranking of the modules that could be read.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|the counted window of 500 commits |the commits the change frequency of a class is counted in; the classes that were changed before the window are left out of the ranking |analysis knowledge
+|ten hotspots |the number of hotspots the evaluation reports; the classes the tool ranked after them are left out of the report |analysis knowledge
+|===
+
+[[modernisation-strategy]]
+=== Modernisation strategy
+
+Ranked by the task `ModernisationStrategy`, which joins the anchors of the anchor analysis, the counted hotspots
+of the hotspot analysis and the counted evidence of the project.
+
+==== What is measured
+
+The modernisation areas of the project: one area per candidate place. The candidate places are the anchors of the
+anchor analysis and the counted hotspots of the hotspot analysis, so an area names the module it belongs to, the
+element it points at and the anchor type it rests on.
+
+Every area names the patterns of the catalogue that fit it, and for every pattern the counted evidence that
+supports it, the counted evidence that counts against it and what would have to be true for the pattern to be the
+wrong choice.
+
+The cost of an area rests on counted figures, and every figure carries its name, its value as the counted
+analysis reports it and the counted analysis it comes from. Among those figures are
+
+* the coupling of the module, that is the afferent coupling of the module, which says how many places of the
+  project reach into it and therefore how much of the project follows a change of the module,
+* the price of the cut of the module, that is the weight of the reference tie a separation of the module has to
+  sever, taken from the separation ladder and the minimum cut of the class reference structure, and
+* the test coverage of the area, which is the net a change of the area has to land in.
+
+==== How to read it
+
+* The order of the areas follows the counted cost, the cheapest area first. The order is NOT a decision: the
+  analysis names no area as the one to start with, and the business value of a change is not part of the
+  analysis. A reader who weighs the figures of the cost differently can reorder the list without counting
+  anything again.
+* A pattern of an area is a candidate from the catalogue with its evidence beside it, and not a decision. The
+  evidence against a pattern and the statement of what would make it wrong are there so that the analysis can be
+  disagreed with instead of taken as it stands.
+* A figure that the counted evidence does not hold is not stated as a value. The area names the missing figure
+  in its reasoning, and the cost of the area rests on the figures that are there.
+* An area type whose input analysis did not run is reported as absent, with the reason. That is not a finding
+  that the project holds no such place, it says that the analysis that would have counted it did not run.
+
+==== Weights
+
+None. The cost of an area is not a number of the analysis but the set of the counted figures it names, each with
+the counted analysis it comes from, and the order of the areas follows that cost.
+
+==== Caveats
+
+* The areas rest on the counted evidence of the Java modules alone. A module of another language and a class the
+  parser did not see are not part of the evidence.
+* The analysis knows no business value of a change, no ownership and no age of the code, and it holds no roadmap
+  with dates or owners. The order it gives is the order of the counted cost and nothing else.
+* The areas inherit the gaps of the anchor analysis and of the hotspot analysis. An anchor type whose input
+  analysis did not run is absent in the anchor result, and the areas of that type are absent with it.
+* The patterns come from the catalogue of the marker facts, so a pattern the catalogue does not hold is never
+  weighed, and the reader does not see a pattern the analysis did not consider.
+* The cost of an area says what the counted evidence says the change would cost. It does not say how long the
+  work takes, and it does not weigh what the change would win.
+
+==== Steering
+
+|===
+|Value |Bounds |Source
+
+|`analysis/software-architecture/facts/modernisation_markers.md` |the marker knowledge and the catalogue of the patterns an area is matched against |analysis knowledge
+|the afferent coupling, the price of the cut and the test coverage of an area |the counted figures the cost of the area rests on; a figure the counted evidence does not hold is named as missing instead of stated as a value |analysis knowledge
+|twelve areas |the number of areas the analysis reports; a longer answer is cut off before its JSON is complete and is rejected |analysis knowledge
+|===

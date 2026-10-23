@@ -29,9 +29,21 @@ class ExistingMetricReportCompatibilityTest {
     Path tempDir;
 
     private Module module(String name, String ownClass, String importedClass, boolean withReferences) {
+        return module(name, ownClass, importedClass, withReferences, false);
+    }
+
+    private Module module(String name,
+                          String ownClass,
+                          String importedClass,
+                          boolean withReferences,
+                          boolean withSourceFile) {
         Method method = new Method("run", "()V");
         Clazz clazz = new Clazz(ownClass, null);
         clazz.addMethod(method);
+
+        if (withSourceFile) {
+            clazz.setSourceFile("src/main/java/" + ownClass.replace('.', '/') + ".java");
+        }
 
         BuildUnit buildUnit = new BuildUnit(name + ".Main", true, false,
                 List.of(importedClass, "java.util.List", "demo.thirdparty.Helper"),
@@ -48,8 +60,12 @@ class ExistingMetricReportCompatibilityTest {
     }
 
     private AnalysisContext writeWorkspace(boolean withReferences) throws Exception {
-        Module core = module("core", "demo.core.Service", "demo.api.Widget", withReferences);
-        Module api = module("api", "demo.api.Widget", "demo.core.Service", withReferences);
+        return writeWorkspace(withReferences, false);
+    }
+
+    private AnalysisContext writeWorkspace(boolean withReferences, boolean withSourceFile) throws Exception {
+        Module core = module("core", "demo.core.Service", "demo.api.Widget", withReferences, withSourceFile);
+        Module api = module("api", "demo.api.Widget", "demo.core.Service", withReferences, withSourceFile);
 
         Path javaDirectory = tempDir.resolve("Java");
         Files.createDirectories(javaDirectory);
@@ -74,7 +90,11 @@ class ExistingMetricReportCompatibilityTest {
     }
 
     private String reportsOfTheFourTools(boolean withReferences) throws Exception {
-        JavaTool javaTool = new JavaTool(writeWorkspace(withReferences));
+        return reportsOfTheFourTools(withReferences, false);
+    }
+
+    private String reportsOfTheFourTools(boolean withReferences, boolean withSourceFile) throws Exception {
+        JavaTool javaTool = new JavaTool(writeWorkspace(withReferences, withSourceFile));
 
         StringBuilder reports = new StringBuilder();
 
@@ -97,6 +117,15 @@ class ExistingMetricReportCompatibilityTest {
 
         assertEquals(withoutRecord, withRecord,
                 "the weighted reference record must not become a precondition for the existing metric tools");
+    }
+
+    @Test
+    void theSourceFileOfAClassDoesNotChangeTheExistingReports() throws Exception {
+        String withoutSourceFile = reportsOfTheFourTools(false);
+        String withSourceFile = reportsOfTheFourTools(false, true);
+
+        assertEquals(withoutSourceFile, withSourceFile,
+                "the source file of a class must not change the result of the existing metric tools");
     }
 
     @Test

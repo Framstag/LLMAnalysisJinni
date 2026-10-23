@@ -4,14 +4,23 @@ import com.framstag.llmaj.AnalysisContext;
 import com.framstag.llmaj.tools.file.FileIOTool;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -60,12 +69,13 @@ public class FileToolTest {
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/logging", List.of("EngineLogRoutingTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/smoke", List.of("JarSmokeIT.java", "JarSmokeProbe.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/state", List.of("StateManagerLoopCursorTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/tasks", List.of("AnalysisResponseSchemaTest.java", "SoftwareArchitectureTaskConfigTest.java", "StepTokenUsageTest.java", "TaskDefinitionTest.java", "TaskManagerTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/tasks", List.of("AnalysisResponseSchemaTest.java", "HotspotEvaluationAnalysisTest.java", "ModernisationAnchorAnalysisTest.java", "ModernisationStrategyAnalysisTest.java", "ModernisationStrategySchemaTest.java", "SoftwareArchitectureTaskConfigTest.java", "StepTokenUsageTest.java", "TaskDefinitionTest.java", "TaskManagerTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools", List.of("ToolServiceFactoryTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/common", List.of("CsvReportWriterTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/file", List.of("FileIOToolTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/filesystem", List.of("FileToolTest.java", "MatchingFilesInDirToolTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/java", List.of("ClassDependencyGraphToolTest.java", "ClassFileParserReferenceTest.java", "ContextMapToolTest.java", "DependencyDiagramStatePersistenceTest.java", "DependencyDiagramToolTest.java", "DomainVocabularyToolTest.java", "DomainVocabularyWorkspaceTest.java", "ExistingMetricReportCompatibilityTest.java", "GodClassRankingToolTest.java", "JavaToolTest.java", "RawModuleReportFormatTest.java", "RegenerateWorkspaceReportsTest.java", "SplitCandidateToolTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/history", List.of("HistoryReportsTest.java", "HistoryToolTest.java", "ModuleHistoryAggregationTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/java", List.of("ClassDependencyGraphToolTest.java", "ClassFileParserReferenceTest.java", "ContextMapToolTest.java", "DependencyDiagramStatePersistenceTest.java", "DependencyDiagramToolTest.java", "DomainVocabularyToolTest.java", "DomainVocabularyWorkspaceTest.java", "EntryPointToolTest.java", "ExistingMetricReportCompatibilityTest.java", "GodClassRankingToolTest.java", "HotspotToolTest.java", "JavaToolTest.java", "RawModuleReportFormatTest.java", "RegenerateWorkspaceReportsTest.java", "SeamToolTest.java", "SplitCandidateToolTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/java/graph", List.of("MaximumSpanningForestTest.java", "MinimumCutTest.java", "PercentilesTest.java", "RealModuleDiagramTest.java", "SeparationLadderTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/java/language", List.of("DomainLexiconTest.java", "IdentifierTokenizerTest.java", "ModuleVocabularyTest.java", "NamingCohesionTest.java", "ProseTextTest.java", "ShippedDomainLexiconTest.java", "TextAlignmentTest.java", "VocabularySharesTest.java", "VocabularyTestData.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/tools/java/language/overview", List.of("ContextMapReportsTest.java", "LexicalOverlapTest.java", "OverviewTestData.java", "ProjectVocabularyTest.java", "QuadrantRowTest.java", "TermIntrusionTest.java")),
@@ -188,6 +198,66 @@ public class FileToolTest {
     }
 
     @Test
+    void theFileCountPerFileTypeVisitorContinuesWhenAFileCannotBeVisited() {
+        Map<String,Integer> counts = new HashMap<>();
+        FileCountPerFileTypeVisitor visitor =
+                new FileCountPerFileTypeVisitor(List.of("*.java"), counts);
+
+        FileVisitResult result = visitor.visitFileFailed(Paths.get("vanished.java"), new NoSuchFileException("vanished.java"));
+
+        assertEquals(FileVisitResult.CONTINUE, result);
+        assertTrue(counts.isEmpty(), "a file that cannot be visited must not be counted");
+    }
+
+    @Test
+    void getFileCountPerFileTypeCountsAFileAndASubdirectory(@TempDir Path projectRoot) throws IOException {
+        Files.createFile(projectRoot.resolve("top.txt"));
+        Files.createDirectories(projectRoot.resolve("sub"));
+        Files.createFile(projectRoot.resolve("sub").resolve("nested.txt"));
+
+        AnalysisContext tempContext = new AnalysisContext(projectRoot, projectRoot, Collections.emptyMap(), null);
+        FilesystemTool tool = new FilesystemTool(tempContext);
+
+        List<CountPerWildcard> result = tool.fileCountPerFileType("", List.of("*.txt"));
+
+        assertEquals(List.of(new CountPerWildcard("*.txt", 2)), result);
+    }
+
+    @Test
+    void getFileCountPerFileTypeSurvivesFilesThatChangeDuringTheScan(@TempDir Path projectRoot) throws Exception {
+        Path scanDir = Files.createDirectories(projectRoot.resolve("scan"));
+        Files.createFile(scanDir.resolve("stable.txt"));
+
+        AnalysisContext tempContext = new AnalysisContext(projectRoot, projectRoot, Collections.emptyMap(), null);
+        FilesystemTool tool = new FilesystemTool(tempContext);
+
+        AtomicBoolean mutating = new AtomicBoolean(true);
+        Thread mutator = new Thread(() -> {
+            int counter = 0;
+            while (mutating.get()) {
+                Path transientFile = scanDir.resolve("transient" + (counter++ % 8) + ".txt");
+                try {
+                    Files.writeString(transientFile, "content");
+                    Files.deleteIfExists(transientFile);
+                } catch (IOException e) {
+                    // the file vanished again, which is exactly the situation under test
+                }
+            }
+        });
+        mutator.start();
+
+        try {
+            for (int scan = 0; scan < 50; scan++) {
+                assertDoesNotThrow(() -> tool.fileCountPerFileType("scan", List.of("*.txt")),
+                        "the scan must survive files that vanish while it runs");
+            }
+        } finally {
+            mutating.set(false);
+            mutator.join();
+        }
+    }
+
+    @Test
     void getFileCountPerFileTypeAndDirectoryWildcard() throws IOException {
         List<CountPerWildcardAndDirectory> result = filesystemTool.fileCountPerFileTypeAndDirectory("src/main/resources", List.of("*.xml"));
 
@@ -201,5 +271,69 @@ public class FileToolTest {
 
         assertEquals(List.of(new CountPerWildcardAndDirectory("","pom.xml",1)),result);
 
+    }
+
+    @Test
+    void theFileCountVisitorContinuesWhenAFileCannotBeVisited() {
+        Map<DirectoryAndWildcard,Integer> counts = new HashMap<>();
+        FileCountPerFileTypeAndDirectoryVisitor visitor =
+                new FileCountPerFileTypeAndDirectoryVisitor(Paths.get("").toAbsolutePath(), List.of("*.java"), counts);
+
+        FileVisitResult result = visitor.visitFileFailed(Paths.get("vanished.java"), new NoSuchFileException("vanished.java"));
+
+        assertEquals(FileVisitResult.CONTINUE, result);
+        assertTrue(counts.isEmpty(), "a file that cannot be visited must not be counted");
+    }
+
+    @Test
+    void getFileCountPerFileTypeAndDirectoryCountsAFileAndASubdirectory(@TempDir Path projectRoot) throws IOException {
+        Files.createFile(projectRoot.resolve("top.txt"));
+        Files.createDirectories(projectRoot.resolve("sub"));
+        Files.createFile(projectRoot.resolve("sub").resolve("nested.txt"));
+
+        AnalysisContext tempContext = new AnalysisContext(projectRoot, projectRoot, Collections.emptyMap(), null);
+        FilesystemTool tool = new FilesystemTool(tempContext);
+
+        List<CountPerWildcardAndDirectory> result = tool.fileCountPerFileTypeAndDirectory("", List.of("*.txt"));
+
+        assertEquals(2, result.size());
+        assertTrue(result.contains(new CountPerWildcardAndDirectory("", "*.txt", 1)),
+                "the file in the root directory must be counted, got: " + result);
+        assertTrue(result.contains(new CountPerWildcardAndDirectory("sub", "*.txt", 1)),
+                "the file in the subdirectory must be counted, got: " + result);
+    }
+
+    @Test
+    void getFileCountPerFileTypeAndDirectorySurvivesFilesThatChangeDuringTheScan(@TempDir Path projectRoot) throws Exception {
+        Path scanDir = Files.createDirectories(projectRoot.resolve("scan"));
+        Files.createFile(scanDir.resolve("stable.txt"));
+
+        AnalysisContext tempContext = new AnalysisContext(projectRoot, projectRoot, Collections.emptyMap(), null);
+        FilesystemTool tool = new FilesystemTool(tempContext);
+
+        AtomicBoolean mutating = new AtomicBoolean(true);
+        Thread mutator = new Thread(() -> {
+            int counter = 0;
+            while (mutating.get()) {
+                Path transientFile = scanDir.resolve("transient" + (counter++ % 8) + ".txt");
+                try {
+                    Files.writeString(transientFile, "content");
+                    Files.deleteIfExists(transientFile);
+                } catch (IOException e) {
+                    // the file vanished again, which is exactly the situation under test
+                }
+            }
+        });
+        mutator.start();
+
+        try {
+            for (int scan = 0; scan < 50; scan++) {
+                assertDoesNotThrow(() -> tool.fileCountPerFileTypeAndDirectory("scan", List.of("*.txt")),
+                        "the scan must survive files that vanish while it runs");
+            }
+        } finally {
+            mutating.set(false);
+            mutator.join();
+        }
     }
 }

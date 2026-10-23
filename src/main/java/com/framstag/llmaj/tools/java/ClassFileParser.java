@@ -146,10 +146,12 @@ public class ClassFileParser {
     /**
      * Parses one class file into the module manager.
      *
+     * @param projectRoot the root of the project, the base of the path the class file is recorded with
      * @return true when the class file contributed a type to the module, false when it could not be read or
      * declares no class of the module, so the caller can count the files a module did not analyse
      */
     public static boolean parseClassFile(Path classFile,
+                                       Path projectRoot,
                                        List<SpecialSubdirectory> specialSubdirectories,
                                        ModuleManager moduleManager) {
         try {
@@ -174,6 +176,10 @@ public class ClassFileParser {
             PackageManager pck = moduleManager.getOrAddPackageByName(packageName);
             BuildUnitManager buildUnit = pck.getOrAddBuildUnitByName(getBuildUnitName(qualifiedName));
             ClassManager classManager = buildUnit.getOrAddClassByName(qualifiedName);
+            classManager.setInterface(classModel.flags().has(AccessFlag.INTERFACE));
+            // The class file is the file the class was found in. A source file of the same class is parsed
+            // later and replaces it, because the source file is the file the class was declared in.
+            classManager.setSourceFile(ParserHelper.projectPath(projectRoot, classFile));
 
             logger.info("Package: {}",pck.getName());
             logger.info("BuildUnit: {}",buildUnit.getName());

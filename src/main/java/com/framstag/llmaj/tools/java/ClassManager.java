@@ -20,6 +20,8 @@ public class ClassManager {
     private String superClass;
     private final List<String> interfaces = new LinkedList<>();
     private final List<Field> fields = new LinkedList<>();
+    private boolean interfaceType;
+    private String sourceFile;
 
     public ClassManager(String qualifiedName) {
         this.qualifiedName = qualifiedName;
@@ -60,6 +62,22 @@ public class ClassManager {
 
     public void addInterface(String iface) {
         interfaces.add(iface);
+    }
+
+    public boolean isInterface() {
+        return interfaceType;
+    }
+
+    public void setInterface(boolean isInterface) {
+        this.interfaceType = isInterface;
+    }
+
+    public String getSourceFile() {
+        return sourceFile;
+    }
+
+    public void setSourceFile(String sourceFile) {
+        this.sourceFile = sourceFile;
     }
 
     public void addField(Field field) {

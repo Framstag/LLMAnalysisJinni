@@ -31,10 +31,12 @@ public class JavaFileParser {
     /**
      * Parses one source file into the module manager.
      *
+     * @param projectRoot the root of the project, the base of the path the source file is recorded with
      * @return true when the file contributed a type to the module, false when it could not be parsed or
      * carries no type, so the caller can count the files a module did not analyse
      */
     public static boolean parseJavaFile(Path srcFile,
+                                      Path projectRoot,
                                       List<SpecialSubdirectory> specialSubdirectories,
                                       ModuleManager moduleManager,
                                       TypeSolver typeSolver) {
@@ -87,6 +89,9 @@ public class JavaFileParser {
 
                 String qualifiedName = getClassFileName(type);
                 ClassManager classManager = buildUnit.getOrAddClassByName(qualifiedName);
+                classManager.setInterface(type.isInterface());
+                // Every type of the file was declared in that file, the nested ones as well.
+                classManager.setSourceFile(ParserHelper.projectPath(projectRoot, srcFile));
 
                 logger.info("Type: {}",classManager.getQualifiedName());
 

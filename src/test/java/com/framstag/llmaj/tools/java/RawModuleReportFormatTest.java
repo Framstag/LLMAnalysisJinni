@@ -101,6 +101,77 @@ class RawModuleReportFormatTest {
     }
 
     @Test
+    void theInterfaceFlagSurvivesARoundTrip() throws Exception {
+        Clazz iface = new Clazz("demo.Port", null);
+        iface.setInterface(true);
+
+        BuildUnit buildUnit = new BuildUnit("demo.Port", true, false,
+                List.of(),
+                List.of(),
+                List.of(iface));
+
+        Package pck = new Package("demo");
+        pck.addBuildUnit(buildUnit);
+
+        Module module = new Module("core");
+        module.addPackage(pck);
+
+        Clazz reloaded = firstBuildUnit(roundTrip(module)).getClazzes().getFirst();
+
+        assertTrue(reloaded.isInterface(),
+                "the interface flag has to survive the round trip, or a consumer cannot tell an interface"
+                        + " from a class");
+    }
+
+    @Test
+    void theSourceFileSurvivesARoundTrip() throws Exception {
+        Clazz clazz = new Clazz("demo.Source", null);
+        clazz.setSourceFile("src/main/java/demo/Source.java");
+
+        BuildUnit buildUnit = new BuildUnit("demo.Source", true, false,
+                List.of(),
+                List.of(),
+                List.of(clazz));
+
+        Package pck = new Package("demo");
+        pck.addBuildUnit(buildUnit);
+
+        Module module = new Module("core");
+        module.addPackage(pck);
+
+        Clazz reloaded = firstBuildUnit(roundTrip(module)).getClazzes().getFirst();
+
+        assertEquals("src/main/java/demo/Source.java", reloaded.getSourceFile(),
+                "the source file of a class has to survive the round trip, or a consumer cannot join the class"
+                        + " to the counted history of the project");
+    }
+
+    @Test
+    void theCurrentReportFormatVersionIsFive() {
+        assertEquals(5, Module.CURRENT_REPORT_FORMAT_VERSION,
+                "the source file of a class is the fifth version of the raw module report");
+    }
+
+    @Test
+    void aReportWithoutTheSourceFileReadsAsOutdated() throws Exception {
+        Path reportFile = tempDir.resolve("Java/Java_old.json");
+        Files.createDirectories(reportFile.getParent());
+        Files.writeString(reportFile, """
+                {
+                  "name" : "old",
+                  "reportFormatVersion" : 4,
+                  "packages" : [ ]
+                }
+                """);
+
+        Module reloaded = objectMapper.readValue(reportFile.toFile(), Module.class);
+
+        assertEquals(4, reloaded.getReportFormatVersion());
+        assertFalse(reloaded.isReportFormatCurrent(),
+                "a report written before the class record held the source file must be regenerated");
+    }
+
+    @Test
     void reportFormatVersionSurvivesARoundTrip() throws Exception {
         Module reloaded = roundTrip(moduleWithWeightedReferences());
 

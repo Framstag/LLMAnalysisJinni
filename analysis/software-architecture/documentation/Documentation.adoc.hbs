@@ -1032,4 +1032,125 @@ No context map was produced, so no boundary between contexts is drawn. A context
 vocabulary of the modules and the import matrix between them.
 {{/if}}
 
+=== Modernisation Anchors
+
+Analysis methods and interpretation: see <<modernisation-anchors,Modernisation anchors>>.
+
+{{#if modernisation_anchors}}
+The analysis reasoned as follows:
+
+{{modernisation_anchors.reasoning}}
+{{#each (groupBy property="anchorType" source=modernisation_anchors.anchors)}}
+==== Anchors of the type {{@key}}
+
+|===
+|Module |Element |Evidence |Rank |Candidate patterns |Reasoning
+{{~#each this}}
+|{{module}} |{{element}} |{{#each evidence}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} |{{rank}} |{{#if candidatePatterns}}{{#each candidatePatterns}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}none{{/if}} |{{reasoning}}
+{{~/each}}
+|===
+{{/each}}
+{{#if modernisation_anchors.absentTypes}}
+The following anchor types are absent, with the reason:
+
+{{#each modernisation_anchors.absentTypes}}* {{anchorType}}: {{reason}}
+{{/each}}
+{{/if}}
+{{else}}
+No modernisation anchor analysis was produced, so no anchor is listed. The analysis needs the counted evidence of
+the Java modules, the context map and the dependency list of the project.
+{{/if}}
+
+=== Hotspots
+
+Analysis methods and interpretation: see <<hotspots,Hotspots>>.
+
+{{#if hotspotEvaluation}}
+{{#if hotspotEvaluation.history.available}}
+{{#if hotspotEvaluation.hotspots}}
+The analysis reasoned as follows:
+
+{{hotspotEvaluation.reasoning}}
+
+The change count of every class is counted in {{hotspotEvaluation.history.window}}.
+
+|===
+|Class |Module |Rank |Change count |Complexity
+
+{{#each hotspotEvaluation.hotspots~}}
+|{{className}} |{{module}} |{{rank}} |{{changeCount}} |{{complexity}}
+{{/each}}
+|===
+
+{{#if hotspotEvaluation.history.truncated}}
+The counted history of the project is truncated, so the classes that were changed before the counted window are
+left out of the ranking.
+
+{{hotspotEvaluation.history.statement}}
+{{/if}}
+{{else}}
+No hotspot was counted, so no class is listed. A hotspot needs a class whose file changed and that carries
+complexity.
+{{/if}}
+{{else}}
+The counted history of the project is absent ({{hotspotEvaluation.history.absence}}), so the project holds no
+counted hotspots. The reason is:
+
+{{hotspotEvaluation.history.reason}}
+{{/if}}
+{{else}}
+No hotspot evaluation was produced, so no class is listed. The evaluation needs the counted history of the
+project and the raw reports of the Java modules.
+{{/if}}
+
+=== Modernisation Strategy
+
+Analysis methods and interpretation: see <<modernisation-strategy,Modernisation strategy>>.
+
+{{#if modernisationStrategy}}
+{{#if modernisationStrategy.areas}}
+The analysis reasoned as follows:
+
+{{modernisationStrategy.reasoning}}
+
+The areas are given in the order of the counted cost. The order follows the counted cost and is not a decision, and
+the analysis names no area as the one to start with.
+
+{{#each modernisationStrategy.areas}}
+==== Modernisation area of the module "{{module}}"{{#if element}} at "{{element}}"{{/if}}
+
+The area rests on the anchor type `{{anchorType}}`, and the cost of the area rests on the figures named in the table.
+
+|===
+|Area |Pattern |Evidence for |Evidence against |What would make it wrong |Cost figures
+{{#if patterns}}
+{{#each patterns}}
+|{{#if ../element}}{{../module}} / {{../element}}{{else}}{{../module}}{{/if}} |{{name}} |{{#if evidenceFor}}{{#each evidenceFor}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}none{{/if}} |{{#if evidenceAgainst}}{{#each evidenceAgainst}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}none{{/if}} |{{whatWouldMakeItWrong}} |{{#if ../costFigures}}{{#each ../costFigures}}{{name}}: {{value}} ({{source}}){{#unless @last}}, {{/unless}}{{/each}}{{else}}none{{/if}}
+{{/each}}
+{{else}}
+|{{#if element}}{{module}} / {{element}}{{else}}{{module}}{{/if}} |none |none |none |No pattern of the catalogue fits this area. |{{#if costFigures}}{{#each costFigures}}{{name}}: {{value}} ({{source}}){{#unless @last}}, {{/unless}}{{/each}}{{else}}none{{/if}}
+{{/if}}
+|===
+
+The cost of the area:
+
+{{cost}}
+
+{{reasoning}}
+
+{{/each}}
+{{else}}
+The strategy result holds no area, so no area is listed.
+{{/if}}
+{{#if modernisationStrategy.absentTypes}}
+The following area types are absent, with the reason:
+
+{{#each modernisationStrategy.absentTypes}}* {{type}}: {{reason}}
+{{/each}}
+{{/if}}
+{{else}}
+No modernisation strategy was produced, so no area is listed. The analysis needs the anchor result and the
+hotspot result of the project.
+{{/if}}
+
 {{> AnalysisReference.adoc}}

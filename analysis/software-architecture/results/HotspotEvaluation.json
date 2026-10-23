@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HotspotEvaluation",
+  "description": "The evaluation of the counted hotspots of the project: the ranked classes with the two figures the join holds, the history the analysis rests on and the limits of the join",
+  "type": "object",
+  "properties": {
+    "reasoning": {
+      "type": "string",
+      "description": "Overall reasoning: what the counted hotspots show, and what the join of the change count and the complexity cannot see"
+    },
+    "history": {
+      "type": "object",
+      "title": "HotspotHistory",
+      "description": "The counted history the analysis rests on, and the named case in which it is absent",
+      "properties": {
+        "available": {
+          "type": "boolean",
+          "description": "True when the counted history of the project was read, false when it is absent"
+        },
+        "window": {
+          "type": "string",
+          "description": "The counted window of the history the change count was counted in, empty when the history is absent"
+        },
+        "truncated": {
+          "type": "boolean",
+          "description": "True when the counted history is truncated, so that the classes changed before the counted window are left out"
+        },
+        "absence": {
+          "type": "string",
+          "description": "The named case in which the counted history is absent, empty when the history was counted",
+          "enum": [
+            "",
+            "NOT_A_REPOSITORY",
+            "GIT_EXECUTABLE_MISSING"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "description": "Why the counted history is absent, empty when the history was counted"
+        },
+        "statement": {
+          "type": "string",
+          "description": "The statement of the history the analysis rests on: the counted window, and the truncation when the history is truncated"
+        }
+      },
+      "required": [
+        "available",
+        "window",
+        "truncated",
+        "absence",
+        "reason",
+        "statement"
+      ]
+    },
+    "hotspots": {
+      "type": "array",
+      "description": "One entry per ranked class, empty when the counted history of the project is absent",
+      "items": {
+        "type": "object",
+        "title": "Hotspot",
+        "properties": {
+          "className": {
+            "type": "string",
+            "description": "The qualified name of the class"
+          },
+          "module": {
+            "type": "string",
+            "description": "The module the class belongs to"
+          },
+          "rank": {
+            "type": "number",
+            "description": "The rank of the class among the classes of this project that changed, 1 being the class that comes first"
+          },
+          "changeCount": {
+            "type": "number",
+            "description": "The number of commits that changed the file the class was declared in"
+          },
+          "complexity": {
+            "type": "number",
+            "description": "The counted cyclomatic complexity of the methods of the class"
+          },
+          "methodCount": {
+            "type": "number",
+            "description": "The number of methods of the class"
+          },
+          "reasoning": {
+            "type": "string",
+            "description": "Why the class was read as a hotspot, with its two figures"
+          }
+        },
+        "required": [
+          "className",
+          "module",
+          "rank",
+          "changeCount",
+          "complexity",
+          "methodCount",
+          "reasoning"
+        ]
+      }
+    },
+    "limits": {
+      "type": "array",
+      "description": "The limits of the join, one entry per limit: the counted window as the bound of the change frequency, the change count of the file of a class, the classes a truncated history leaves out, and the absence of ownership and of the age of the code",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "reasoning",
+    "history",
+    "hotspots",
+    "limits"
+  ]
+}

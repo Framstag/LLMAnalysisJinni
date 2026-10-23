@@ -39,6 +39,28 @@ public class ParserHelper {
         return defaultValue;
     }
 
+    /**
+     * The path of a file relative to the project root, written with forward slashes, the form the counted
+     * history of the project uses for the files it counts.
+     *
+     * @return the relative path, or null when the file lies outside of the project root and therefore has no
+     * path within the project
+     */
+    public static String projectPath(Path projectRoot, Path file) {
+        if (projectRoot == null || file == null) {
+            return null;
+        }
+
+        Path root = projectRoot.toAbsolutePath().normalize();
+        Path target = file.toAbsolutePath().normalize();
+
+        if (!target.startsWith(root)) {
+            return null;
+        }
+
+        return root.relativize(target).toString().replace('\\', '/');
+    }
+
     public static void modifyClassAttributesByCategory(BuildUnitManager buildUnitManager, SubdirectoryCategory category) {
         switch (category) {
             case SRC, OBJ -> {

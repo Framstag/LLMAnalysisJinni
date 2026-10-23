@@ -303,27 +303,13 @@ public class FilesystemTool {
             return Collections.emptyList();
         }
 
-        FileVisitor<Path> matcherVisitor = new SimpleFileVisitor<>() {
+        FileVisitor<Path> matcherVisitor = new FileCountPerFileTypeVisitor(wildcards, result);
 
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attribs) {
-
-                FileSystem fs = FileSystems.getDefault();
-
-                for (String wildcard : wildcards) {
-                    PathMatcher matcher = fs.getPathMatcher("glob:"+wildcard);
-                    Path name = rootPath.relativize(file);
-
-                    if (matcher.matches(file.getFileName())) {
-                        result.merge(wildcard, 1, Integer::sum);
-                    }
-                }
-
-                return CONTINUE;
-            }
-        };
-
-        Files.walkFileTree(startPath, matcherVisitor);
+        try {
+            Files.walkFileTree(startPath, matcherVisitor);
+        } catch (IOException e) {
+            logger.warn("The scan of '{}' stopped early, the counts gathered so far are returned: {}", startPath, e.getMessage());
+        }
 
         logger.info("# => {}",result);
 
@@ -354,25 +340,13 @@ public class FilesystemTool {
             return Collections.emptyList();
         }
 
-        FileVisitor<Path> matcherVisitor = new SimpleFileVisitor<>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attribs) {
+        FileVisitor<Path> matcherVisitor = new FileCountPerFileTypeAndDirectoryVisitor(rootPath, wildcards, result);
 
-                FileSystem fs = FileSystems.getDefault();
-
-                for (String wildcard : wildcards) {
-                    PathMatcher matcher = fs.getPathMatcher("glob:"+wildcard);
-                    if (matcher.matches(file.getFileName())) {
-                        result.merge(new DirectoryAndWildcard(rootPath.relativize(file.getParent()).toString(),
-                                wildcard), 1, Integer::sum);
-                    }
-                }
-
-                return CONTINUE;
-            }
-        };
-
-        Files.walkFileTree(startPath, matcherVisitor);
+        try {
+            Files.walkFileTree(startPath, matcherVisitor);
+        } catch (IOException e) {
+            logger.warn("The scan of '{}' stopped early, the counts gathered so far are returned: {}", startPath, e.getMessage());
+        }
 
         logger.info("# => {}",result);
 

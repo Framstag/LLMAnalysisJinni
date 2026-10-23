@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModernisationAnchors",
+  "description": "The places of the project a modernisation can attach to, one ranked list per anchor type, with the counted evidence every anchor rests on and the modernisation patterns that fit it",
+  "type": "object",
+  "properties": {
+    "reasoning": {
+      "type": "string",
+      "description": "Overall reasoning: how the anchors were derived from the counted evidence and the context map, and what the analysis could not see"
+    },
+    "anchors": {
+      "type": "array",
+      "description": "One entry per anchor, of every anchor type whose input is present",
+      "items": {
+        "type": "object",
+        "title": "Anchor",
+        "properties": {
+          "anchorType": {
+            "type": "string",
+            "enum": [
+              "entry-point",
+              "seam",
+              "domain",
+              "build-unit",
+              "cut-point",
+              "test-coverage",
+              "technology-marker"
+            ],
+            "description": "The kind of place the anchor points at"
+          },
+          "module": {
+            "type": "string",
+            "description": "The module the anchor belongs to, empty when the anchor belongs to the project rather than to one module"
+          },
+          "element": {
+            "type": "string",
+            "description": "The class, interface or thing the anchor points at, empty for an anchor type that has no element"
+          },
+          "evidence": {
+            "type": "array",
+            "description": "The counted evidence the anchor rests on, every entry naming the analysis that counted it",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rank": {
+            "type": "number",
+            "description": "The rank of the anchor among the anchors of its type in this project, 1 being the anchor that rests on the strongest evidence"
+          },
+          "candidatePatterns": {
+            "type": "array",
+            "description": "The modernisation patterns of the catalogue that fit the anchor, empty when no pattern of the catalogue fits it",
+            "items": {
+              "type": "string",
+              "enum": [
+                "strangler-fig",
+                "branch-by-abstraction",
+                "module-extraction",
+                "anticorruption-layer",
+                "horizontal-lift",
+                "retirement"
+              ]
+            }
+          },
+          "reasoning": {
+            "type": "string",
+            "description": "Why the anchor was read as it was, and for every candidate pattern what would make it the wrong choice"
+          }
+        },
+        "required": [
+          "anchorType",
+          "module",
+          "element",
+          "evidence",
+          "rank",
+          "candidatePatterns",
+          "reasoning"
+        ]
+      }
+    },
+    "absentTypes": {
+      "type": "array",
+      "description": "One entry per anchor type whose input analysis did not run, with the reason",
+      "items": {
+        "type": "object",
+        "title": "AbsentAnchorType",
+        "properties": {
+          "anchorType": {
+            "type": "string",
+            "enum": [
+              "entry-point",
+              "seam",
+              "domain",
+              "build-unit",
+              "cut-point",
+              "test-coverage",
+              "technology-marker"
+            ],
+            "description": "The anchor type that is absent"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the anchor type is absent, for example that the context map did not run"
+          }
+        },
+        "required": [
+          "anchorType",
+          "reason"
+        ]
+      }
+    }
+  },
+  "required": [
+    "reasoning",
+    "anchors",
+    "absentTypes"
+  ]
+}

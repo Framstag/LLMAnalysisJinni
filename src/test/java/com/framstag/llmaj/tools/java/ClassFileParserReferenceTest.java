@@ -82,7 +82,7 @@ class ClassFileParserReferenceTest {
         try (var classFiles = Files.walk(classesDir)) {
             for (Path classFile : classFiles.filter(path -> path.toString().endsWith(".class")).toList()) {
                 contributedByFileName.put(classFile.getFileName().toString(),
-                        ClassFileParser.parseClassFile(classFile, List.of(), moduleManager));
+                        ClassFileParser.parseClassFile(classFile, tempDir, List.of(), moduleManager));
             }
         }
 
@@ -122,6 +122,15 @@ class ClassFileParserReferenceTest {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("no reference to " + target
                         + " in " + buildUnit.getReferences()));
+    }
+
+    private static ClassManager classNamed(ModuleManager moduleManager, String className) {
+        return moduleManager.getPackages().stream()
+                .flatMap(pck -> pck.getBuildUnits().stream())
+                .flatMap(buildUnit -> buildUnit.getClasses().stream())
+                .filter(candidate -> candidate.getQualifiedName().equals(className))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no class named " + className));
     }
 
     private static Method methodNamed(BuildUnitManager buildUnit, String className, String methodName) {
@@ -227,6 +236,28 @@ class ClassFileParserReferenceTest {
 
         ClassReference reference = referenceTo(buildUnit, "demo.Target");
         assertTrue(reference.getTraffic() >= 1, "a foreign field access is a reference site");
+    }
+
+    private static final String GREETER = """
+            package demo;
+
+            public interface Greeter {
+                String DEFAULT = "hello";
+
+                default String greet() {
+                    return DEFAULT;
+                }
+            }
+            """;
+
+    @Test
+    void anInterfaceIsRecordedAsAnInterfaceAndAClassIsNot() throws Exception {
+        ModuleManager moduleManager = parse(GREETER, TARGET);
+
+        assertTrue(classNamed(moduleManager, "demo.Greeter").isInterface(),
+                "an interface that declares a default method and a constant is an interface");
+        assertFalse(classNamed(moduleManager, "demo.Target").isInterface(),
+                "a class is no interface, however it is shaped");
     }
 
     @Test

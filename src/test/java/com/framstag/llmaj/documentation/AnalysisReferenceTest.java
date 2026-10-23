@@ -59,7 +59,10 @@ class AnalysisReferenceTest {
             "Dependency diagrams",
             "God class candidates",
             "Domain language",
-            "Context map");
+            "Context map",
+            "Modernisation anchors",
+            "Hotspots",
+            "Modernisation strategy");
 
     private static final Set<String> SEEDED_BUDGETS = Set.of(
             Config.DIAGRAM_MAX_NODES_PROPERTY,

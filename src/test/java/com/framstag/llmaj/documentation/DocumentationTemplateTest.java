@@ -51,7 +51,10 @@ public class DocumentationTemplateTest {
             "dependency-diagrams",
             "god-class-candidates",
             "domain-language",
-            "context-map");
+            "context-map",
+            "modernisation-anchors",
+            "hotspots",
+            "modernisation-strategy");
 
     private static final String STATE_JSON = """
             {
@@ -139,6 +142,177 @@ public class DocumentationTemplateTest {
             }
             """;
 
+    /**
+     * A project with two seams and an anchor type whose input analysis did not run. The anchors are the
+     * places a modernisation could attach to, one ranked list per anchor type.
+     */
+    private static final String ANCHOR_STATE_JSON = """
+            {
+              "modernisation_anchors": {
+                "reasoning": "The anchors follow from the counted evidence of the modules.",
+                "anchors": [
+                  {
+                    "anchorType": "seam",
+                    "module": "core",
+                    "element": "com.example.core.OrderPort",
+                    "evidence": [
+                      "The seam analysis counted 3 implementors of the interface."
+                    ],
+                    "rank": 1,
+                    "candidatePatterns": [
+                      "branch-by-abstraction"
+                    ],
+                    "reasoning": "The interface is the widest abstraction of the module."
+                  },
+                  {
+                    "anchorType": "seam",
+                    "module": "core",
+                    "element": "com.example.core.PricePort",
+                    "evidence": [
+                      "The seam analysis counted 1 implementor of the interface."
+                    ],
+                    "rank": 2,
+                    "candidatePatterns": [],
+                    "reasoning": "The interface has a single implementor."
+                  },
+                  {
+                    "anchorType": "entry-point",
+                    "module": "api",
+                    "element": "com.example.api.Application",
+                    "evidence": [
+                      "The entry point analysis counted 1 class with a main method in the module api."
+                    ],
+                    "rank": 3,
+                    "candidatePatterns": [
+                      "retirement"
+                    ],
+                    "reasoning": "The class starts the process."
+                  }
+                ],
+                "absentTypes": [
+                  {
+                    "anchorType": "domain",
+                    "reason": "The context map analysis did not run, so no relation is available."
+                  }
+                ]
+              }
+            }
+            """;
+
+    /**
+     * A project with counted hotspots, whose counted history is truncated, so that the section has to render
+     * the table of the ranked classes and to name the truncation.
+     */
+    private static final String HOTSPOT_STATE_JSON = """
+            {
+              "hotspotEvaluation": {
+                "reasoning": "The counted hotspots show the classes that change often and that are complicated.",
+                "history": {
+                  "available": true,
+                  "window": "the most recent 500 commits of the repository",
+                  "truncated": true,
+                  "absence": "",
+                  "reason": "",
+                  "statement": "The counted history of the project is truncated: the copy of the repository holds the recent commits only. The classes that were changed before the counted window are left out of the ranking."
+                },
+                "hotspots": [
+                  {
+                    "className": "com.example.core.OrderService",
+                    "module": "core",
+                    "rank": 1,
+                    "changeCount": 42,
+                    "complexity": 118,
+                    "methodCount": 9,
+                    "reasoning": "The class changes often and carries a high complexity."
+                  },
+                  {
+                    "className": "com.example.core.Order",
+                    "module": "core",
+                    "rank": 2,
+                    "changeCount": 31,
+                    "complexity": 64,
+                    "methodCount": 6,
+                    "reasoning": "The class changes often and carries a complexity of its own."
+                  }
+                ],
+                "limits": [
+                  "The change frequency counts the commits of the counted window of the history."
+                ]
+              }
+            }
+            """;
+
+    /**
+     * A project whose counted history is absent, so that the section has to name the absence instead of
+     * rendering a table.
+     */
+    private static final String ABSENT_HISTORY_STATE_JSON = """
+            {
+              "hotspotEvaluation": {
+                "reasoning": "The project holds no counted hotspots, because its counted history is absent.",
+                "history": {
+                  "available": false,
+                  "window": "",
+                  "truncated": false,
+                  "absence": "NOT_A_REPOSITORY",
+                  "reason": "The project directory is not a git repository.",
+                  "statement": ""
+                },
+                "hotspots": [],
+                "limits": []
+              }
+            }
+            """;
+
+    /**
+     * A project with a modernisation area that rests on an anchor, and an area type whose input analysis holds
+     * nothing, so that the section has to render one table per area and to name the absent type.
+     */
+    private static final String STRATEGY_STATE_JSON = """
+            {
+              "modernisationStrategy": {
+                "reasoning": "The areas follow the counted cost of the counted evidence.",
+                "areas": [
+                  {
+                    "module": "core",
+                    "element": "com.example.core.OrderService",
+                    "anchorType": "seam",
+                    "patterns": [
+                      {
+                        "name": "strangler-fig",
+                        "evidenceFor": [
+                          "The seam analysis counted 3 implementors of the interface."
+                        ],
+                        "evidenceAgainst": [],
+                        "whatWouldMakeItWrong": "The interface would have to be used by the whole project."
+                      }
+                    ],
+                    "costFigures": [
+                      {
+                        "name": "afferent coupling",
+                        "value": "4",
+                        "source": "inter-module dependency analysis"
+                      },
+                      {
+                        "name": "price of the cut",
+                        "value": "18",
+                        "source": "separation ladder"
+                      }
+                    ],
+                    "cost": "The change of the area reaches four modules.",
+                    "reasoning": "The interface is the widest abstraction of the module."
+                  }
+                ],
+                "absentTypes": [
+                  {
+                    "type": "hotspot",
+                    "reason": "The hotspot analysis holds no counted hotspot."
+                  }
+                ]
+              }
+            }
+            """;
+
     private static String renderDocumentation() throws IOException {
         return renderDocumentation(STATE_JSON);
     }
@@ -193,6 +367,79 @@ public class DocumentationTemplateTest {
         assertTrue(rendered.contains("|core |REUSED |Java |Java_core |Existing raw report reused."));
         assertFalse(rendered.contains("legacy raw report descriptors"));
         assertFalse(rendered.contains("Batch Java Metric Evaluations"));
+    }
+
+    @Test
+    public void rendersTheModernisationAnchorsPerAnchorType() throws Exception {
+        String rendered = renderDocumentation(ANCHOR_STATE_JSON);
+
+        assertTrue(rendered.contains("=== Modernisation Anchors"));
+        assertTrue(rendered.contains("see <<modernisation-anchors,Modernisation anchors>"),
+                "the section names the reference entry that explains the anchor types");
+        assertTrue(rendered.contains("==== Anchors of the type seam"),
+                "every anchor type has a table of its own");
+        assertTrue(rendered.contains("==== Anchors of the type entry-point"),
+                "a type whose anchors do not carry the rank one still has a table of its own");
+        assertTrue(rendered.contains("|core |com.example.core.OrderPort |The seam analysis counted 3 implementors of the interface. |1 |branch-by-abstraction |The interface is the widest abstraction of the module."),
+                "a row names the anchor, its element, its evidence, its rank and its candidate patterns");
+        assertTrue(rendered.contains("|core |com.example.core.PricePort |The seam analysis counted 1 implementor of the interface. |2 |none |The interface has a single implementor."),
+                "the second anchor of the type is a row of the same table");
+        assertTrue(rendered.contains("|api |com.example.api.Application |The entry point analysis counted 1 class with a main method in the module api. |3 |retirement |The class starts the process."),
+                "the anchor of the second type is a row of the table of its type");
+        assertTrue(rendered.contains("* domain: The context map analysis did not run, so no relation is available."),
+                "an anchor type that is absent is named with its reason");
+        assertNoListIsGluedToAParagraph(rendered);
+    }
+
+    @Test
+    public void rendersTheHotspotsWithTheirTwoFigures() throws Exception {
+        String rendered = renderDocumentation(HOTSPOT_STATE_JSON);
+
+        assertTrue(rendered.contains("see <<hotspots,Hotspots>>"),
+                "the section names the reference entry that explains the join");
+        assertTrue(rendered.contains("|com.example.core.OrderService |core |1 |42 |118"),
+                "a row names the class, its module, its rank, its change count and its complexity");
+        assertTrue(rendered.contains("|com.example.core.Order |core |2 |31 |64"),
+                "the second hotspot is a row of the same table");
+        assertTrue(rendered.contains("The counted history of the project is truncated"),
+                "the section names the truncation of the counted history");
+        assertTrue(rendered.contains("left out of the ranking"),
+                "the section names what the truncation leaves out");
+        assertNoListIsGluedToAParagraph(rendered);
+    }
+
+    @Test
+    public void rendersTheModernisationStrategyPerArea() throws Exception {
+        String rendered = renderDocumentation(STRATEGY_STATE_JSON);
+
+        assertTrue(rendered.contains("=== Modernisation Strategy"));
+        assertTrue(rendered.contains("see <<modernisation-strategy,Modernisation strategy>>"),
+                "the section names the reference entry that explains the cost of an area");
+        assertTrue(rendered.contains("The order follows the counted cost and is not a decision"),
+                "the section states that the order is an order and not a verdict");
+        assertTrue(rendered.contains("the analysis names no area as the one to start with"),
+                "the section names no area as the one to start with");
+        assertTrue(rendered.contains("==== Modernisation area of the module \"core\" at \"com.example.core.OrderService\""),
+                "every area has a heading of its own");
+        assertTrue(rendered.contains("|core / com.example.core.OrderService |strangler-fig |The seam analysis counted 3 implementors of the interface. |none |The interface would have to be used by the whole project. |afferent coupling: 4 (inter-module dependency analysis), price of the cut: 18 (separation ladder)"),
+                "a row names the area, its pattern, the evidence for and against it and the figures of the cost");
+        assertTrue(rendered.contains("The change of the area reaches four modules."),
+                "the cost of the area is rendered");
+        assertTrue(rendered.contains("* hotspot: The hotspot analysis holds no counted hotspot."),
+                "an area type that is absent is named with its reason");
+        assertNoListIsGluedToAParagraph(rendered);
+    }
+
+    @Test
+    public void rendersTheAbsentHistoryOfTheHotspotsInsteadOfATable() throws Exception {
+        String rendered = renderDocumentation(ABSENT_HISTORY_STATE_JSON);
+
+        assertTrue(rendered.contains("The counted history of the project is absent (NOT_A_REPOSITORY)"),
+                "the section names the absence of the counted history");
+        assertTrue(rendered.contains("The project directory is not a git repository."),
+                "the section names the reason of the absence");
+        assertFalse(rendered.contains("|Class |Module |Rank |Change count |Complexity"),
+                "an absent history is not rendered as an empty table");
     }
 
     @Test

@@ -4,8 +4,12 @@ import com.framstag.llmaj.AnalysisContext;
 import com.framstag.llmaj.tools.file.FileIOTool;
 import com.framstag.llmaj.tools.filestatistics.FileStatisticsTool;
 import com.framstag.llmaj.tools.filesystem.FilesystemTool;
+import com.framstag.llmaj.tools.history.HistoryTool;
 import com.framstag.llmaj.tools.info.InfoTool;
+import com.framstag.llmaj.tools.java.EntryPointTool;
+import com.framstag.llmaj.tools.java.HotspotTool;
 import com.framstag.llmaj.tools.java.JavaTool;
+import com.framstag.llmaj.tools.java.SeamTool;
 import com.framstag.llmaj.tools.sbom.SBOMTool;
 
 import java.util.List;
@@ -18,7 +22,12 @@ public class ToolFactory {
         SBOMTool sbomTool = new SBOMTool(context);
         FileStatisticsTool fileStatisticsTool = new FileStatisticsTool(context);
         JavaTool javaTool = new JavaTool(context);
+        SeamTool seamTool = new SeamTool(context);
+        EntryPointTool entryPointTool = new EntryPointTool(context);
+        HotspotTool hotspotTool = new HotspotTool(context);
+        HistoryTool historyTool = new HistoryTool(context);
 
-        return  List.of(infoTool, fileIOTool, filesystemTool, sbomTool,fileStatisticsTool, javaTool);
+        return  List.of(infoTool, fileIOTool, filesystemTool, sbomTool,fileStatisticsTool, javaTool, seamTool,
+                entryPointTool, hotspotTool, historyTool);
     }
 }

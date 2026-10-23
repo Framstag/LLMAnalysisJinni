@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModernisationStrategy",
+  "description": "The modernisation areas of the project, one per candidate place, with the patterns that fit each of them, the counted evidence for and against them and the figures the cost of the change rests on",
+  "type": "object",
+  "properties": {
+    "reasoning": {
+      "type": "string",
+      "description": "Overall reasoning: how the areas were derived from the anchors, the hotspots and the counted evidence, and that the order follows the counted cost and the choice of the area to work on is the reader's"
+    },
+    "areas": {
+      "type": "array",
+      "description": "One entry per modernisation area, ordered by the cost the counted evidence implies",
+      "items": {
+        "type": "object",
+        "title": "Area",
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "The module the area belongs to, empty when the area belongs to the project rather than to one module"
+          },
+          "element": {
+            "type": "string",
+            "description": "The class, interface or thing the area points at, empty when the area has none, for example an area of a build unit"
+          },
+          "anchorType": {
+            "type": "string",
+            "enum": [
+              "entry-point",
+              "seam",
+              "domain",
+              "build-unit",
+              "cut-point",
+              "test-coverage",
+              "technology-marker"
+            ],
+            "description": "The kind of anchor the area rests on"
+          },
+          "patterns": {
+            "type": "array",
+            "description": "The patterns of the catalogue that fit the area, empty when no pattern of the catalogue fits it",
+            "items": {
+              "type": "object",
+              "title": "Pattern",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "enum": [
+                    "strangler-fig",
+                    "branch-by-abstraction",
+                    "module-extraction",
+                    "anticorruption-layer",
+                    "horizontal-lift",
+                    "retirement"
+                  ],
+                  "description": "The name of the pattern of the catalogue"
+                },
+                "evidenceFor": {
+                  "type": "array",
+                  "description": "The counted evidence that supports the pattern for this area, every entry naming the analysis that counted it",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "evidenceAgainst": {
+                  "type": "array",
+                  "description": "The counted evidence that counts against the pattern for this area, empty when no evidence against the pattern was found",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "whatWouldMakeItWrong": {
+                  "type": "string",
+                  "description": "What would have to be true for the pattern to be the wrong choice for this area"
+                }
+              },
+              "required": [
+                "name",
+                "evidenceFor",
+                "evidenceAgainst",
+                "whatWouldMakeItWrong"
+              ]
+            }
+          },
+          "costFigures": {
+            "type": "array",
+            "description": "The figures the cost of the area rests on, among them the afferent coupling of the module, the strength of the reference a cut would sever and the test coverage of the area",
+            "items": {
+              "type": "object",
+              "title": "CostFigure",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "The name of the figure, for example the afferent coupling of the module or the test coverage of the area"
+                },
+                "value": {
+                  "type": "string",
+                  "description": "The value of the figure, as the counted analysis reports it"
+                },
+                "source": {
+                  "type": "string",
+                  "description": "The counted analysis the figure comes from"
+                }
+              },
+              "required": [
+                "name",
+                "value",
+                "source"
+              ]
+            }
+          },
+          "cost": {
+            "type": "string",
+            "description": "A short statement of what the change of this area would cost, resting on the figures that are named beside it"
+          },
+          "reasoning": {
+            "type": "string",
+            "description": "Why this area was read as it was, and why the patterns that fit it fit it"
+          }
+        },
+        "required": [
+          "module",
+          "element",
+          "anchorType",
+          "patterns",
+          "costFigures",
+          "cost",
+          "reasoning"
+        ]
+      }
+    },
+    "absentTypes": {
+      "type": "array",
+      "description": "One entry per area type whose input analysis did not run, with the type and the reason",
+      "items": {
+        "type": "object",
+        "title": "AbsentAreaType",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The absent area type: one of anchor, hotspot, or the name of an anchor type whose analysis did not run while the anchor analysis did"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the area type is absent, for example that the hotspot analysis did not run"
+          }
+        },
+        "required": [
+          "type",
+          "reason"
+        ]
+      }
+    }
+  },
+  "required": [
+    "reasoning",
+    "areas",
+    "absentTypes"
+  ]
+}

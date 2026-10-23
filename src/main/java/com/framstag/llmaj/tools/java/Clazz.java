@@ -19,6 +19,8 @@ public class Clazz {
     private final List<Method> methods;
     private String superClass;
     private List<String> interfaces;
+    private boolean interfaceType;
+    private String sourceFile;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public Clazz(@JsonProperty("qualifiedName")
@@ -67,6 +69,36 @@ public class Clazz {
 
     public void addInterface(String iface) {
         interfaces.add(iface);
+    }
+
+    /**
+     * Whether the type is an interface. The report holds the flag, so that a consumer does not have to
+     * guess from the shape of the class: an interface that declares a default method or a constant holds
+     * methods or fields and would be read as a class.
+     */
+    @JsonProperty("isInterface")
+    public boolean isInterface() {
+        return interfaceType;
+    }
+
+    @JsonProperty("isInterface")
+    public void setInterface(boolean isInterface) {
+        this.interfaceType = isInterface;
+    }
+
+    /**
+     * The path of the file the class was declared in, relative to the project root and written with forward
+     * slashes, the form the counted history of the project uses. The path is the join between a class and the
+     * history, which is counted per file. It is not set when the file the class was declared in is not known.
+     */
+    @JsonProperty("sourceFile")
+    public String getSourceFile() {
+        return sourceFile;
+    }
+
+    @JsonProperty("sourceFile")
+    public void setSourceFile(String sourceFile) {
+        this.sourceFile = sourceFile;
     }
 
 

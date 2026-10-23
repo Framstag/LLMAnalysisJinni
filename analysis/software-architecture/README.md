@@ -60,6 +60,9 @@ Tasks execute in dependency order, roughly: **project-wide information** → **m
 | 39 | Build the ubiquitous language glossary of the project | `DomainGlossary` | Java, cross-module | ⏳ Experimental |
 | 40 | Evaluate the domain language of all Java modules | `DomainVocabularyEvaluationAll` | Java, all modules | ⏳ Experimental |
 | 41 | Draw the context map of the project from its language | `ContextMapEvaluation` | Java, cross-module | ⏳ Experimental |
+| 42 | Find the places of the project a modernisation can attach to, and the patterns that fit them | `ModernisationAnchors` | Java, cross-module | ⏳ Experimental |
+| 43 | Find the classes of the project that change often and that are complicated; the method and its limits are described in [Analysis Methods and Interpretation](#analysis-methods-and-interpretation) | `HotspotEvaluation` | Java, all modules | ⏳ Experimental |
+| 44 | Judge the modernisation areas of the project, with the patterns that fit them and the figures the cost of a change rests on; the method and its limits are described in [Analysis Methods and Interpretation](#analysis-methods-and-interpretation) | `ModernisationStrategy` | Java, cross-module | ⏳ Experimental |
 ### Quality Key
 
 | Rating | Meaning |

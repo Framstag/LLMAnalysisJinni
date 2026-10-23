@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -122,6 +123,26 @@ class SoftwareArchitectureTaskConfigTest {
                 "the diagram facts are described in the reference entry");
         assertFalse(readme.contains("## God Class Ranking"),
                 "the ranking facts are described in the reference entry");
+    }
+
+    @Test
+    void everyTaskOfTheAnalysisHasARowInTheReadmeTaskTable() throws Exception {
+        String readme = Files.readString(ANALYSIS_DIR.resolve("README.md"));
+        String tasksYaml = Files.readString(ANALYSIS_DIR.resolve("tasks.yaml"));
+
+        // The task table is the reader's way into the pipeline. A task that runs but is not in the table is a
+        // capability of the analysis that nobody who reads the README can find.
+        List<String> missing = new ArrayList<>();
+
+        Matcher idMatcher = Pattern.compile("(?m)^id:\\s*(\\S+)\\s*$").matcher(tasksYaml);
+        while (idMatcher.find()) {
+            String taskId = idMatcher.group(1);
+            if (!readme.contains("`" + taskId + "`")) {
+                missing.add(taskId);
+            }
+        }
+
+        assertTrue(missing.isEmpty(), "the task table names every task of the analysis, missing: " + missing);
     }
 
     @Test

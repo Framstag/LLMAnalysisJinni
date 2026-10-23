@@ -10,6 +10,7 @@ public class HandlebarsFactory {
 
         return new Handlebars()
                 .registerHelpers(ConditionalHelpers.class)
+                .registerHelper("groupBy", new GroupByHelper())
                 .with(EscapingStrategy.NOOP);
     }
 }

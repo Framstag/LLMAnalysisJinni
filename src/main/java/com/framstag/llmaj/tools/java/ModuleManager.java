@@ -42,6 +42,8 @@ public class ModuleManager {
                             srcClass.getDocumentation());
 
                     clazz.setSuperClass(srcClass.getSuperClass());
+                    clazz.setInterface(srcClass.isInterface());
+                    clazz.setSourceFile(srcClass.getSourceFile());
                     for (String iface : srcClass.getInterfaces()) {
                         clazz.addInterface(iface);
                     }

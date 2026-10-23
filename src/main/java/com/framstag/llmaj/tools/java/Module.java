@@ -16,9 +16,13 @@ public class Module {
      * <p>Version 2 added the weighted reference record and the per-method access counters. Version 3 dropped
      * the two compilation unit level types that {@code javac} writes without declaring a class of the module,
      * {@code package-info.class} and {@code module-info.class}: a report written before that exclusion carries
-     * them as classes of the module in its counts and in its metric inputs.
+     * them as classes of the module in its counts and in its metric inputs. Version 4 added the interface flag
+     * of a class, so that a consumer can tell an interface from a class without guessing from the shape of the
+     * class: an interface that declares a default method or a constant is no longer read as a class.
+     * Version 5 added the source file of a class, so that a consumer can join a class to the counted history
+     * of the project, which is counted per file.
      */
-    public static final int CURRENT_REPORT_FORMAT_VERSION = 3;
+    public static final int CURRENT_REPORT_FORMAT_VERSION = 5;
 
     private final String name;
     private final int reportFormatVersion;

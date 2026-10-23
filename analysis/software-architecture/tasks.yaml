@@ -597,3 +597,64 @@ tags:
   - context_map_evaluation
 toolWhitelist:
   - java_get_domain_language_overview
+---
+id: ModernisationAnchors
+name: Find the places a modernisation can attach to
+prompt: prompts/modernisation_anchors.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ModernisationAnchors.json
+responseProperty: modernisation_anchors
+active: true
+dependsOn:
+  - context_map_evaluation
+  - inter_module_dependency_evaluation
+  - class_dependency_graph_evaluation_all
+  - test_coverage_evaluation_all
+  - module_analysis_reports_all
+  - dependencies
+tags:
+  - modernisation_anchor_evaluation
+toolWhitelist:
+  - java_get_seams
+  - java_get_entry_points
+  - java_get_all_split_candidates
+  - java_get_inter_module_dependency_report
+  - java_get_all_test_coverage_reports
+  - java_get_all_import_diversity_reports
+  - sbom_get_application_dependencies
+  - java_get_all_class_dependency_graphs
+---
+id: HotspotEvaluation
+name: Evaluate the counted hotspots of the project
+prompt: prompts/hotspot_evaluation.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/HotspotEvaluation.json
+responseProperty: hotspotEvaluation
+active: true
+dependsOn:
+  - module_analysis_reports_all
+tags:
+  - hotspot_evaluation
+toolWhitelist:
+  - java_get_hotspots
+---
+id: ModernisationStrategy
+name: Judge the modernisation areas of the project
+prompt: prompts/modernisation_strategy.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/ModernisationStrategy.json
+responseProperty: modernisationStrategy
+active: true
+dependsOn:
+  - modernisation_anchor_evaluation
+  - hotspot_evaluation
+  - inter_module_dependency_evaluation
+  - class_dependency_graph_evaluation_all
+  - test_coverage_evaluation_all
+  - module_analysis_reports_all
+tags:
+  - modernisation_strategy_evaluation
+toolWhitelist:
+  - java_get_inter_module_dependency_report
+  - java_get_all_split_candidates
+  - java_get_all_test_coverage_reports

@@ -478,7 +478,7 @@ public class JavaTool {
         logger.info("{} *.class file(s) found", classFiles.size());
 
         for (Path classFile : classFiles) {
-            if (!ClassFileParser.parseClassFile(classFile, specialSubdirectories, moduleManager)) {
+            if (!ClassFileParser.parseClassFile(classFile, rootPath, specialSubdirectories, moduleManager)) {
                 unparsableClassFiles++;
             }
         }
@@ -497,6 +497,7 @@ public class JavaTool {
 
         for (Path srcFile : srcFiles) {
             if (!JavaFileParser.parseJavaFile(srcFile,
+                    rootPath,
                     specialSubdirectories,
                     moduleManager,
                     typeSolver)) {
