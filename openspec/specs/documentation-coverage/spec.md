@@ -101,3 +101,63 @@ The system SHALL render the context map in the generated documentation output.
 
 - **WHEN** the context map result names modules it could not place
 - **THEN** the section names them with the reason instead of leaving them out
+
+### Requirement: Modernisation anchors rendered in documentation
+
+The system SHALL render the modernisation anchors in the generated documentation output, one table per anchor type,
+naming the anchor, the element it points at, the evidence it rests on and the candidate patterns that fit it.
+
+#### Scenario: Anchors are rendered per type
+
+- **WHEN** the analysis state holds a modernisation anchor result
+- **THEN** the documentation includes a section for the modernisation anchors with a table per anchor type, and each
+  row names the anchor, its element, its evidence and its candidate patterns
+
+#### Scenario: An anchor type without its input is rendered as absent
+
+- **WHEN** the modernisation anchor result reports an anchor type as absent
+- **THEN** the section names that anchor type as absent with its reason, instead of leaving the type out
+
+#### Scenario: Section carries its pointer line
+
+- **WHEN** the modernisation anchor section is rendered
+- **THEN** it names the reference entry that explains the anchor types and the candidate patterns before its tables
+
+### Requirement: Hotspot evaluation rendered in documentation
+
+The system SHALL render the results of the hotspot evaluation in the generated documentation output, as a table of the
+ranked classes with their change frequency and their complexity, and SHALL name the reference entry of the hotspot
+analysis before that table.
+
+#### Scenario: Hotspots are rendered
+
+- **WHEN** the analysis state holds a hotspot evaluation
+- **THEN** the documentation includes a section for the hotspots with one row per ranked class, and the section names
+  the reference entry that explains the join before its table
+
+#### Scenario: The absence of the history is rendered
+
+- **WHEN** the hotspot evaluation reports the hotspots as absent
+- **THEN** the section names the absence with its reason instead of rendering an empty table
+
+### Requirement: Modernisation strategy rendered in documentation
+
+The system SHALL render the result of the modernisation strategy analysis in the generated documentation output, as one
+table per modernisation area, naming the area, the patterns that fit it, the evidence for and against them and the
+figures the cost rests on, and SHALL name the reference entry of the strategy analysis before those tables.
+
+#### Scenario: The areas are rendered
+
+- **WHEN** the analysis state holds a modernisation strategy result
+- **THEN** the documentation includes a section for the modernisation strategy with one table per area, and each row
+  names the area, its patterns, the evidence and the figures of the cost
+
+#### Scenario: The order is rendered as an order and not as a verdict
+
+- **WHEN** the strategy section is rendered
+- **THEN** it presents the areas in the order of the counted cost and names no area as the one to start with
+
+#### Scenario: An area type without its evidence is rendered as absent
+
+- **WHEN** the strategy result reports an area type as absent
+- **THEN** the section names that area type as absent with its reason, instead of leaving the type out
