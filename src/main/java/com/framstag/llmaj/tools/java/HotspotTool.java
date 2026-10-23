@@ -38,6 +38,12 @@ import java.util.function.Supplier;
  * so a reader who weighs them differently can reorder the list without counting anything again. The rank is
  * a position among the classes of this project, and no threshold decides it.
  *
+ * <p>A class is ranked once and not once per module report. An aggregator module holds the same classes as its
+ * inner modules, so the reports of the project hold several appearances of the same class. The ranking folds
+ * them by qualified class name before the rank is assigned, so that the rank counts the places the class holds
+ * and not the copies the reports hold. The row names the modules the class appears in and carries the highest
+ * complexity and change count of its appearances.
+ *
  * <p>A class whose file never changed holds no rank: the join needs both figures, and a class that was never
  * changed is not evidence of a hotspot, however complicated it is.
  *
@@ -96,6 +102,12 @@ public class HotspotTool {
                     the list. The rank is a position among the classes of this project, and no threshold
                     decides it.
 
+                    A class is reported once with the modules it appears in and not once per module: an
+                    aggregator module holds the same classes as its inner modules, so the class appears in the
+                    report of several modules. The row names the modules and carries the highest complexity and
+                    change count of the appearances, and the ranks after it are not pushed down by its other
+                    appearances.
+
                     A class whose file never changed holds no rank: the join needs both figures.
 
                     A project whose counted history cannot be read at all holds no counted hotspots. The result
@@ -123,7 +135,7 @@ public class HotspotTool {
 
         Map<String, FileHistory> historyByPath = historyByPath(history);
 
-        List<Hotspot> candidates = new ArrayList<>();
+        List<Appearance> appearances = new ArrayList<>();
         List<Map<String, Object>> skipped = new ArrayList<>();
         List<Map<String, Object>> excludedBuildUnits = new ArrayList<>();
         List<Map<String, Object>> moduleClassCounts = new ArrayList<>();
@@ -159,14 +171,14 @@ public class HotspotTool {
             moduleClassCount += classCount;
             moduleClassCounts.add(moduleClassCount(moduleName, classCount));
 
-            candidates.addAll(candidatesOf(moduleName, module, historyByPath, excludedBuildUnits));
+            appearances.addAll(appearancesOf(moduleName, module, historyByPath, excludedBuildUnits));
         }
 
-        List<Hotspot> ranked = rank(candidates);
+        List<Hotspot> ranked = rank(fold(appearances));
 
         HotspotReports.write(context.getWorkingDirectory(), ranked);
 
-        logger.info("# => {} hotspots of {} classes", ranked.size(), candidates.size());
+        logger.info("# => {} hotspots of {} class appearances", ranked.size(), appearances.size());
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("metric", "Hotspots");
@@ -237,20 +249,24 @@ public class HotspotTool {
     }
 
     /**
-     * The classes of the module that the counted history knows. A class whose file never changed is left out:
-     * the join needs both figures.
+     * The appearances of the classes of the module that the counted history knows. A class whose file never
+     * changed is left out: the join needs both figures.
+     *
+     * <p>An aggregator module holds the same classes as its inner modules, so the same class appears here once
+     * per module report that holds it. The appearances are folded into one row per class before the ranking,
+     * see {@link #fold(List)}.
      *
      * <p>A build unit that lies outside the namespace of the module is left out of the ranking as well, and it
      * is named in the excluded build units, so that a reader knows which build units the ranking does not
      * hold and why they are not in it.
      */
-    private static List<Hotspot> candidatesOf(String moduleName,
-                                              Module module,
-                                              Map<String, FileHistory> historyByPath,
-                                              List<Map<String, Object>> excludedBuildUnits) {
+    private static List<Appearance> appearancesOf(String moduleName,
+                                                  Module module,
+                                                  Map<String, FileHistory> historyByPath,
+                                                  List<Map<String, Object>> excludedBuildUnits) {
         IntraModuleGraph graph = IntraModuleGraph.of(module);
 
-        List<Hotspot> candidates = new ArrayList<>();
+        List<Appearance> appearances = new ArrayList<>();
 
         for (Package pck : module.getPackages()) {
             for (BuildUnit buildUnit : pck.getBuildUnits()) {
@@ -278,20 +294,78 @@ public class HotspotTool {
                         continue;
                     }
 
-                    candidates.add(new Hotspot(clazz.getQualifiedName(),
+                    appearances.add(new Appearance(clazz.getQualifiedName(),
                             moduleName,
                             sourceFile,
                             file.commitCount(),
                             file.linesAdded(),
                             file.linesRemoved(),
                             complexityOf(clazz),
-                            clazz.getMethods().size(),
-                            0));
+                            clazz.getMethods().size()));
                 }
             }
         }
 
-        return candidates;
+        return appearances;
+    }
+
+    /**
+     * One row per qualified class name. The appearances of the same class are folded before the rank is
+     * assigned, so that the rank counts the places the class holds and not the copies the module reports hold.
+     */
+    private static List<Hotspot> fold(List<Appearance> appearances) {
+        Map<String, List<Appearance>> byClassName = new LinkedHashMap<>();
+
+        for (Appearance appearance : appearances) {
+            byClassName.computeIfAbsent(appearance.className(), className -> new ArrayList<>()).add(appearance);
+        }
+
+        List<Hotspot> folded = new ArrayList<>(byClassName.size());
+
+        for (List<Appearance> classAppearances : byClassName.values()) {
+            folded.add(foldAppearances(classAppearances));
+        }
+
+        return folded;
+    }
+
+    /**
+     * The row of one class: the modules it appears in, and the strongest counted figures of its appearances.
+     *
+     * <p>The change count, the added and the removed lines are taken from the appearance with the highest
+     * change count. They come from the counted history of the file of the class, so the appearances agree in
+     * practice; the highest one is reported when they do not. The complexity and the method count are taken
+     * from the appearance with the highest complexity, so that the figure and the method count beside it belong
+     * to the same report.
+     */
+    private static Hotspot foldAppearances(List<Appearance> appearances) {
+        List<String> modules = new ArrayList<>();
+        Appearance mostChanged = appearances.getFirst();
+        Appearance mostComplex = appearances.getFirst();
+
+        for (Appearance appearance : appearances) {
+            if (!modules.contains(appearance.module())) {
+                modules.add(appearance.module());
+            }
+
+            if (appearance.changeCount() > mostChanged.changeCount()) {
+                mostChanged = appearance;
+            }
+
+            if (appearance.complexity() > mostComplex.complexity()) {
+                mostComplex = appearance;
+            }
+        }
+
+        return new Hotspot(appearances.getFirst().className(),
+                List.copyOf(modules),
+                mostChanged.sourceFile(),
+                mostChanged.changeCount(),
+                mostChanged.linesAdded(),
+                mostChanged.linesRemoved(),
+                mostComplex.complexity(),
+                mostComplex.methodCount(),
+                0);
     }
 
     /**
@@ -338,8 +412,8 @@ public class HotspotTool {
      * <p>Both figures are reported beside every rank, so a reader who weighs them differently can reorder the
      * list without counting anything again.
      */
-    private static List<Hotspot> rank(List<Hotspot> candidates) {
-        int size = candidates.size();
+    private static List<Hotspot> rank(List<Hotspot> folded) {
+        int size = folded.size();
         int[] changePlaces = new int[size];
         int[] complexityPlaces = new int[size];
 
@@ -348,10 +422,10 @@ public class HotspotTool {
             complexityPlaces[i] = 1;
 
             for (int j = 0; j < size; j++) {
-                if (candidates.get(j).changeCount() > candidates.get(i).changeCount()) {
+                if (folded.get(j).changeCount() > folded.get(i).changeCount()) {
                     changePlaces[i]++;
                 }
-                if (candidates.get(j).complexity() > candidates.get(i).complexity()) {
+                if (folded.get(j).complexity() > folded.get(i).complexity()) {
                     complexityPlaces[i]++;
                 }
             }
@@ -365,18 +439,18 @@ public class HotspotTool {
 
         order.sort(Comparator.comparingInt((Integer index) -> changePlaces[index] + complexityPlaces[index])
                 .thenComparing(Comparator.comparingInt((Integer index) ->
-                        candidates.get(index).changeCount()).reversed())
+                        folded.get(index).changeCount()).reversed())
                 .thenComparing(Comparator.comparingInt((Integer index) ->
-                        candidates.get(index).complexity()).reversed())
-                .thenComparing(index -> candidates.get(index).className()));
+                        folded.get(index).complexity()).reversed())
+                .thenComparing(index -> folded.get(index).className()));
 
         List<Hotspot> ranked = new ArrayList<>(size);
 
         for (int position = 0; position < order.size(); position++) {
-            Hotspot hotspot = candidates.get(order.get(position));
+            Hotspot hotspot = folded.get(order.get(position));
 
             ranked.add(new Hotspot(hotspot.className(),
-                    hotspot.module(),
+                    hotspot.modules(),
                     hotspot.sourceFile(),
                     hotspot.changeCount(),
                     hotspot.linesAdded(),
@@ -406,7 +480,7 @@ public class HotspotTool {
     private static Map<String, Object> descriptor(Hotspot hotspot, int rank, int total) {
         Map<String, Object> descriptor = new LinkedHashMap<>();
         descriptor.put("className", hotspot.className());
-        descriptor.put("module", hotspot.module());
+        descriptor.put("modules", hotspot.modules());
         descriptor.put("sourceFile", hotspot.sourceFile());
         descriptor.put("changeCount", hotspot.changeCount());
         descriptor.put("linesAdded", hotspot.linesAdded());
@@ -507,5 +581,19 @@ public class HotspotTool {
         return "The raw Java module report records " + recordedVersion
                 + " instead of version " + Module.CURRENT_REPORT_FORMAT_VERSION
                 + " and has to be regenerated before the hotspots of the module can be counted.";
+    }
+
+    /**
+     * One appearance of a class in the report of one module. An aggregator module and its inner modules report
+     * the same classes, so one class yields several appearances; the ranking folds them into one {@link Hotspot}.
+     */
+    private record Appearance(String className,
+                              String module,
+                              String sourceFile,
+                              int changeCount,
+                              int linesAdded,
+                              int linesRemoved,
+                              int complexity,
+                              int methodCount) {
     }
 }

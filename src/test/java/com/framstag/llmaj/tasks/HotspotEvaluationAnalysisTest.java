@@ -98,7 +98,7 @@ class HotspotEvaluationAnalysisTest {
         assertEquals(List.of("reasoning", "history", "hotspots", "limits"), requiredFields(schema));
         assertEquals(List.of("available", "window", "truncated", "absence", "reason", "statement"),
                 requiredFields(schema.path("properties").path("history")));
-        assertEquals(List.of("className", "module", "rank", "changeCount", "complexity", "methodCount",
+        assertEquals(List.of("className", "modules", "rank", "changeCount", "complexity", "methodCount",
                         "reasoning"),
                 requiredFields(schema.path("properties").path("hotspots").path("items")));
 
@@ -145,7 +145,10 @@ class HotspotEvaluationAnalysisTest {
                   "hotspots": [
                     {
                       "className": "com.example.core.OrderService",
-                      "module": "core",
+                      "modules": [
+                        "core",
+                        "maven-core"
+                      ],
                       "rank": 1,
                       "changeCount": 12,
                       "complexity": 94,

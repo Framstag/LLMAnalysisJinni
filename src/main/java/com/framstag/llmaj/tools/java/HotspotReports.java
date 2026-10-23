@@ -12,8 +12,12 @@ import java.util.List;
  * <p>One report type, one file, one row per class of the ranking:
  *
  * <pre>
- * Hotspots/Hotspots.csv   every ranked class with its module, its change count, its complexity and its rank
+ * Hotspots/Hotspots.csv   every ranked class with the modules it appears in, its change count, its
+ *                         complexity and its rank
  * </pre>
+ *
+ * <p>A class that several module reports hold is written once, with the modules it appears in, so the file
+ * holds one row per class and not one row per module report.
  *
  * <p>The rows are written in the order of the ranking, so the file carries the same rank the model reads. No
  * wall clock time and no run identifier is written, so two runs over the same module reports and the same
@@ -28,7 +32,7 @@ public final class HotspotReports {
 
     public static final String REPORT_FILE = REPORT_TYPE + "/Hotspots.csv";
 
-    private static final String[] HEADER = {"ClassName", "Module", "ChangeCount", "Complexity", "Rank"};
+    private static final String[] HEADER = {"ClassName", "Modules", "ChangeCount", "Complexity", "Rank"};
 
     private HotspotReports() {
     }
@@ -51,7 +55,7 @@ public final class HotspotReports {
 
         for (Hotspot hotspot : hotspots) {
             rows.add(new String[]{hotspot.className(),
-                    hotspot.module(),
+                    String.join(" ", hotspot.modules()),
                     String.valueOf(hotspot.changeCount()),
                     String.valueOf(hotspot.complexity()),
                     String.valueOf(hotspot.rank())});

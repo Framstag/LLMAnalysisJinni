@@ -32,7 +32,7 @@ The anchor analysis did not run, so the project holds no anchor. The areas that 
 The counted hotspots of the project:
 
 {{#hotspotEvaluation.hotspots}}
-* Hotspot {{rank}}: the class "{{className}}" of the module "{{module}}" changed {{changeCount}} times and carries a counted complexity of {{complexity}} over {{methodCount}} methods.
+* Hotspot {{rank}}: the class "{{className}}" appears in the modules {{#each modules}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}; it changed {{changeCount}} times and carries a counted complexity of {{complexity}} over {{methodCount}} methods.
 {{/hotspotEvaluation.hotspots}}
 {{else}}
 The hotspot analysis ran, but it holds no counted hotspot. No area rests on a hotspot, and you report the type `hotspot` in `absentTypes` with the reason that the hotspot analysis holds no counted hotspot.
@@ -43,11 +43,15 @@ The hotspot analysis did not run, so the project holds no counted hotspot. The a
 
 ## Solution Strategy
 
-* Call the three tools below once each and read the counted evidence they return. The tools count, you judge.
-* **`java_get_inter_module_dependency_report`** returns, per module, the efferent coupling to the other modules, the afferent coupling and the instability. The afferent coupling of the module is the number of the places that reach into it, so it is the figure that says how much of the project follows a change of the module.
-* **`java_get_all_split_candidates`** returns, per module, the separation ladder with the price of every step and the minimum cut of the module. The price of a cut is the weight of the reference tie that has to be severed, and the minimum cut is the least total coupling that has to be given up to break the module in two.
-* **`java_get_all_test_coverage_reports`** returns, per module, the distribution of the test coverage of its classes. The test coverage of an area is the net a change of the area has to land in.
-* A module that a tool names as skipped carries no evidence. Do not invent a count for it, and name the figure of that module as missing in the area.
+* Call `java_get_anchor_candidates` once and read the bounded candidate payload it returns as the counted evidence of the cost. The tool counts, you judge. It is the only tool of this analysis: the counted evidence of the modules is part of its result, so you call no evidence tool of your own.
+* **`java_get_anchor_candidates`** returns one payload with four parts.
+* The part `candidatesPerType` is the budget that was applied to every list, taken from the workspace property `anchor.candidatesPerType`.
+* The part `anchorTypes` holds one entry per anchor type. An entry names its `anchorType`, its `budget`, its `totalCount`, that is how many candidates of that type the project holds, its `returnedCount`, that is how many of them the entry lists, and its `candidates`, the strongest candidates of the type up to the budget. Among the types are the `build-unit` candidates, that is the coupling hubs and the coupling orphans of the project, the `cut-point` candidates, that is the separation ladder with the price of every step, the `test-coverage` candidates, that is the coverage of every module, and the `seam`, `entry-point` and `technology-marker` candidates.
+* Every candidate carries its `element`, its `module`, its `evidence`, that is the counted evidence it rests on with its numbers, and its `source`, that is the analysis that counted that evidence. The afferent coupling of a module, the price of a cut and the test coverage of a module are read from the evidence of the candidate of the matching type, so every figure of the cost of an area names the counted evidence and the `source` it was read from.
+* The part `skipped` holds the modules whose raw Java report is missing, each with the reason. Such a module carries no evidence: do not invent a count for it, and name the figure of that module as missing in the area.
+* The part `absentSources` holds the analyses whose input is absent, each with the reason. An anchor type whose source is named there holds no candidate of that type.
+* Every candidate list of the payload is bounded by the budget `candidatesPerType`. When the `returnedCount` of an anchor type is smaller than its `totalCount`, that list is a part of the candidates of the type and not the whole of them, so a cost that rests on such a list is named as resting on a bounded list in the area, with how many candidates of that type the project holds beyond it.
+* The input of this analysis has the same shape for a project of any size: no per module evidence of the whole project reaches it.
 
 ### The modernisation areas
 
@@ -89,7 +93,7 @@ The hotspot analysis did not run, so the project holds no counted hotspot. The a
 
 ## Hints
 
-* The counted evidence is written as CSV beside the other reports: the inter module dependency matrix, the separation ladder and the test coverage. Use the values the tool reported and name a class and a module as the tool spelled them.
+* The counted evidence is written as CSV beside the other reports: the inter module dependency matrix, the separation ladder and the test coverage. Use the values the candidate payload reported and name a class and a module as the payload spelled them.
 * Report at most 12 areas. A longer response is cut off before its JSON is complete, so it is rejected and retried.
 * You must only return clean JSON content without any prefix or postfix.
 

@@ -6,7 +6,8 @@
   "properties": {
     "reasoning": {
       "type": "string",
-      "description": "Overall reasoning: what the counted hotspots show, and what the join of the change count and the complexity cannot see"
+      "description": "Overall reasoning: what the counted hotspots show, and what the join of the change count and the complexity cannot see",
+      "maxLength": 4000
     },
     "history": {
       "type": "object",
@@ -61,11 +62,17 @@
         "properties": {
           "className": {
             "type": "string",
-            "description": "The qualified name of the class"
+            "description": "The qualified name of the class",
+            "maxLength": 400
           },
-          "module": {
-            "type": "string",
-            "description": "The module the class belongs to"
+          "modules": {
+            "type": "array",
+            "description": "The modules whose reports contain the class, one entry per module; a class of an aggregator module and of its inner modules is reported once with all of them",
+            "items": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "The name of a module only, never a text, never a tool output"
+            }
           },
           "rank": {
             "type": "number",
@@ -85,12 +92,13 @@
           },
           "reasoning": {
             "type": "string",
-            "description": "Why the class was read as a hotspot, with its two figures"
+            "description": "Why the class was read as a hotspot, with its two figures",
+            "maxLength": 4000
           }
         },
         "required": [
           "className",
-          "module",
+          "modules",
           "rank",
           "changeCount",
           "complexity",

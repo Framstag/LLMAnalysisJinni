@@ -101,6 +101,24 @@ class HotspotToolTest {
         return module;
     }
 
+    /**
+     * A module that reports the given classes. An aggregator module of the project and its inner modules all
+     * report the same classes, so the reports of a project with such modules hold one appearance of a class per
+     * module.
+     */
+    private static Module moduleHolding(Clazz... classes) {
+        Package pck = new Package("demo.core");
+
+        for (Clazz clazz : classes) {
+            pck.addBuildUnit(buildUnit(clazz.getQualifiedName(), clazz));
+        }
+
+        Module module = new Module("aggregator");
+        module.addPackage(pck);
+
+        return module;
+    }
+
     private static FileHistory fileHistory(String path, int commitCount, int linesAdded, int linesRemoved) {
         return new FileHistory(path,
                 commitCount,
@@ -197,6 +215,19 @@ class HotspotToolTest {
         return new HotspotTool(contextOf("core"), () -> history);
     }
 
+    /**
+     * The tool over the reports of an aggregator module and two inner modules, which all hold the same often
+     * changed class: the class appears three times and holds one row.
+     */
+    private HotspotTool hotspotToolOverThreeModuleReports() throws IOException {
+        writeReport("aggregator", moduleHolding(clazz("demo.core.Alive", ALIVE_FILE, 30, 7)));
+        writeReport("impl", moduleHolding(clazz("demo.core.Alive", ALIVE_FILE, 30, 3),
+                clazz("demo.core.Quiet", QUIET_FILE, 3)));
+        writeReport("maven-impl", moduleHolding(clazz("demo.core.Alive", ALIVE_FILE, 30, 1)));
+
+        return new HotspotTool(contextOf("aggregator", "impl", "maven-impl"), HotspotToolTest::countedHistory);
+    }
+
     @SuppressWarnings("unchecked")
     private static List<Map<String, Object>> hotspotsOf(Map<String, Object> result) {
         return (List<Map<String, Object>>) result.get("hotspots");
@@ -226,7 +257,7 @@ class HotspotToolTest {
 
         Map<String, Object> alive = hotspotOf(result, "demo.core.Alive");
 
-        assertEquals("core", alive.get("module"));
+        assertEquals(List.of("core"), alive.get("modules"), "a class of a single module names that module");
         assertEquals(ALIVE_FILE, alive.get("sourceFile"));
         assertEquals(12, alive.get("changeCount"));
         assertEquals(340, alive.get("linesAdded"));
@@ -344,11 +375,53 @@ class HotspotToolTest {
         List<String> lines = Files.readAllLines(tempDir.resolve(HotspotReports.REPORT_TYPE)
                 .resolve("Hotspots.csv"));
 
-        assertEquals("ClassName,Module,ChangeCount,Complexity,Rank", lines.getFirst());
+        assertEquals("ClassName,Modules,ChangeCount,Complexity,Rank", lines.getFirst());
         assertEquals(2, lines.size() - 1, "one row per class of the ranking");
 
         assertEquals("demo.core.Alive,core,12,60,1", lines.get(1));
         assertEquals("demo.core.Quiet,core,2,3,2", lines.get(2));
+    }
+
+    @Test
+    void aClassOfThreeModuleReportsHoldsOneRowWithThreeModulesAndItsHighestComplexity() throws Exception {
+        Map<String, Object> result = hotspotToolOverThreeModuleReports().getHotspots();
+
+        assertEquals(2, hotspotsOf(result).size(),
+                "the ranking holds one row per class and not one row per module report");
+
+        Map<String, Object> alive = hotspotOf(result, "demo.core.Alive");
+
+        assertEquals(List.of("aggregator", "impl", "maven-impl"), alive.get("modules"),
+                "the row names the modules the class appears in");
+        assertEquals(37, alive.get("complexity"),
+                "the row carries the highest complexity of the appearances");
+        assertEquals(12, alive.get("changeCount"));
+        assertEquals(ALIVE_FILE, alive.get("sourceFile"));
+    }
+
+    @Test
+    void theRanksAfterAFoldedClassAreNotPushedDownByItsOtherAppearances() throws Exception {
+        Map<String, Object> result = hotspotToolOverThreeModuleReports().getHotspots();
+
+        assertEquals(1, hotspotOf(result, "demo.core.Alive").get("rank"));
+        assertEquals(2, hotspotOf(result, "demo.core.Quiet").get("rank"),
+                "the folded class holds one rank, so the class after it holds rank 2 and not rank 4");
+
+        assertEquals(2, hotspotsOf(result).size());
+    }
+
+    @Test
+    void theCsvReportHoldsOneRowPerClassAndNamesItsModules() throws Exception {
+        hotspotToolOverThreeModuleReports().getHotspots();
+
+        List<String> lines = Files.readAllLines(tempDir.resolve(HotspotReports.REPORT_TYPE)
+                .resolve("Hotspots.csv"));
+
+        assertEquals("ClassName,Modules,ChangeCount,Complexity,Rank", lines.getFirst());
+        assertEquals(3, lines.size(), "one row per class of the ranking");
+
+        assertEquals("demo.core.Alive,aggregator impl maven-impl,12,37,1", lines.get(1));
+        assertEquals("demo.core.Quiet,impl,2,3,2", lines.get(2));
     }
 
     @Test
@@ -369,7 +442,7 @@ class HotspotToolTest {
 
         List<String> lines = Files.readAllLines(report);
 
-        assertEquals("ClassName,Module,ChangeCount,Complexity,Rank", lines.getFirst());
+        assertEquals("ClassName,Modules,ChangeCount,Complexity,Rank", lines.getFirst());
         assertEquals(2, lines.size() - 1, "one row per class of the ranking");
         assertEquals("demo.core.Alive,core,12,60,1", lines.get(1));
         assertEquals("demo.core.Quiet,core,2,3,2", lines.get(2));

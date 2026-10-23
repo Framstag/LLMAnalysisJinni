@@ -129,7 +129,10 @@ class ModernisationStrategyAnalysisTest {
                 "hotspots": [
                   {
                     "className": "com.example.core.OrderService",
-                    "module": "core",
+                    "modules": [
+                      "core",
+                      "core-inner"
+                    ],
                     "rank": 1,
                     "changeCount": 12,
                     "complexity": 94,
@@ -182,12 +185,8 @@ class ModernisationStrategyAnalysisTest {
         assertTrue(prompt.contains("{{#hotspotEvaluation.hotspots}}"),
                 "the prompt must read the hotspots of the hotspot result, got:\n" + prompt);
 
-        for (String tool : List.of("java_get_inter_module_dependency_report",
-                "java_get_all_split_candidates",
-                "java_get_all_test_coverage_reports")) {
-            assertTrue(prompt.contains("**`" + tool + "`**"),
-                    "the prompt must name the counted tool " + tool + ", got:\n" + prompt);
-        }
+        assertTrue(prompt.contains("**`java_get_anchor_candidates`**"),
+                "the prompt must name the counted tool java_get_anchor_candidates, got:\n" + prompt);
     }
 
     @Test
@@ -201,9 +200,23 @@ class ModernisationStrategyAnalysisTest {
             calledTools.add(matcher.group());
         }
 
-        assertEquals(3, calledTools.size(), "the prompt must call the three counted tools, got: " + calledTools);
+        assertEquals(1, calledTools.size(), "the prompt must call the one counted tool, got: " + calledTools);
+        assertEquals(Set.of("java_get_anchor_candidates"), calledTools,
+                "the prompt must call only java_get_anchor_candidates, got: " + calledTools);
         assertEquals(calledTools, whitelistOf(task),
                 "the whitelist must hold exactly the tools the prompt calls");
+    }
+
+    @Test
+    void theStrategyPromptNamesNoneOfTheProjectWideEvidenceTools() throws IOException {
+        String prompt = Files.readString(PROMPT_FILE);
+
+        for (String tool : List.of("java_get_inter_module_dependency_report",
+                "java_get_all_split_candidates",
+                "java_get_all_test_coverage_reports")) {
+            assertFalse(prompt.contains(tool),
+                    "the prompt must not call the project wide evidence tool " + tool + ", got:\n" + prompt);
+        }
     }
 
     @Test
@@ -317,8 +330,26 @@ class ModernisationStrategyAnalysisTest {
                 "the prompt must name the element of the anchor, got:\n" + rendered);
         assertTrue(rendered.contains("com.example.core.OrderService"),
                 "the prompt must name the class of the hotspot, got:\n" + rendered);
+        assertTrue(rendered.contains("appears in the modules core, core-inner"),
+                "the prompt must name the modules the hotspot class appears in, got:\n" + rendered);
         assertFalse(rendered.contains("The hotspot analysis did not run"),
                 "the prompt must not state an absence that does not hold, got:\n" + rendered);
+    }
+
+    @Test
+    void theStrategyPromptNamesTheModulesOfAHotspotAndNoSingleModuleFieldOfTheResult() throws IOException {
+        String prompt = Files.readString(PROMPT_FILE);
+        int start = prompt.indexOf("{{#hotspotEvaluation.hotspots}}");
+        int end = prompt.indexOf("{{/hotspotEvaluation.hotspots}}");
+
+        assertTrue(start >= 0 && end > start, "the prompt must read the hotspots of the hotspot result");
+
+        String hotspotBlock = prompt.substring(start, end);
+
+        assertTrue(hotspotBlock.contains("{{#each modules}}"),
+                "the prompt must read the modules of a hotspot class, got:\n" + hotspotBlock);
+        assertFalse(hotspotBlock.contains("{{module}}"),
+                "the prompt must not read a single module field of the hotspot result, got:\n" + hotspotBlock);
     }
 
     @Test

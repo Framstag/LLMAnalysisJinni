@@ -6,7 +6,8 @@
   "properties": {
     "reasoning": {
       "type": "string",
-      "description": "Overall reasoning: how the areas were derived from the anchors, the hotspots and the counted evidence, and that the order follows the counted cost and the choice of the area to work on is the reader's"
+      "description": "Overall reasoning: how the areas were derived from the anchors, the hotspots and the counted evidence, and that the order follows the counted cost and the choice of the area to work on is the reader's",
+      "maxLength": 4000
     },
     "areas": {
       "type": "array",
@@ -59,19 +60,22 @@
                   "type": "array",
                   "description": "The counted evidence that supports the pattern for this area, every entry naming the analysis that counted it",
                   "items": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 400
                   }
                 },
                 "evidenceAgainst": {
                   "type": "array",
                   "description": "The counted evidence that counts against the pattern for this area, empty when no evidence against the pattern was found",
                   "items": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 400
                   }
                 },
                 "whatWouldMakeItWrong": {
                   "type": "string",
-                  "description": "What would have to be true for the pattern to be the wrong choice for this area"
+                  "description": "What would have to be true for the pattern to be the wrong choice for this area",
+                  "maxLength": 800
                 }
               },
               "required": [
@@ -111,11 +115,13 @@
           },
           "cost": {
             "type": "string",
-            "description": "A short statement of what the change of this area would cost, resting on the figures that are named beside it"
+            "description": "A short statement of what the change of this area would cost, resting on the figures that are named beside it",
+            "maxLength": 800
           },
           "reasoning": {
             "type": "string",
-            "description": "Why this area was read as it was, and why the patterns that fit it fit it"
+            "description": "Why this area was read as it was, and why the patterns that fit it fit it",
+            "maxLength": 4000
           }
         },
         "required": [

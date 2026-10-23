@@ -1078,7 +1078,7 @@ The change count of every class is counted in {{hotspotEvaluation.history.window
 |Class |Module |Rank |Change count |Complexity
 
 {{#each hotspotEvaluation.hotspots~}}
-|{{className}} |{{module}} |{{rank}} |{{changeCount}} |{{complexity}}
+|{{className}} |{{#each modules}}{{this}}{{#unless @last}}, {{/unless}}{{/each}} |{{rank}} |{{changeCount}} |{{complexity}}
 {{/each}}
 |===
 

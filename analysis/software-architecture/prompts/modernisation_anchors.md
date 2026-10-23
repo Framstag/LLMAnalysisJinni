@@ -30,26 +30,25 @@ The context map analysis did not run, so this project holds no context map. The 
 
 ## Solution Strategy
 
-* Call the tools below once each and read the counted evidence they return. The tools count, you judge.
-* A module that a tool names as skipped carries no evidence. Do not invent a count for it, and say in the reasoning of the analysis that the module was skipped.
-* **`java_get_entry_points`** counts, per class of every Java module, the module, the code category, whether the class declares a main method, the names of the annotations the class carries and the interfaces it implements. The tool does not say whether an annotation or an interface marks an entry point: that is decided with the marker facts above.
-* **`java_get_seams`** counts, per interface of the project, the module that declares it, the classes that implement it with their modules, the classes of the declaring module that reference it without implementing it, the modules of the project that import it and whether the interface is a port candidate.
-* **`java_get_inter_module_dependency_report`** returns, per module, the efferent coupling to the other modules, the afferent coupling and the instability, and it writes the full dependency matrix as a CSV report.
-* **`java_get_all_class_dependency_graphs`** returns, per module, the class reference graph with its node and edge counts and its heaviest couplings.
-* **`java_get_all_split_candidates`** returns, per module, the separation ladder with the cost of every step and the minimum cut of the module.
-* **`java_get_all_test_coverage_reports`** returns, per module, the distribution of the test coverage of its classes.
-* **`java_get_all_import_diversity_reports`** returns, per module, the distribution of the import diversity, the number of distinct types the classes of the module work with.
-* **`sbom_get_application_dependencies`** returns the direct dependencies of the application with their versions. When the tool reports that no SBOM is loaded, the `technology-marker` anchors are absent and you say so.
+* Call `java_get_anchor_candidates` once and read the bounded candidate payload it returns. The tool counts, you judge. It is the only tool of this analysis: the counted evidence behind the anchor types is part of its result, so you call no evidence tool of your own.
+* **`java_get_anchor_candidates`** returns one payload with four parts.
+* The part `candidatesPerType` is the budget that was applied to every list, taken from the workspace property `anchor.candidatesPerType`.
+* The part `anchorTypes` holds one entry per anchor type, the six types that rest on counted evidence. An entry names its `anchorType`, its `budget`, its `totalCount`, that is how many candidates of that type the project holds, its `returnedCount`, that is how many of them the entry lists, and its `candidates`, the strongest candidates of the type up to the budget.
+* The part `skipped` holds the modules whose raw Java report is missing, each with the reason. Such a module carries no evidence: do not invent a count for it, and say in the reasoning of the analysis that the module was skipped.
+* The part `absentSources` holds the analyses whose input is absent, each with the reason. An anchor type whose source is named there holds no candidate of that type.
+* Every candidate carries its `element`, its `module`, its `evidence`, that is the counted evidence it rests on with its numbers, and its `source`, that is the analysis that counted that evidence. Name the `source` of a candidate in the evidence of the anchor you form from it.
+* The `domain` anchors are not part of the tool result: they rest on the context map result above, which the context map analysis bounded with the budget of its own.
+* The input of this analysis has the same shape for a project of any size. No per module evidence of the whole project reaches it: the lists are bounded, and the count of what the project holds beside them is what tells a bounded list apart from a complete one.
 
 ### The anchors of every type
 
-* `entry-point`: the classes the entry point tool counts as candidates, that is the classes with a main method, the classes carrying one of the annotations of the marker facts and the classes that implement one of the service provider interfaces. The evidence of such an anchor names the class, the module, the code category and the annotation or the interface that marks it, and it names the entry point analysis as the source of the count.
-* `seam`: the interfaces the seam tool counts. The evidence names the implementor count, the importing modules, the classes of the declaring module that reference the interface without implementing it and the port candidate decision, and it names the seam analysis as the source of the count.
+* `entry-point`: the candidates of the type `entry-point`, that is the classes with a main method, the classes carrying one of the annotations of the marker facts and the classes that implement one of the service provider interfaces. The evidence of such an anchor names the class, the module, the code category and the annotation or the interface that marks it, and the `source` of the candidate names the entry point analysis as the source of the count.
+* `seam`: the candidates of the type `seam`, that is the interfaces of the project. The evidence names the implementor count, the importing modules, the classes of the declaring module that reference the interface without implementing it and the port candidate decision, and the `source` names the seam analysis as the source of the count.
 * `domain`: the relations of the context map above. The evidence names both contexts, the relation and the shared language the relation rests on, and it names the context map analysis as the source.
-* `build-unit`: the modules the inter module dependency report counts. The evidence names the efferent coupling, the afferent coupling and the instability of the module, and it names the inter module dependency analysis as the source of the counts.
-* `cut-point`: the places where a module can be cut, taken from the separation ladder and the minimum cut of the class dependency graph analysis. The evidence names the module, the cost of the step and the severed weight, and it names the class dependency graph analysis as the source.
-* `test-coverage`: the modules whose test coverage the report counts. The evidence names the coverage values of the module and the analysis that counted them.
-* `technology-marker`: the dependencies of the application that the marker facts mark, that is the dependencies whose group or namespace is one of the legacy namespaces, and the dependencies whose version lies in one of the version ranges at the end of the life of a dependency. The evidence names the dependency, its version, the marker that applies and the dependency analysis that counted it.
+* `build-unit`: the candidates of the type `build-unit`, that is the modules of the project. The evidence names the efferent coupling, the afferent coupling and the instability of the module, and the `source` names the inter module dependency analysis as the source of the counts.
+* `cut-point`: the candidates of the type `cut-point`, that is the places where a module can be cut, taken from the separation ladder and the minimum cut of the class dependency graph analysis. The evidence names the module, the cost of the step and the severed weight, and the `source` names the class dependency graph analysis as the source.
+* `test-coverage`: the candidates of the type `test-coverage`, that is the modules whose test coverage was counted. The evidence names the coverage values of the module, and the `source` names the test coverage analysis as the source of the counts.
+* `technology-marker`: the candidates of the type `technology-marker`, that is the dependencies of the application that the marker facts mark, meaning the dependencies whose group or namespace is one of the legacy namespaces, and the dependencies whose version lies in one of the version ranges at the end of the life of a dependency. The evidence names the dependency, its version, the marker that applies and the `source` that counted it. When the payload names the dependency analysis in `absentSources`, the `technology-marker` anchors are absent and you say so.
 
 ### The rank, the evidence and the candidate patterns
 
@@ -59,6 +58,7 @@ The context map analysis did not run, so this project holds no context map. The 
 * The `candidatePatterns` of an anchor hold the names of the patterns of the catalogue that fit it, and nothing else. A pattern that is not in the catalogue is not used. An anchor for which no pattern of the catalogue fits carries an empty list of candidates and the reason in its `reasoning`.
 * For every candidate pattern, the `reasoning` of the anchor states what would make that pattern the wrong choice, so that a reader can disagree with the analysis instead of having to unravel it.
 * The `reasoning` of an anchor says why the anchor was read as it was.
+* Every candidate list of the payload is bounded by the budget `candidatesPerType`. When the `returnedCount` of an anchor type is smaller than its `totalCount`, that list is a part of the candidates of the type and not the whole of them: say in the `reasoning` of the answer that the list was bounded and how many candidates of that type the project holds beyond it, so that a reader knows the rank was formed against a bounded list.
 
 ### The anchor types that are absent
 
@@ -79,8 +79,8 @@ The context map analysis did not run, so this project holds no context map. The 
 
 ## Hints
 
-* The full evidence is written as CSV beside the other reports: the seam rows, the entry point rows, the inter module dependency matrix, the separation ladder, the test coverage and the import diversity. Use the values the tool reported and name a class, an interface or a module as the tool spelled it.
-* The order the tools return is already a rank within their own view. Keep it.
+* The full evidence of the candidate analyses is written as CSV beside the other reports: the seam rows, the entry point rows, the inter module dependency matrix, the separation ladder, the test coverage and the import diversity. Use the values the payload reported and name a class, an interface or a module as the tool spelled it.
+* The order of a candidate list is already a rank within the view of its type. Keep it.
 * You must only return clean JSON content without any prefix or postfix.
 
 ## Response Requirements

@@ -44,7 +44,8 @@ class ConfigAnalysisReportBudgetsTest {
                 Config.DOMAIN_LANGUAGE_MINIMUM_CANDIDATE_TERMS_PROPERTY,
                 Config.DOMAIN_LANGUAGE_TOP_TERMS_PROPERTY,
                 Config.CONTEXT_MAP_LEADING_TERMS_PROPERTY,
-                Config.CONTEXT_MAP_MAX_PAIRS_PROPERTY}) {
+                Config.CONTEXT_MAP_MAX_PAIRS_PROPERTY,
+                Config.ANCHOR_CANDIDATES_PER_TYPE_PROPERTY}) {
             assertTrue(config.getProperties().containsKey(property),
                     "a freshly created configuration has to state " + property);
             assertTrue(config.getBudget(property, -1) > 0,
@@ -68,6 +69,8 @@ class ConfigAnalysisReportBudgetsTest {
                 "the seeded lexicon path is part of the workspace configuration");
         assertEquals("0.5", loaded.getProperties().get(Config.CONTEXT_MAP_UBIQUITOUS_SHARE_PROPERTY),
                 "the seeded project-wide share is part of the workspace configuration");
+        assertEquals("15", loaded.getProperties().get(Config.ANCHOR_CANDIDATES_PER_TYPE_PROPERTY),
+                "the seeded anchor candidate budget is written to and read from the workspace configuration");
     }
 
     @Test

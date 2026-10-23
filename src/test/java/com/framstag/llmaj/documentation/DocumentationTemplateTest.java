@@ -218,7 +218,10 @@ public class DocumentationTemplateTest {
                 "hotspots": [
                   {
                     "className": "com.example.core.OrderService",
-                    "module": "core",
+                    "modules": [
+                      "core",
+                      "core-inner"
+                    ],
                     "rank": 1,
                     "changeCount": 42,
                     "complexity": 118,
@@ -227,7 +230,9 @@ public class DocumentationTemplateTest {
                   },
                   {
                     "className": "com.example.core.Order",
-                    "module": "core",
+                    "modules": [
+                      "core"
+                    ],
                     "rank": 2,
                     "changeCount": 31,
                     "complexity": 64,
@@ -397,8 +402,8 @@ public class DocumentationTemplateTest {
 
         assertTrue(rendered.contains("see <<hotspots,Hotspots>>"),
                 "the section names the reference entry that explains the join");
-        assertTrue(rendered.contains("|com.example.core.OrderService |core |1 |42 |118"),
-                "a row names the class, its module, its rank, its change count and its complexity");
+        assertTrue(rendered.contains("|com.example.core.OrderService |core, core-inner |1 |42 |118"),
+                "a row names the class, its modules, its rank, its change count and its complexity");
         assertTrue(rendered.contains("|com.example.core.Order |core |2 |31 |64"),
                 "the second hotspot is a row of the same table");
         assertTrue(rendered.contains("The counted history of the project is truncated"),

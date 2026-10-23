@@ -3,6 +3,7 @@ package com.framstag.llmaj.config;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSetter;
+import com.framstag.llmaj.tools.java.AnchorCandidateTool;
 import com.framstag.llmaj.tools.java.GodClassRanking;
 import com.framstag.llmaj.tools.java.graph.DependencyDiagrams;
 import com.framstag.llmaj.tools.java.graph.MinimumCut;
@@ -65,6 +66,9 @@ public class Config {
      * language of a boundary.
      */
     public static final String CONTEXT_MAP_UBIQUITOUS_SHARE_PROPERTY = "contextMap.ubiquitousModuleShare";
+
+    /** Number of anchor candidates the modernisation anchor analysis reads per anchor type. */
+    public static final String ANCHOR_CANDIDATES_PER_TYPE_PROPERTY = "anchor.candidatesPerType";
 
     private Path projectDirectory;
     private Path analysisDirectory;
@@ -140,6 +144,8 @@ public class Config {
                 Integer.toString(ContextMapSettings.DEFAULT_MAX_PAIRS_PER_CLASSIFICATION));
         properties.put(CONTEXT_MAP_UBIQUITOUS_SHARE_PROPERTY,
                 Double.toString(ContextMapSettings.DEFAULT_UBIQUITOUS_MODULE_SHARE));
+        properties.put(ANCHOR_CANDIDATES_PER_TYPE_PROPERTY,
+                Integer.toString(AnchorCandidateTool.DEFAULT_CANDIDATES_PER_TYPE));
     }
 
     @JsonIgnore

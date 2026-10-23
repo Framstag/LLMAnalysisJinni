@@ -7,7 +7,8 @@
 ## Solution Strategy
 
 * Call **`java_get_hotspots`** once and read the counted result it returns. The tool counts, you judge.
-* The tool joins the counted version history of the project with the counted metrics of the raw Java module reports. It returns, per ranked class, the class name, the module, the source file, the change count of the file, the added and the removed lines, the counted cyclomatic complexity of the class, the number of its methods and the rank.
+* The tool joins the counted version history of the project with the counted metrics of the raw Java module reports. It returns, per ranked class, the class name, the modules the class appears in, the source file, the change count of the file, the added and the removed lines, the counted cyclomatic complexity of the class, the number of its methods and the rank.
+* A class is reported once with the modules it appears in: an aggregator module holds the same classes as its inner modules, so the class appears in the report of several modules. Report the class once, name all the modules the tool named for it, and report the highest complexity of its appearances, as the tool returned it.
 * A module that the tool names as skipped carries no evidence. Do not invent a hotspot for it, and say in the reasoning that the module was skipped.
 * Keep the order the tool returned, and report the two figures of every class beside its rank.
 
@@ -50,14 +51,15 @@
 
 ## Hints
 
-* The counted evidence is written as the CSV report "Hotspots/Hotspots.csv" of the workspace, one row per ranked class. Use the values the tool reported and name a class and a module as the tool spelled them.
+* The counted evidence is written as the CSV report "Hotspots/Hotspots.csv" of the workspace, one row per ranked class. Use the values the tool reported and name a class and its modules as the tool spelled them.
 * The `history.statement` holds the statement of the history the analysis rests on: the counted window, and the truncation when the history is truncated.
 * You must only return clean JSON content without any prefix or postfix.
 
 ## Response Requirements
 
 * Use the `HotspotEvaluation` response schema.
-* Each `hotspots[]` entry MUST be a JSON object with the fields `className`, `module`, `rank`, `changeCount`, `complexity`, `methodCount` and `reasoning`. Do NOT use plain strings.
+* Each `hotspots[]` entry MUST be a JSON object with the fields `className`, `modules`, `rank`, `changeCount`, `complexity`, `methodCount` and `reasoning`. Do NOT use plain strings.
+* The `modules` field of a hotspot entry is an array of strings, one entry per module whose report contains the class. A class of a single module holds that one module. Every entry is a module name exactly as the tool spelled it, nothing else: no sentence, no reason, no tool output, no explanation. Anything else in this field is a defect of the answer and the answer is rejected, because the field is bounded.
 * The `history` object MUST be a JSON object with the fields `available`, `window`, `truncated`, `absence`, `reason` and `statement`.
 * The `limits` array holds one string per limit of the join.
 * Report at most 10 hotspots. A longer response is cut off before its JSON is complete, so it is rejected and retried.

@@ -78,7 +78,8 @@ class AnalysisReferenceTest {
             Config.DOMAIN_LANGUAGE_TOP_TERMS_PROPERTY,
             Config.CONTEXT_MAP_LEADING_TERMS_PROPERTY,
             Config.CONTEXT_MAP_MAX_PAIRS_PROPERTY,
-            Config.CONTEXT_MAP_UBIQUITOUS_SHARE_PROPERTY);
+            Config.CONTEXT_MAP_UBIQUITOUS_SHARE_PROPERTY,
+            Config.ANCHOR_CANDIDATES_PER_TYPE_PROPERTY);
 
     /**
      * @param name  the heading text of the entry, without the heading markers

@@ -6,7 +6,8 @@
   "properties": {
     "reasoning": {
       "type": "string",
-      "description": "Overall reasoning: how the anchors were derived from the counted evidence and the context map, and what the analysis could not see"
+      "description": "Overall reasoning: how the anchors were derived from the counted evidence and the context map, and what the analysis could not see",
+      "maxLength": 4000
     },
     "anchors": {
       "type": "array",
@@ -34,13 +35,15 @@
           },
           "element": {
             "type": "string",
-            "description": "The class, interface or thing the anchor points at, empty for an anchor type that has no element"
+            "description": "The class, interface or thing the anchor points at, empty for an anchor type that has no element",
+            "maxLength": 400
           },
           "evidence": {
             "type": "array",
             "description": "The counted evidence the anchor rests on, every entry naming the analysis that counted it",
             "items": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 400
             }
           },
           "rank": {
@@ -64,7 +67,8 @@
           },
           "reasoning": {
             "type": "string",
-            "description": "Why the anchor was read as it was, and for every candidate pattern what would make it the wrong choice"
+            "description": "Why the anchor was read as it was, and for every candidate pattern what would make it the wrong choice",
+            "maxLength": 4000
           }
         },
         "required": [

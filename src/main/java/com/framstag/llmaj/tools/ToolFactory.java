@@ -6,6 +6,7 @@ import com.framstag.llmaj.tools.filestatistics.FileStatisticsTool;
 import com.framstag.llmaj.tools.filesystem.FilesystemTool;
 import com.framstag.llmaj.tools.history.HistoryTool;
 import com.framstag.llmaj.tools.info.InfoTool;
+import com.framstag.llmaj.tools.java.AnchorCandidateTool;
 import com.framstag.llmaj.tools.java.EntryPointTool;
 import com.framstag.llmaj.tools.java.HotspotTool;
 import com.framstag.llmaj.tools.java.JavaTool;
@@ -26,8 +27,11 @@ public class ToolFactory {
         EntryPointTool entryPointTool = new EntryPointTool(context);
         HotspotTool hotspotTool = new HotspotTool(context);
         HistoryTool historyTool = new HistoryTool(context);
+        // The anchor candidate tool aggregates the evidence the other tools count. It shares their instances,
+        // so that it reads one loaded SBOM and one cached set of module reports instead of its own copies.
+        AnchorCandidateTool anchorCandidateTool = new AnchorCandidateTool(context, javaTool, sbomTool);
 
         return  List.of(infoTool, fileIOTool, filesystemTool, sbomTool,fileStatisticsTool, javaTool, seamTool,
-                entryPointTool, hotspotTool, historyTool);
+                entryPointTool, hotspotTool, historyTool, anchorCandidateTool);
     }
 }

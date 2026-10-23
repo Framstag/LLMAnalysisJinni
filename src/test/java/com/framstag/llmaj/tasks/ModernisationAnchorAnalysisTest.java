@@ -276,6 +276,9 @@ class ModernisationAnchorAnalysisTest {
                     "the prompt must name the anchor type " + anchorType + ", got:\n" + prompt);
         }
 
+        assertTrue(prompt.contains("**`java_get_anchor_candidates`**"),
+                "the prompt must name the bounded candidate tool, got:\n" + prompt);
+
         for (String pattern : CATALOGUE_PATTERNS) {
             assertTrue(prompt.contains("`" + pattern + "`"),
                     "the prompt must name the catalogue pattern " + pattern + ", got:\n" + prompt);
@@ -293,7 +296,8 @@ class ModernisationAnchorAnalysisTest {
             calledTools.add(matcher.group());
         }
 
-        assertEquals(8, calledTools.size(), "the prompt must call the eight tools of the whitelist, got: " + calledTools);
+        assertEquals(Set.of("java_get_anchor_candidates"), calledTools,
+                "the prompt must call the one bounded candidate tool and no other, got: " + calledTools);
         assertEquals(calledTools, whitelistOf(task),
                 "the whitelist must hold exactly the tools the prompt calls");
     }
@@ -342,6 +346,10 @@ class ModernisationAnchorAnalysisTest {
                 "the prompt must state what the anchors rest on, got:\n" + prompt);
         assertTrue(prompt.contains("absentTypes"),
                 "the prompt must report an absent anchor type, got:\n" + prompt);
+        assertTrue(prompt.contains("candidatesPerType"),
+                "the prompt must state the budget that bounds the candidate lists, got:\n" + prompt);
+        assertTrue(prompt.contains("say in the `reasoning` of the answer that the list was bounded"),
+                "the prompt must require that a bounded list is named as bounded, got:\n" + prompt);
     }
 
     @Test

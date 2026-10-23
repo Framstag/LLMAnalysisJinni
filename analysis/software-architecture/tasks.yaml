@@ -615,14 +615,7 @@ dependsOn:
 tags:
   - modernisation_anchor_evaluation
 toolWhitelist:
-  - java_get_seams
-  - java_get_entry_points
-  - java_get_all_split_candidates
-  - java_get_inter_module_dependency_report
-  - java_get_all_test_coverage_reports
-  - java_get_all_import_diversity_reports
-  - sbom_get_application_dependencies
-  - java_get_all_class_dependency_graphs
+  - java_get_anchor_candidates
 ---
 id: HotspotEvaluation
 name: Evaluate the counted hotspots of the project
@@ -655,6 +648,4 @@ dependsOn:
 tags:
   - modernisation_strategy_evaluation
 toolWhitelist:
-  - java_get_inter_module_dependency_report
-  - java_get_all_split_candidates
-  - java_get_all_test_coverage_reports
+  - java_get_anchor_candidates
