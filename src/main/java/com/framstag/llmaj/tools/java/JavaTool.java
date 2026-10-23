@@ -390,12 +390,32 @@ public class JavaTool {
      * <p>
      * Package private so the routing of the diagnostics it emits can be tested without a run.
      */
+    /**
+     * The parser configuration of the source solver. It parses without comment attribution, because resolving a
+     * symbol needs the declarations of a type and never its comments, and attributing them is the cost that made the
+     * collection of a large module stall. It names the language level explicitly, so that it cannot drift from the
+     * language level of the parse of the module.
+     */
+    static ParserConfiguration createSolverConfiguration() {
+        return new ParserConfiguration()
+                .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21)
+                .setAttributeComments(false);
+    }
+
     TypeSolver createTypeResolver(Path rootPath,
                                           Map<String, String> properties,
                                           List<SpecialSubdirectory> specialSubdirectories) throws IOException {
         CombinedTypeSolver typeSolver = new CombinedTypeSolver(
                 new ReflectionTypeSolver(false)
         );
+
+        // The solver resolves symbols. A symbol is a declaration, never a comment, and attributing comments to every
+        // node of every file the solver parses is what made the collection of a module of several hundred source
+        // files run for more than twenty minutes without writing a report. The parse of the module itself keeps its
+        // comment attribution, because the documentation of a class and of a method - and every metric that counts it
+        // - comes from there. The two configurations are separate on purpose, so that a change of one cannot
+        // silently change the other.
+        ParserConfiguration solverConfiguration = createSolverConfiguration();
 
         if (properties.containsKey(JAVA_TOOL_JAR_DEPENDENCIES_DIRECTORY_PROPERTY)) {
             String jarDependencies = properties.get(JAVA_TOOL_JAR_DEPENDENCIES_DIRECTORY_PROPERTY);
@@ -429,7 +449,7 @@ public class JavaTool {
 
                 if (pathFile.exists() && pathFile.isDirectory()) {
                     logger.info("Adding '{}' as search path to java parser...", specialPath);
-                    typeSolver.add(new JavaParserTypeSolver(specialPath.toFile()));
+                    typeSolver.add(new JavaParserTypeSolver(specialPath.toFile(), solverConfiguration));
                 } else {
                     logger.warn("Skip adding '{}' as search path, since it does no exist or is not a directory", specialPath);
                 }
