@@ -20,6 +20,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -76,6 +77,10 @@ class AnchorCandidateToolTest {
      * module has more seam candidates than the seeded budget of fifteen.
      */
     private static Module seamModule() {
+        return seamModule("seams");
+    }
+
+    private static Module seamModule(String moduleName) {
         Package pck = new Package("demo.seams");
 
         pck.addBuildUnit(buildUnit("demo.seams.Port",
@@ -99,7 +104,7 @@ class AnchorCandidateToolTest {
                 List.of(new ClassReference("demo.seams.Port", 0, 0, true)),
                 List.of(classWithInterface("demo.seams.PortImplB", "demo.seams.Port"))));
 
-        Module module = new Module("seams");
+        Module module = new Module(moduleName);
         module.addPackage(pck);
 
         return module;
@@ -328,6 +333,110 @@ class AnchorCandidateToolTest {
 
         assertTrue(tools.stream().anyMatch(tool -> tool instanceof AnchorCandidateTool),
                 "the anchor candidate tool has to be part of the tool list of the engine");
+    }
+
+    @Test
+    void anElementThatSeveralModuleReportsHoldIsReportedOnceWithItsModules() throws Exception {
+        // Three module reports hold the same interface, as an aggregator module and its inner modules do.
+        writeReport("alpha", portModule("alpha"));
+        writeReport("beta", portModule("beta"));
+
+        AnalysisContext context = contextOf(Map.of(), "alpha", "beta", "core");
+        AnchorCandidateTool anchorCandidateTool = new AnchorCandidateTool(context, new JavaTool(context),
+                new SBOMTool(context));
+
+        Map<String, Object> result = anchorCandidateTool.getAnchorCandidates();
+        List<Map<String, Object>> seams = candidatesOf(result, AnchorCandidateTool.SEAM_ANCHOR_TYPE);
+
+        List<Map<String, Object>> occurrences = seams.stream()
+                .filter(candidate -> "demo.ports.Port".equals(candidate.get("element")))
+                .toList();
+
+        assertEquals(1, occurrences.size(), "the element is reported once, not once per module report");
+
+        Map<String, Object> candidate = occurrences.getFirst();
+        List<?> alsoSeenIn = (List<?>) candidate.get("alsoSeenIn");
+
+        assertEquals(1, alsoSeenIn.size(), "the candidate names the module it was seen in beside its own");
+        assertTrue(String.join(" ", strings(candidate.get("evidence"))).contains("hold the same element"),
+                "the evidence states that another module report holds the same element");
+    }
+
+    @Test
+    void theRankAfterAFoldedElementIsNotPushedDown() throws Exception {
+        writeReport("alpha", seamModule("alpha"));
+        writeReport("beta", seamModule("beta"));
+
+        AnalysisContext context = contextOf(Map.of(), "alpha", "beta", "core");
+        AnchorCandidateTool anchorCandidateTool = new AnchorCandidateTool(context, new JavaTool(context),
+                new SBOMTool(context));
+
+        List<Map<String, Object>> seams = candidatesOf(anchorCandidateTool.getAnchorCandidates(),
+                AnchorCandidateTool.SEAM_ANCHOR_TYPE);
+
+        assertTrue(seams.size() > 1, "the project holds more than one seam");
+        assertNotEquals(seams.get(0).get("element"), seams.get(1).get("element"),
+                "the second rank holds the next seam, not a second view of the first");
+    }
+
+    @Test
+    void theProductionEntryPointRanksBeforeTheBenchmarkHarness() throws Exception {
+        writeReport("app", entryPointModule("app", true, "demo.app.Launcher", 0));
+        writeReport("bench", entryPointModule("bench", false, "demo.bench.Harness", 6));
+
+        AnalysisContext context = contextOf(Map.of(), "app", "bench");
+        AnchorCandidateTool anchorCandidateTool = new AnchorCandidateTool(context, new JavaTool(context),
+                new SBOMTool(context));
+
+        List<Map<String, Object>> entryPoints = candidatesOf(anchorCandidateTool.getAnchorCandidates(),
+                AnchorCandidateTool.ENTRY_POINT_ANCHOR_TYPE);
+
+        assertEquals("demo.app.Launcher", entryPoints.getFirst().get("element"),
+                "the production main method ranks before the benchmark main method");
+        assertTrue(entryPoints.stream().anyMatch(candidate -> "demo.bench.Harness".equals(candidate.get("element"))),
+                "a test entry point stays in the list, below the production ones");
+        assertTrue(String.join(" ", strings(entryPoints.getFirst().get("evidence"))).contains("production code"),
+                "the evidence of a candidate names its code category");
+    }
+
+    private static List<String> strings(Object value) {
+        if (value instanceof List<?> list) {
+            return list.stream().map(String::valueOf).toList();
+        }
+
+        return List.of();
+    }
+
+    private static Module portModule(String moduleName) {
+        Package ports = new Package("demo.ports");
+        ports.addBuildUnit(buildUnit("demo.ports.Port", List.of(), List.of(),
+                List.of(interfaceClass("demo.ports.Port"))));
+
+        Module module = new Module(moduleName);
+        module.addPackage(ports);
+
+        return module;
+    }
+
+    private static Module entryPointModule(String moduleName, boolean production, String mainClass, int annotations) {
+        Clazz clazz = new Clazz(mainClass, null);
+        clazz.setSuperClass("java.lang.Object");
+
+        Method main = new Method("main", "()V");
+        main.setStatic(true);
+        clazz.addMethod(main);
+
+        for (int index = 0; index < annotations; index++) {
+            clazz.addAnnotation(new Annotation("Annotation" + index, "demo.Annotation" + index));
+        }
+
+        Package pck = new Package("demo.app");
+        pck.addBuildUnit(new BuildUnit("demo.app", production, false, List.of(), List.of(), List.of(clazz)));
+
+        Module module = new Module(moduleName);
+        module.addPackage(pck);
+
+        return module;
     }
 
     @Test

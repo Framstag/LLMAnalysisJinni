@@ -64,11 +64,19 @@ public class AnchorCandidateTool {
     private static final int NAMED_EVIDENCE_LIMIT = 5;
 
     /**
-     * The entry point candidates that rest on the strongest evidence come first: a declared main method, then
-     * the classes that carry annotations, then the classes that implement interfaces. The name breaks the ties,
-     * so two calls agree.
+     * The entry point candidates that rest on the strongest evidence come first: the production code before the test
+     * and the generated code, because a main method of a benchmark harness is not a place a modernisation can attach
+     * to, then a declared main method, then the classes that carry annotations, then the classes that implement
+     * interfaces. The name breaks the ties, so two calls agree.
      */
     private static final Comparator<Map<String, Object>> ENTRY_POINT_ORDER = (left, right) -> {
+        int byCodeCategory = Integer.compare(codeCategoryRank(left.get("codeCategory")),
+                codeCategoryRank(right.get("codeCategory")));
+
+        if (byCodeCategory != 0) {
+            return byCodeCategory;
+        }
+
         int byMainMethod = Boolean.compare(Boolean.TRUE.equals(right.get("hasMainMethod")),
                 Boolean.TRUE.equals(left.get("hasMainMethod")));
 
@@ -94,6 +102,16 @@ public class AnchorCandidateTool {
 
         return byModule != 0 ? byModule : ((String) left.get("className")).compareTo((String) right.get("className"));
     };
+
+    private static int codeCategoryRank(Object codeCategory) {
+        String category = codeCategory == null ? "" : codeCategory.toString();
+
+        return switch (category) {
+            case "production" -> 0;
+            case "test" -> 1;
+            default -> 2;
+        };
+    }
 
     private final AnalysisContext context;
     private final JavaTool javaTool;
@@ -196,10 +214,60 @@ public class AnchorCandidateTool {
         Map<String, Object> descriptor = new LinkedHashMap<>();
         descriptor.put("element", candidate.element());
         descriptor.put("module", candidate.module());
+        descriptor.put("alsoSeenIn", candidate.alsoSeenIn());
         descriptor.put("evidence", candidate.evidence());
         descriptor.put("source", candidate.source());
 
         return descriptor;
+    }
+
+    /**
+     * Folds the appearances of one element that several module reports hold into one candidate per element. The
+     * strongest appearance, that is the first in the ranked order, becomes the candidate and names the module it is
+     * read in; the modules of the other appearances are carried beside it. Without the fold the budget of a list is
+     * spent on the same element several times, and the ranks below it are pushed out of the list.
+     *
+     * @param ranked the candidates in their ranked order, strongest first
+     * @return one candidate per element, in the order of the strongest appearance
+     */
+    private static List<AnchorCandidate> foldByElement(List<AnchorCandidate> ranked) {
+        Map<String, AnchorCandidate> byElement = new LinkedHashMap<>();
+        Map<String, List<String>> modulesByElement = new LinkedHashMap<>();
+
+        for (AnchorCandidate candidate : ranked) {
+            String element = candidate.element() == null ? "" : candidate.element();
+
+            if (!byElement.containsKey(element)) {
+                byElement.put(element, candidate);
+                modulesByElement.put(element, new ArrayList<>(candidate.alsoSeenIn()));
+                continue;
+            }
+
+            List<String> modules = modulesByElement.get(element);
+
+            if (candidate.module() != null && !candidate.module().equals(byElement.get(element).module())
+                    && !modules.contains(candidate.module())) {
+                modules.add(candidate.module());
+            }
+        }
+
+        List<AnchorCandidate> folded = new ArrayList<>(byElement.size());
+
+        for (Map.Entry<String, AnchorCandidate> entry : byElement.entrySet()) {
+            AnchorCandidate strongest = entry.getValue();
+            List<String> alsoSeenIn = modulesByElement.get(entry.getKey());
+            List<String> evidence = new ArrayList<>(strongest.evidence());
+
+            if (!alsoSeenIn.isEmpty()) {
+                evidence.add("the reports of the module(s) " + String.join(", ", alsoSeenIn)
+                        + " hold the same element, so it is counted once here");
+            }
+
+            folded.add(new AnchorCandidate(strongest.element(), strongest.module(), List.copyOf(alsoSeenIn),
+                    List.copyOf(evidence), strongest.source()));
+        }
+
+        return folded;
     }
 
     /**
@@ -224,7 +292,9 @@ public class AnchorCandidateTool {
                     ENTRY_POINT_SOURCE));
         }
 
-        return new CandidateSet(ranked.size(), ranked);
+        List<AnchorCandidate> folded = foldByElement(ranked);
+
+        return new CandidateSet(folded.size(), folded);
     }
 
     private static boolean carriesEntryPointEvidence(Map<String, Object> candidate) {
@@ -275,7 +345,9 @@ public class AnchorCandidateTool {
                     SEAM_SOURCE));
         }
 
-        return new CandidateSet(ranked.size(), ranked);
+        List<AnchorCandidate> folded = foldByElement(ranked);
+
+        return new CandidateSet(folded.size(), folded);
     }
 
     private static List<String> seamEvidenceOf(Map<String, Object> seam) {
