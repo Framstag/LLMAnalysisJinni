@@ -24,6 +24,9 @@ public class DocumentCmd implements Callable<Integer> {
     @CommandLine.Option(names={"-p","--document-postfix"}, arity="1", defaultValue = ".adoc", description = "File postfix of the resulting document (including possible '.')")
     String documentPostfix;
 
+    @CommandLine.Option(names={"-t","--template"}, arity="1", defaultValue = "Documentation.adoc", description = "Name (without .hbs extension) of the template under documentation/ to render")
+    String templateName;
+
     @CommandLine.Parameters(index = "0",description = "Path to the working directory where result of analysis is stored")
     Path workingDirectory;
 
@@ -52,7 +55,7 @@ public class DocumentCmd implements Callable<Integer> {
         var handlebars = HandlebarsFactory.create()
                 .with(loader);
 
-        var template = handlebars.compile("Documentation.adoc");
+        var template = handlebars.compile(templateName);
 
         String templateResult = template.apply(stateManager.getStateObject());
 
