@@ -80,6 +80,7 @@ public class Config {
     private int retries;
     private int maxToolRoundTrips;
     private boolean nativeJSON;
+    private boolean useStreaming;
     private boolean logRequests;
     private boolean logResponses;
     private boolean executionTrace;
@@ -98,6 +99,7 @@ public class Config {
         retries = 3;
         maxToolRoundTrips = 10;
         nativeJSON = false;
+        useStreaming = false;
         logRequests = false;
         logResponses = false;
         executionTrace = false;
@@ -261,6 +263,20 @@ public class Config {
         this.nativeJSON = nativeJSON;
     }
 
+    /**
+     * Streams the model response over the response channel instead of one blocking transfer of the
+     * complete answer, so that the time between the first bytes of the transfer and its last ones
+     * never exceeds the idle timeout of a gateway on the way. Only the OpenAI provider supports it;
+     * for any other provider starting a run with it enabled is an error.
+     */
+    public boolean isUseStreaming() {
+        return useStreaming;
+    }
+
+    public void setUseStreaming(boolean useStreaming) {
+        this.useStreaming = useStreaming;
+    }
+
     public void setLogRequests(boolean logRequests) {
         this.logRequests = logRequests;
     }
@@ -302,6 +318,7 @@ public class Config {
                 ", requestTimeout=" + requestTimeout +
                 ", maximumTokens=" + maximumTokens +
                 ", nativeJSON=" + nativeJSON +
+                ", useStreaming=" + useStreaming +
                 ", logRequests=" + logRequests +
                 ", logResponses=" + logResponses +
                 ", taskParallelism=" + taskParallelism +
@@ -425,6 +442,7 @@ public class Config {
         logger.info("Retries:            {} attempt(s) per task step", retries);
         logger.info("Tool round trips:   {} at most per attempt", maxToolRoundTrips);
         logger.info("Native JSON:        {}", nativeJSON);
+        logger.info("Streaming:          {}", useStreaming);
         logger.info("==");
         logger.info("AnalysisDirectory: '{}'", analysisDirectory);
         logger.info("ProjectDirectory:  '{}'", projectDirectory);

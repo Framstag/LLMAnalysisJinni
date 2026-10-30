@@ -1,35 +1,19 @@
 package com.framstag.llmaj.tools.sbom;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.framstag.llmaj.AnalysisContext;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 public class SBOMToolTest {
-    private static final List<String> CURRENT_DEPENDENCIES = List.of(
-        "pkg:maven/ch.qos.logback/logback-classic@1.6.3?type=jar",
-        "pkg:maven/com.fasterxml.jackson.dataformat/jackson-dataformat-yaml@2.22.2?type=jar",
-        "pkg:maven/com.fasterxml.jackson.datatype/jackson-datatype-jdk8@2.22.2?type=jar",
-        "pkg:maven/com.fasterxml.jackson.datatype/jackson-datatype-jsr310@2.22.2?type=jar",
-        "pkg:maven/com.github.javaparser/javaparser-symbol-solver-core@3.28.2?type=jar",
-        "pkg:maven/com.github.jknack/handlebars@4.5.5?type=jar",
-        "pkg:maven/com.networknt/json-schema-validator@3.0.7?type=jar",
-        "pkg:maven/de.siegmar/fastcsv@4.4.0?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-local-ai@1.21.0-beta31?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-mcp@1.21.0-beta31?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-ollama@1.21.0?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j-open-ai@1.21.0?type=jar",
-        "pkg:maven/dev.langchain4j/langchain4j@1.21.0?type=jar",
-        "pkg:maven/info.picocli/picocli@4.7.7?type=jar",
-        "pkg:maven/org.cyclonedx/cyclonedx-core-java@13.2.0?type=jar",
-        "pkg:maven/org.jline/jline-terminal-ffm@4.4.3?type=jar",
-        "pkg:maven/org.jline/jline-terminal@4.4.3?type=jar"
-    );
-
     private static final List<String> CURRENT_LICENSES = List.of(
         "Apache-2.0",
         "BSD-2-Clause",
@@ -86,8 +70,14 @@ public class SBOMToolTest {
                 "the tool result must say what the empty path means, got: " + result);
     }
 
+    /**
+     * The expected direct dependencies are not a hardcoded list (which goes stale on every pom
+     * change) but the direct dependencies of the SBOM this build actually generated: the test
+     * reads target/bom.json as raw JSON with Jackson, a parser the tool under test does not
+     * use, so dependency changes are reflected on both sides.
+     */
     @Test
-    void correctlyReturnApplicationDependencies() {
+    void correctlyReturnApplicationDependencies() throws Exception {
         String result = sbomTool.loadSBOM("target/bom.json");
 
         Assertions.assertEquals("OK", result);
@@ -100,7 +90,28 @@ public class SBOMToolTest {
             .sorted()
             .toList();
 
-            Assertions.assertEquals(CURRENT_DEPENDENCIES, ids);
+        Assertions.assertEquals(directDependenciesOfBomFile(), ids);
+
+        // A single known core dependency must be present, checked version-agnostically so the
+        // anchor itself does not go stale on a version bump. This fails if the selection and its
+        // raw-JSON reference collapse to the same wrong result, which the check above would pass.
+        Assertions.assertTrue(ids.stream().anyMatch(id -> id.startsWith("pkg:maven/dev.langchain4j/langchain4j@")),
+                "the core langchain4j dependency must be part of the selection, got: " + ids);
+    }
+
+    private static List<String> directDependenciesOfBomFile() throws Exception {
+        JsonNode bom = new ObjectMapper().readTree(new File("target/bom.json"));
+
+        String rootRef = bom.path("metadata").path("component").path("bom-ref").asText();
+
+        List<String> directDependencies = new ArrayList<>();
+        bom.path("dependencies").forEach(entry -> {
+            if (entry.path("ref").asText().equals(rootRef)) {
+                entry.path("dependsOn").forEach(ref -> directDependencies.add(ref.asText()));
+            }
+        });
+
+        return directDependencies.stream().sorted().toList();
     }
 
     @Test

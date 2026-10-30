@@ -17,7 +17,8 @@ public record ConfigOverrides(Boolean logRequests,
                               Boolean logResponses,
                               Boolean executionTrace,
                               Boolean executionTraceSystem,
-                              Integer taskParallelism) {
+                              Integer taskParallelism,
+                              Boolean useStreaming) {
 
     /**
      * Where the effective value of a setting came from.
@@ -37,7 +38,7 @@ public record ConfigOverrides(Boolean logRequests,
     /**
      * No command line option was passed.
      */
-    public static final ConfigOverrides NONE = new ConfigOverrides(null, null, null, null, null);
+    public static final ConfigOverrides NONE = new ConfigOverrides(null, null, null, null, null, null);
 
     /**
      * Writes the supplied overrides onto the given configuration, leaving every setting whose
@@ -63,6 +64,10 @@ public record ConfigOverrides(Boolean logRequests,
         if (taskParallelism != null) {
             config.setTaskParallelism(taskParallelism);
         }
+
+        if (useStreaming != null) {
+            config.setUseStreaming(useStreaming);
+        }
     }
 
     /**
@@ -85,7 +90,10 @@ public record ConfigOverrides(Boolean logRequests,
                         config.isProvidedInConfigFile("executionTraceSystem")),
                 resolve("taskParallelism", taskParallelism != null,
                         String.valueOf(config.getTaskParallelism()),
-                        config.isProvidedInConfigFile("taskParallelism")));
+                        config.isProvidedInConfigFile("taskParallelism")),
+                resolve("useStreaming", useStreaming != null,
+                        String.valueOf(config.isUseStreaming()),
+                        config.isProvidedInConfigFile("useStreaming")));
     }
 
     private static Resolution resolve(String setting,

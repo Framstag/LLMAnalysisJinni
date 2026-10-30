@@ -77,6 +77,9 @@ public class AnalyseCmd implements Callable<Integer> {
     @Option(names={"--task-parallelism"}, arity = "1", description = "Number of parallel DAG tasks to execute concurrently")
     Integer taskParallelism;
 
+    @Option(names={"--streaming"}, arity = "1", description = "Stream the model response instead of one blocking transfer (OpenAI provider only)")
+    Boolean useStreaming;
+
     @Spec
     CommandSpec spec;
 
@@ -102,7 +105,8 @@ public class AnalyseCmd implements Callable<Integer> {
                 parseResult.hasMatchedOption("--log-response") ? logResponse : null,
                 parseResult.hasMatchedOption("--execution-trace") ? executionTrace : null,
                 parseResult.hasMatchedOption("--execution-trace-system") ? executionTraceSystem : null,
-                parseResult.hasMatchedOption("--task-parallelism") ? taskParallelism : null);
+                parseResult.hasMatchedOption("--task-parallelism") ? taskParallelism : null,
+                parseResult.hasMatchedOption("--streaming") ? useStreaming : null);
     }
 
     private static void logEffectiveConfiguration(ConfigOverrides overrides, Config config) {

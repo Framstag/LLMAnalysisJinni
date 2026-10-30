@@ -36,6 +36,7 @@ public class AnalyseCmdOptionParsingTest {
         assertNull(overrides.executionTrace());
         assertNull(overrides.executionTraceSystem());
         assertNull(overrides.taskParallelism());
+        assertNull(overrides.useStreaming());
     }
 
     @Test
@@ -73,6 +74,30 @@ public class AnalyseCmdOptionParsingTest {
 
         assertEquals(4, overrides.taskParallelism());
         assertNull(overrides.logRequests(), "a different option must stay absent");
+    }
+
+    @Test
+    public void testStreamingTrueIsAnOverride() {
+        ConfigOverrides overrides = parseOverrides("--streaming", "true");
+
+        assertEquals(Boolean.TRUE, overrides.useStreaming());
+        assertNull(overrides.logRequests(), "a different option must stay absent");
+    }
+
+    @Test
+    public void testStreamingFalseIsStillAnOverride() {
+        ConfigOverrides overrides = parseOverrides("--streaming", "false");
+
+        assertEquals(Boolean.FALSE, overrides.useStreaming(),
+                "passing the default value explicitly must still be an override");
+    }
+
+    @Test
+    public void testStreamingOptionDoesNotConsumeOtherOptions() {
+        ConfigOverrides overrides = parseOverrides("--streaming", "true", "--task-parallelism", "4");
+
+        assertEquals(Boolean.TRUE, overrides.useStreaming());
+        assertEquals(4, overrides.taskParallelism());
     }
 
     private static AnalyseCmd parse(String... arguments) {
