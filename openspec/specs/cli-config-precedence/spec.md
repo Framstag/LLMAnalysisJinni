@@ -45,7 +45,7 @@ Each option that may also be supplied through `config.json` SHALL be able to dis
 
 #### Scenario: Overridable option inventory
 - **WHEN** the effective configuration is computed
-- **THEN** at least the request logging, response logging, console execution trace, system message trace, and task parallelism settings SHALL follow the precedence order
+- **THEN** at least the request logging, response logging, console execution trace, system message trace, task parallelism, and streaming settings SHALL follow the precedence order
 
 ### Requirement: Effective configuration is observable
 

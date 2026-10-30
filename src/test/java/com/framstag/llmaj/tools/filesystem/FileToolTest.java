@@ -51,12 +51,12 @@ public class FileToolTest {
         assertEquals(List.of(
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/ci", List.of("ContinuousIntegrationGateTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/cli", List.of("AnalyseCmdLoopTaskTest.java", "AnalyseCmdOptionParsingTest.java", "AnalyseCmdRetryTest.java", "AnalyseCmdTokenUsageTest.java", "StateTokensCmdTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/config", List.of("ConfigAnalysisReportBudgetsTest.java", "ConfigMaxToolRoundTripsTest.java", "ConfigOverridesTest.java", "ConfigRetriesTest.java", "ConfigStorerTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/config", List.of("ConfigAnalysisReportBudgetsTest.java", "ConfigMaxToolRoundTripsTest.java", "ConfigOverridesTest.java", "ConfigRetriesTest.java", "ConfigStorerTest.java", "ConfigUseStreamingTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/display", List.of("AnsiTest.java", "DisplayDecisionTest.java", "DisplayManagerTest.java", "LoopWorkerRowTest.java", "ProgressDisplayTest.java", "SimpleOutputTest.java", "TaskRowTest.java", "TokenUsageTrackerTest.java")),
 
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/documentation", List.of("AnalysisReferenceTest.java", "DocumentationTemplateTest.java", "IntraModuleDocumentationTemplateTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/json", List.of("JsonHelperSchemaDescriptionTest.java", "JsonHelperTest.java", "ResponsePayloadParserTest.java")),
-                new FilesInDirectory("src/test/java/com/framstag/llmaj/lc4j", List.of("ChatExecutionLoggingTest.java", "ChatExecutorOutcomeTest.java", "ChatExecutorToolErrorTest.java", "ChatExecutorToolRoundBoundTest.java", "ModelCallFailureTest.java", "SchemaViolationReportTest.java", "TaskChatMemoryTest.java", "TaskStepFailureTest.java", "TaskStepOutcomeTest.java", "TaskStepRetrierTest.java", "ToolArgumentsErrorHandlerTest.java")),
+                new FilesInDirectory("src/test/java/com/framstag/llmaj/lc4j", List.of("ChatExecutionLoggingTest.java", "ChatExecutorOutcomeTest.java", "ChatExecutorToolErrorTest.java", "ChatExecutorToolRoundBoundTest.java", "ChatModelFactoryTest.java", "ModelCallFailureTest.java", "SchemaViolationReportTest.java", "StreamingChatModelAdapterTest.java", "TaskChatMemoryTest.java", "TaskStepFailureTest.java", "TaskStepOutcomeTest.java", "TaskStepRetrierTest.java", "ToolArgumentsErrorHandlerTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/logging", List.of("EngineLogRoutingTest.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/smoke", List.of("JarSmokeIT.java", "JarSmokeProbe.java")),
                 new FilesInDirectory("src/test/java/com/framstag/llmaj/state", List.of("StateManagerLoopCursorTest.java")),

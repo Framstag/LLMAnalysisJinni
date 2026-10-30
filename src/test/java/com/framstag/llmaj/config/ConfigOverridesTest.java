@@ -27,7 +27,7 @@ public class ConfigOverridesTest {
         Config config = configWithProvidedProperties("logResponses");
         config.setLogResponses(false);
 
-        new ConfigOverrides(null, true, null, null, null).applyTo(config);
+        new ConfigOverrides(null, true, null, null, null, null).applyTo(config);
 
         assertTrue(config.isLogResponses());
     }
@@ -48,7 +48,7 @@ public class ConfigOverridesTest {
         config.setLogResponses(true);
         config.setExecutionTrace(true);
 
-        new ConfigOverrides(false, null, null, null, null).applyTo(config);
+        new ConfigOverrides(false, null, null, null, null, null).applyTo(config);
 
         assertTrue(config.isLogResponses(), "an option that was not passed must not change the config");
         assertTrue(config.isExecutionTrace(), "an option that was not passed must not change the config");
@@ -60,7 +60,7 @@ public class ConfigOverridesTest {
         Config config = configWithProvidedProperties("logRequests");
         config.setLogRequests(true);
 
-        new ConfigOverrides(false, null, null, null, null).applyTo(config);
+        new ConfigOverrides(false, null, null, null, null, null).applyTo(config);
 
         assertFalse(config.isLogRequests(), "passing the default value explicitly is still an override");
     }
@@ -78,7 +78,7 @@ public class ConfigOverridesTest {
         config.setExecutionTraceSystem(true);
         config.setTaskParallelism(8);
 
-        new ConfigOverrides(null, null, null, null, 4).applyTo(config);
+        new ConfigOverrides(null, null, null, null, 4, null).applyTo(config);
 
         assertEquals(4, config.getTaskParallelism());
         assertTrue(config.isLogRequests());
@@ -93,7 +93,7 @@ public class ConfigOverridesTest {
         config.setLogResponses(true);
         config.setTaskParallelism(8);
 
-        ConfigOverrides overrides = new ConfigOverrides(null, false, null, null, null);
+        ConfigOverrides overrides = new ConfigOverrides(null, false, null, null, null, null);
         overrides.applyTo(config);
 
         assertEquals("false", resolutionOf(overrides, config, "logResponses").value());
@@ -132,6 +132,71 @@ public class ConfigOverridesTest {
                 "a property that the file does not contain must not be reported as provided");
         assertTrue(config.isLogResponses());
         assertEquals(5, config.getTaskParallelism());
+    }
+
+    @Test
+    public void testUseStreamingOverrideIsApplied() {
+        Config config = configWithProvidedProperties();
+
+        new ConfigOverrides(null, null, null, null, null, true).applyTo(config);
+
+        assertTrue(config.isUseStreaming());
+    }
+
+    @Test
+    public void testAbsentUseStreamingOverrideLeavesConfigurationUntouched() {
+        Config config = configWithProvidedProperties("useStreaming");
+        config.setUseStreaming(true);
+
+        ConfigOverrides.NONE.applyTo(config);
+
+        assertTrue(config.isUseStreaming(), "an option that was not passed must not change the config");
+    }
+
+    @Test
+    public void testExplicitFalseOverridesConfigFileTrue() {
+        Config config = configWithProvidedProperties("useStreaming");
+        config.setUseStreaming(true);
+
+        new ConfigOverrides(null, null, null, null, null, false).applyTo(config);
+
+        assertFalse(config.isUseStreaming(), "passing the default value explicitly is still an override");
+    }
+
+    @Test
+    public void testUseStreamingResolutionReportsCommandLineSource() {
+        Config config = configWithProvidedProperties("useStreaming");
+        config.setUseStreaming(true);
+
+        ConfigOverrides overrides = new ConfigOverrides(null, null, null, null, null, false);
+        overrides.applyTo(config);
+
+        assertEquals("false", resolutionOf(overrides, config, "useStreaming").value());
+        assertEquals(ConfigOverrides.Source.COMMAND_LINE,
+                resolutionOf(overrides, config, "useStreaming").source());
+    }
+
+    @Test
+    public void testUseStreamingResolutionReportsConfigFileSource() {
+        Config config = configWithProvidedProperties("useStreaming");
+        config.setUseStreaming(true);
+
+        ConfigOverrides.NONE.applyTo(config);
+
+        assertEquals("true", resolutionOf(ConfigOverrides.NONE, config, "useStreaming").value());
+        assertEquals(ConfigOverrides.Source.CONFIG_FILE,
+                resolutionOf(ConfigOverrides.NONE, config, "useStreaming").source());
+    }
+
+    @Test
+    public void testUseStreamingResolutionReportsDefaultSource() {
+        Config config = configWithProvidedProperties();
+
+        ConfigOverrides.NONE.applyTo(config);
+
+        assertEquals("false", resolutionOf(ConfigOverrides.NONE, config, "useStreaming").value());
+        assertEquals(ConfigOverrides.Source.DEFAULT,
+                resolutionOf(ConfigOverrides.NONE, config, "useStreaming").source());
     }
 
     private static ConfigOverrides.Resolution resolutionOf(ConfigOverrides overrides,
