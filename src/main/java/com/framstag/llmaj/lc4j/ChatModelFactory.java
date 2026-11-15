@@ -6,6 +6,7 @@ import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.localai.LocalAiChatModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 
 import java.time.Duration;
 import java.util.List;
@@ -22,6 +23,15 @@ public class ChatModelFactory {
     private static final int CLIENT_RETRIES_PER_ATTEMPT = 0;
 
     public static ChatModel getChatModel(Config config) {
+        if (config.isUseStreaming() && config.getModelProvider() != ModelProvider.OPENAI) {
+            // Streaming is implemented for the OpenAI provider only. Failing here, at the start of
+            // the run, names the provider a misconfigured workspace has chosen so that no task
+            // step is executed against a model that cannot stream.
+            throw new IllegalStateException("Streaming is not supported for the "
+                    + config.getModelProvider().getName()
+                    + " provider; use the OpenAI provider or disable streaming");
+        }
+
         if (config.getModelProvider() == ModelProvider.OLLAMA) {
             var builder = OllamaChatModel.builder()
                     .modelName(config.getModelName())
@@ -47,6 +57,33 @@ public class ChatModelFactory {
             return builder.build();
         }
         else if (config.getModelProvider() == ModelProvider.OPENAI) {
+            if (config.isUseStreaming()) {
+                // The streamed answer is bridged back to the one blocking transfer the engine's
+                // task steps are built around. The options mirror the synchronous client below,
+                // keeping both transports behaving the same. The streaming builder has no
+                // maxRetries option and the streaming client does not retry on its own, so the
+                // engine stays the single retry authority without setting anything.
+                var builder = OpenAiStreamingChatModel.builder()
+                        .modelName(config.getModelName())
+                        .baseUrl(config.getModelURL().toString())
+                        .apiKey(config.getApiKey())
+                        .timeout(Duration.ofMinutes(config.getRequestTimeout()))
+                        .temperature(0.0)
+                        .topP(0.9)
+                        .sendThinking(false)
+                        .returnThinking(false)
+                        .logRequests(config.isLogRequests())
+                        .logResponses(config.isLogResponses())
+                        .maxTokens(config.getMaximumTokens());
+
+                if (config.isLogRequests() || config.isLogResponses()) {
+                    builder.listeners(List.of(new ChatListener()));
+                }
+
+                return new StreamingChatModelAdapter(builder.build(),
+                        Duration.ofMinutes(config.getRequestTimeout()));
+            }
+
             var builder = OpenAiChatModel.builder()
                     .modelName(config.getModelName())
                     .baseUrl(config.getModelURL().toString())

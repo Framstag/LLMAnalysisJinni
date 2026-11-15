@@ -101,6 +101,7 @@ The default column below is the built-in default, which only applies when neithe
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--task-parallelism` | Number of parallel DAG tasks to execute concurrently | 2 (built-in) |
+| `--use-streaming` | Stream the model response instead of one blocking transfer (OpenAI provider only) | false |
 | `--single-step` | Stop execution after one task (including its loop indices) | false |
 | `--execution-trace` | Show verbose SLF4J chat execution trace on console (disables TUI) | false |
 | `--execution-trace-system` | Show system messages in console execution trace | false |
@@ -235,6 +236,7 @@ The config.json file has the following attributes:
 | requestTimeout    | Request timeout in minutes                                   | 120     |
 | maximumTokens     | The maximum number of tokens                                 | 65536   |
 | nativeJSON        | Use the native JSON support                                  | false   |
+| useStreaming      | Stream the model response instead of one blocking transfer (OpenAI provider only) | false |
 | logRequests       | Log HTTP request                                             | false   |
 | logResponses      | Log TTP responses                                            | false   |
 | taskParallelism   | Number of parallel DAG tasks to execute concurrently         | 2       |

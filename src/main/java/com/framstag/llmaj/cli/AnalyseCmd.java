@@ -77,6 +77,9 @@ public class AnalyseCmd implements Callable<Integer> {
     @Option(names={"--task-parallelism"}, arity = "1", description = "Number of parallel DAG tasks to execute concurrently")
     Integer taskParallelism;
 
+    @Option(names={"--use-streaming"}, arity = "1", description = "Stream the model response instead of one blocking transfer (OpenAI provider only)")
+    Boolean useStreaming;
+
     @Spec
     CommandSpec spec;
 
@@ -102,7 +105,8 @@ public class AnalyseCmd implements Callable<Integer> {
                 parseResult.hasMatchedOption("--log-response") ? logResponse : null,
                 parseResult.hasMatchedOption("--execution-trace") ? executionTrace : null,
                 parseResult.hasMatchedOption("--execution-trace-system") ? executionTraceSystem : null,
-                parseResult.hasMatchedOption("--task-parallelism") ? taskParallelism : null);
+                parseResult.hasMatchedOption("--task-parallelism") ? taskParallelism : null,
+                parseResult.hasMatchedOption("--use-streaming") ? useStreaming : null);
     }
 
     private static void logEffectiveConfiguration(ConfigOverrides overrides, Config config) {
@@ -179,7 +183,17 @@ public class AnalyseCmd implements Callable<Integer> {
             return 1;
         }
 
-        ChatModel model = ChatModelFactory.getChatModel(config);
+        ChatModel model;
+
+        try {
+            model = ChatModelFactory.getChatModel(config);
+        } catch (IllegalStateException e) {
+            // A configuration the factory cannot serve ends the run here, before any task step.
+            // The message names the setting and the provider, so it is reported as one line
+            // instead of a stack trace.
+            logger.error("Cannot create the chat model: {}", e.getMessage());
+            return 1;
+        }
 
         ObjectMapper mapper = ObjectMapperFactory.getJSONObjectMapperInstance();
 
