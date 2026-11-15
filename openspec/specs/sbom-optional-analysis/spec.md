@@ -21,7 +21,22 @@ SHALL be marked failed because dependency data is unavailable.
 
 #### Scenario: Present SBOM is unaffected
 - **WHEN** the project contains an SBOM
-- **THEN** the location, load and dependency tasks SHALL behave as they do today
+- **THEN** the rules of this capability that describe an absent SBOM SHALL NOT apply to it
+- **AND** the location task SHALL record its path and the load task SHALL load it
+- **AND** the tasks that read the dependency data SHALL rest on the dependencies the read of that SBOM reported
+
+#### Scenario: A present SBOM whose read yields nothing is not an absent SBOM
+
+- **WHEN** the project contains an SBOM and its dependency read reports no dependency
+- **THEN** the analysis state SHALL record the reason the read reported
+- **AND** it SHALL NOT record that the project contains no SBOM
+- **AND** the tasks that read the dependency data SHALL answer with an empty result and that reason
+
+#### Scenario: A stored reason names the condition that holds
+
+- **WHEN** a task stores a reason for the absence of dependency data
+- **THEN** the reason SHALL name the condition the read reported, and SHALL NOT state that the project declares no
+  dependency when the read reported that it could not resolve the graph
 
 ### Requirement: The load task does not claim data that does not exist
 

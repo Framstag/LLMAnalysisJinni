@@ -24,5 +24,7 @@ The path of the SBOM file is '{{sbom.path}}'.
 
 * There is an SBOM tool that lists you all licenses found in the SBOM of all direct and transitive
   dependencies.
-* Accept that the list of licenses returned from the tool may be empty and continue with an empty list and an appropriate reason.
+* Accept that the list of licenses returned from the tool may be empty and continue with an empty list and the
+  reason the tool reported. The licenses are read from the components of the SBOM, so an empty list means that the
+  components of the SBOM carry no license, and not that the project uses no licensed dependency.
 * Return the licenses return from the tool call 1:1 in your response.

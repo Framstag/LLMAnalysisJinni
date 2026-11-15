@@ -5,6 +5,7 @@ import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.tools.common.Distribution;
 import com.framstag.llmaj.tools.common.DistributionEntry;
 import com.framstag.llmaj.tools.sbom.AppDependency;
+import com.framstag.llmaj.tools.sbom.AppDependencyRead;
 import com.framstag.llmaj.tools.sbom.SBOMTool;
 import dev.langchain4j.agent.tool.Tool;
 import org.slf4j.Logger;
@@ -18,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 
 /**
  * Aggregates the anchor candidates of the project per anchor type, ranks them and bounds every list by the
@@ -55,10 +55,7 @@ public class AnchorCandidateTool {
     private static final String CUT_POINT_SOURCE = "java_get_all_split_candidates";
     private static final String TEST_COVERAGE_SOURCE = "java_get_all_test_coverage_reports";
     private static final String SBOM_SOURCE = "sbom_get_application_dependencies";
-    private static final String IMPORT_DIVERSITY_SOURCE = "java_get_all_import_diversity_reports";
-
-    /** The suffix the import distribution appends to a prefix it counts as external to the project. */
-    private static final String EXTERNAL_IMPORT_MARKER = " (external)";
+    private static final String IMPORT_TECHNOLOGY_SOURCE = "java_get_import_technology_evidence";
 
     /** Number of names an evidence string lists before it states how many it left out. */
     private static final int NAMED_EVIDENCE_LIMIT = 5;
@@ -544,34 +541,31 @@ public class AnchorCandidateTool {
     }
 
     /**
-     * The direct dependencies of the application and the external import prefixes of the project, the ones the
+     * The direct dependencies of the application and the external namespace prefixes of the project, the ones the
      * project spends the most imports on first. A dependency is ranked by the imports of its namespace, so a
      * dependency the project leans on stands before one it barely mentions.
+     *
+     * <p>The namespaces are read from the consolidated namespace evidence and not from the raw prefix report, so that
+     * an entry which names a type or an array descriptor is no candidate and the budget is not spent on it. The
+     * namespaces of the Java platform and of the project itself are removed by that evidence, and no tool of this
+     * class knows which namespace marks a legacy dependency: that knowledge stays in the marker facts.
      */
     private CandidateSet technologyMarkerCandidates(Map<String, String> skipped,
                                                     List<Map<String, Object>> absentSources) throws IOException {
-        Map<String, Object> diversityReport = javaTool.getAllImportDiversityReports();
-        collectSkipped(skipped, descriptorsOf(diversityReport, "skipped"));
+        Map<String, Object> evidencePayload = javaTool.getImportTechnologyEvidence();
+        collectSkipped(skipped, descriptorsOf(evidencePayload, "skipped"));
 
-        Map<String, Integer> importCounts = new TreeMap<>();
-        Map<String, Set<String>> importingModules = new TreeMap<>();
+        Map<String, Integer> namespaceCounts = new TreeMap<>();
+        Map<String, String> namespaceGroups = new TreeMap<>();
 
-        for (Map<String, Object> moduleReport : descriptorsOf(diversityReport, "reports")) {
-            String moduleName = (String) moduleReport.get("moduleName");
+        for (Map<String, Object> group : descriptorsOf(evidencePayload, "groups")) {
+            String root = String.valueOf(group.get("root"));
 
-            for (Map<String, Object> distribution : descriptorsOf(moduleReport, "report")) {
-                for (Map<String, Object> entry : descriptorsOf(distribution, "entries")) {
-                    String label = String.valueOf(entry.get("value"));
+            for (Map<String, Object> prefix : descriptorsOf(group, "prefixes")) {
+                String namespace = String.valueOf(prefix.get("prefix"));
 
-                    if (!label.endsWith(EXTERNAL_IMPORT_MARKER)) {
-                        continue;
-                    }
-
-                    String prefix = label.substring(0, label.length() - EXTERNAL_IMPORT_MARKER.length());
-
-                    importCounts.merge(prefix, intOf(entry, "count"), Integer::sum);
-                    importingModules.computeIfAbsent(prefix, key -> new TreeSet<>()).add(moduleName);
-                }
+                namespaceCounts.merge(namespace, intOf(prefix, "importCount"), Integer::sum);
+                namespaceGroups.put(namespace, root);
             }
         }
 
@@ -579,31 +573,32 @@ public class AnchorCandidateTool {
 
         for (AppDependency dependency : dependencies(absentSources)) {
             String namespace = namespaceOf(dependency.name());
-            int importCount = importCounts.getOrDefault(namespace, 0);
+            int importCount = namespaceCounts.getOrDefault(namespace, 0);
 
             List<String> evidence = new ArrayList<>();
             evidence.add("version " + (dependency.version() == null ? "unknown" : dependency.version()));
             evidence.add("the SBOM lists it as a direct dependency of the application");
             evidence.add(importCount == 0
                     ? "no import of the project uses the namespace " + namespace
-                    : "the import distribution counts " + importCount + " import(s) of the namespace "
+                    : "the consolidated namespace evidence counts " + importCount + " import(s) of the namespace "
                             + namespace);
 
             candidates.add(new UsageCandidate(
                     new AnchorCandidate(dependency.name(), "", evidence, SBOM_SOURCE), importCount, true));
         }
 
-        for (Map.Entry<String, Integer> entry : importCounts.entrySet()) {
-            Set<String> modules = importingModules.getOrDefault(entry.getKey(), Set.of());
+        for (Map.Entry<String, Integer> entry : namespaceCounts.entrySet()) {
+            String namespace = entry.getKey();
 
             List<String> evidence = List.of(
-                    "the import distribution counts " + entry.getValue() + " import(s) of the prefix "
-                            + entry.getKey(),
-                    "the prefix is imported by " + modules.size() + " module(s): "
-                            + boundedJoin(new ArrayList<>(modules)));
+                    "the consolidated namespace evidence counts " + entry.getValue() + " import(s) of the prefix "
+                            + namespace,
+                    "the prefix belongs to the group " + namespaceGroups.get(namespace)
+                            + " of that evidence",
+                    "the evidence carries no version of the dependency the prefix belongs to");
 
             candidates.add(new UsageCandidate(
-                    new AnchorCandidate(entry.getKey(), "", evidence, IMPORT_DIVERSITY_SOURCE),
+                    new AnchorCandidate(namespace, "", evidence, IMPORT_TECHNOLOGY_SOURCE),
                     entry.getValue(), false));
         }
 
@@ -615,24 +610,27 @@ public class AnchorCandidateTool {
     }
 
     /**
-     * The direct dependencies of the application. A workspace without a loaded SBOM holds none, and that is
-     * stated as an absent source rather than as an empty list without a reason.
+     * The direct dependencies of the application. A workspace whose SBOM read reports no dependency holds none, and
+     * that is stated as an absent source with the reason the read reported rather than as an empty list without a
+     * reason.
      */
     private List<AppDependency> dependencies(List<Map<String, Object>> absentSources) {
-        try {
-            return sbomTool.getApplicationDependencies();
-        } catch (IllegalStateException e) {
-            logger.warn("The SBOM is not loaded, so the technology-marker candidates rest on the import"
-                    + " distribution alone");
+        AppDependencyRead read = sbomTool.getApplicationDependencies();
+
+        if (read.dependencies().isEmpty()) {
+            logger.warn("No dependency of the application is known: {}", read.reason());
 
             Map<String, Object> absentSource = new LinkedHashMap<>();
             absentSource.put("source", SBOM_SOURCE);
-            absentSource.put("reason", "The SBOM is not loaded, so no dependency of the application is counted"
-                    + " and the technology-marker candidates rest on the import distribution alone.");
+            absentSource.put("reason", read.statesReason()
+                    ? read.reason()
+                    : "The read of the SBOM dependencies found no dependency.");
             absentSources.add(absentSource);
 
             return List.of();
         }
+
+        return read.dependencies();
     }
 
     /**

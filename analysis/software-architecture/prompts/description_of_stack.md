@@ -24,4 +24,9 @@ The path of the SBOM file is '{{sbom.path}}'.
   be elements left out or added which are normally not part of the stack.
 * The second paragraph should be a list of derivations, where each bullet point states one
   derivation.
-* Accept that the list of dependencies may be empty and continue with an empty list and an appropriate reason.
+* When you get the list of dependencies, read the `route` and the `reason` of the tool result. When the route is not
+  `root`, say in your first paragraph that the dependencies were read from the project modules of an aggregator build
+  or from the components of the SBOM, and that the list is therefore not the direct dependency list of the root
+  component.
+* Accept that the list of dependencies may be empty and continue with an empty list and the `reason` the tool stated.
+  Do not state a cause of the empty list that the tool did not report.

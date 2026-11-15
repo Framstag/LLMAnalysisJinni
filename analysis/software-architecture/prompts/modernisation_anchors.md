@@ -50,7 +50,7 @@ The context map analysis did not run, so this project holds no context map. The 
 * `build-unit`: the candidates of the type `build-unit`, that is the modules of the project. The evidence names the efferent coupling, the afferent coupling and the instability of the module, and the `source` names the inter module dependency analysis as the source of the counts.
 * `cut-point`: the candidates of the type `cut-point`, that is the places where a module can be cut, taken from the separation ladder and the minimum cut of the class dependency graph analysis. The evidence names the module, the cost of the step and the severed weight, and the `source` names the class dependency graph analysis as the source.
 * `test-coverage`: the candidates of the type `test-coverage`, that is the modules whose test coverage was counted. The evidence names the coverage values of the module, and the `source` names the test coverage analysis as the source of the counts.
-* `technology-marker`: the candidates of the type `technology-marker`, that is the dependencies of the application that the marker facts mark, meaning the dependencies whose group or namespace is one of the legacy namespaces, and the dependencies whose version lies in one of the version ranges at the end of the life of a dependency. The evidence names the dependency, its version, the marker that applies and the `source` that counted it. When the payload names the dependency analysis in `absentSources`, the `technology-marker` anchors are absent and you say so.
+* `technology-marker`: the candidates of the type `technology-marker`. The type has two halves, and every anchor says which half it belongs to. The namespace half is the dependencies whose group or namespace is one of the legacy namespaces of the marker facts; it rests on the namespaces the project's own production code imports, as the import distribution of the anchor candidates counted them. The version range half is the dependencies whose version lies in one of the version ranges at the end of the life of a dependency; it rests on the dependency data of the SBOM. The evidence names the dependency or the namespace, the marker that applies, the version when the dependency data carries one, and the `source` that counted it. When the payload names the dependency analysis in `absentSources`, say that the version range half is unavailable and name the reason it gives.
 
 ### The rank, the evidence and the candidate patterns
 
@@ -69,7 +69,8 @@ The context map analysis did not run, so this project holds no context map. The 
 * The `cut-point` anchors are absent when the separation ladder holds no step for any module.
 * The `build-unit` anchors are absent when the inter module dependency report holds no module.
 * The `test-coverage` anchors are absent when the test coverage report holds no module.
-* The `technology-marker` anchors are absent when the SBOM was not loaded or when the dependency list is empty.
+* The two halves of the `technology-marker` type are reported apart and are never reported as one absence: the namespace half is absent only when the candidate payload holds no namespace of the import distribution, and the version range half is absent when the SBOM was not loaded or when the dependency list is empty, with the reason the payload gives. The type as a whole is absent only when both halves are missing.
+* An anchor of the namespace half states no version: the namespace evidence carries none, so the evidence of such an anchor names the namespace and the marker and says that the version is unknown.
 * The `seam` and the `entry-point` anchors are absent when the Java module reports are missing, so that no class of the project could be counted.
 * The `absentTypes` list is empty only when every anchor type is present.
 
@@ -78,6 +79,7 @@ The context map analysis did not run, so this project holds no context map. The 
 * The anchors rest on the counted evidence of the Java modules alone. A module that is not a Java module, and a class the parser did not see, is not part of the evidence.
 * No change frequency, no age of the code and no ownership is part of this analysis. The history of the project is not read, so an anchor says nothing about how often a place changes or who owns it.
 * The marker knowledge is a snapshot of a date, so a namespace that was renamed after that date is not noticed.
+* The namespace half of the `technology-marker` anchors rests on the imports of the project and not on its declared dependencies, so it states a technology and no version of it. A dependency the project declares but never imports is not part of that half.
 
 ## Hints
 

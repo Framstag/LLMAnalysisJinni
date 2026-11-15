@@ -322,9 +322,55 @@ class AnchorCandidateToolTest {
         assertTrue(((String) absentSources.getFirst().get("reason")).contains("SBOM is not loaded"),
                 absentSources.toString());
 
-        assertEquals("java_get_all_import_diversity_reports",
-                candidatesOf(result, AnchorCandidateTool.TECHNOLOGY_MARKER_ANCHOR_TYPE).getFirst().get("source"),
-                "without an SBOM the technology markers rest on the import distribution alone");
+        assertTrue(candidatesOf(result, AnchorCandidateTool.TECHNOLOGY_MARKER_ANCHOR_TYPE).isEmpty(),
+                "the project imports no namespace outside its own modules, so there is no namespace evidence");
+    }
+
+    /**
+     * The technology markers rest on the consolidated namespace evidence, which removes the entries that name a type,
+     * an array descriptor and the project itself. Those entries used to reach the candidate list and spend its budget.
+     */
+    @Test
+    void theTechnologyMarkersRestOnTheConsolidatedNamespaceEvidence() throws Exception {
+        Module library = moduleWithImports("lib", "demo.lib", List.of(
+                "org.slf4j.Logger",
+                "picocli.CommandLine",
+                "[Lorg.example.Foo",
+                "demo.lib.Model"));
+
+        writeReport("lib", library);
+
+        AnalysisContext context = contextOf(Map.of(), "lib");
+        AnchorCandidateTool tool = new AnchorCandidateTool(context, new JavaTool(context), new SBOMTool(context));
+
+        Map<String, Object> result = tool.getAnchorCandidates();
+        List<Map<String, Object>> candidates = candidatesOf(result, AnchorCandidateTool.TECHNOLOGY_MARKER_ANCHOR_TYPE);
+
+        assertEquals(List.of("org.slf4j"), candidates.stream().map(candidate -> candidate.get("element")).toList(),
+                "the ordinary namespace is the only evidence, got: " + candidates);
+        assertEquals("java_get_import_technology_evidence", candidates.getFirst().get("source"),
+                "the candidate names the evidence that counted the namespace");
+
+        for (Map<String, Object> candidate : candidates) {
+            assertTrue(!String.valueOf(candidate.get("element")).startsWith("["),
+                    "an array descriptor is no candidate: " + candidate);
+            assertTrue(!String.valueOf(candidate.get("element")).startsWith("demo."),
+                    "the namespace of the project is no candidate: " + candidate);
+            assertTrue(!String.valueOf(candidate.get("element")).contains("CommandLine"),
+                    "an entry that names a type is no candidate: " + candidate);
+        }
+    }
+
+    private static Module moduleWithImports(String moduleName, String packageName, List<String> imports) {
+        Package pck = new Package(packageName);
+
+        pck.addBuildUnit(buildUnit(packageName + ".Service", imports, List.of(),
+                List.of(plainClass(packageName + ".Service"))));
+
+        Module module = new Module(moduleName);
+        module.addPackage(pck);
+
+        return module;
     }
 
     @Test

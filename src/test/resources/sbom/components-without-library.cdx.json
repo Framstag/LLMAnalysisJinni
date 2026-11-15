@@ -1,0 +1,23 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "type": "application",
+      "bom-ref": "pkg:maven/org.example/demo@1.0.0",
+      "group": "org.example",
+      "name": "demo",
+      "version": "1.0.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/com.example/app-core@1.0.0?project_path=%3Aapp-core",
+      "group": "com.example",
+      "name": "app-core",
+      "version": "1.0.0"
+    }
+  ]
+}

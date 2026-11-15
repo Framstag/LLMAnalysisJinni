@@ -63,6 +63,7 @@ Tasks execute in dependency order, roughly: **project-wide information** → **m
 | 42 | Find the places of the project a modernisation can attach to, and the patterns that fit them | `ModernisationAnchors` | Java, cross-module | ⏳ Experimental |
 | 43 | Find the classes of the project that change often and that are complicated; the method and its limits are described in [Analysis Methods and Interpretation](#analysis-methods-and-interpretation) | `HotspotEvaluation` | Java, all modules | ⏳ Experimental |
 | 44 | Judge the modernisation areas of the project, with the patterns that fit them and the figures the cost of a change rests on; the method and its limits are described in [Analysis Methods and Interpretation](#analysis-methods-and-interpretation) | `ModernisationStrategy` | Java, cross-module | ⏳ Experimental |
+| 45 | Name the technologies the project uses from the namespaces its own production code imports, without a dependency artifact and without a version | `TechnologyEvidence` | Java, all modules | ⏳ Experimental |
 ### Quality Key
 
 | Rating | Meaning |

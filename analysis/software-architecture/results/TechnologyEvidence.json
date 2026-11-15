@@ -1,0 +1,76 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "TechnologyEvidence",
+    "description": "The technologies the namespaces of the project name",
+    "type": "object",
+    "properties": {
+        "reasoning": {
+            "type": "string",
+            "description": "Short description of reasoning behind the given result"
+        },
+        "limit": {
+            "type": "string",
+            "description": "What this classification cannot see: that a namespace group is coarser than an artifact and that the evidence carries no version"
+        },
+        "technologies": {
+            "type": "array",
+            "description": "The technologies the project uses, each resting on the namespaces that name it",
+            "items": {
+                "type": "object",
+                "title": "Technology",
+                "description": "A technology the namespaces of the project name",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the technology, or of the family of libraries that the namespaces belong to"
+                    },
+                    "namespaces": {
+                        "type": "array",
+                        "description": "The namespace prefixes that name this technology, as the evidence spelled them",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "reasoning": {
+                        "type": "string",
+                        "description": "Why these namespaces name this technology"
+                    }
+                },
+                "required": [
+                    "name",
+                    "namespaces",
+                    "reasoning"
+                ]
+            }
+        },
+        "unplaced": {
+            "type": "array",
+            "description": "The namespaces this classification could not place, with the reason",
+            "items": {
+                "type": "object",
+                "title": "UnplacedNamespace",
+                "description": "A namespace group that names no technology the classification recognises",
+                "properties": {
+                    "namespace": {
+                        "type": "string",
+                        "description": "The namespace root or prefix that could not be placed"
+                    },
+                    "reasoning": {
+                        "type": "string",
+                        "description": "Why no technology is named for it"
+                    }
+                },
+                "required": [
+                    "namespace",
+                    "reasoning"
+                ]
+            }
+        }
+    },
+    "required": [
+        "reasoning",
+        "limit",
+        "technologies",
+        "unplaced"
+    ]
+}

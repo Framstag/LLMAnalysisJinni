@@ -12,6 +12,8 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -244,45 +246,175 @@ public class SBOMTool {
     @Tool(name="sbom_get_application_dependencies",
             value =
                     """
-                    Return all direct dependencies of the application from the loaded SBOM file.
+                    Return the dependencies of the application from the loaded SBOM file.
+
+                    The result names the route the read took, so that a list which rests on a fallback is not read
+                    as the direct dependency list of the root component, and it carries the reason when the read
+                    found no dependency or had to take a fallback.
                     """)
-    public List<AppDependency> getApplicationDependencies() {
+    public AppDependencyRead getApplicationDependencies() {
         logger.info("## SBOMApplicationDependencies()");
 
-        assertSBOMLoaded();
+        if (bom == null) {
+            // A bare empty list reads as a property of the project, so the read says what it misses instead.
+            String reason = "The SBOM is not loaded, so no dependency of the application is known.";
 
-        String id = bom.getMetadata().getComponent().getBomRef();
+            logger.info("## SBOMApplicationDependencies() => {}", reason);
 
-        logger.info("Root component has bom-ref '{}'", id);
-
-
-        Map<String,Dependency> dependencyMap = bom.getDependencies()
-                .stream()
-                .collect(Collectors.toMap(Dependency::getRef, Function.identity()));
-
-        Map<String,Component> componentMap = bom.getComponents()
-                .stream()
-                .collect(Collectors.toMap(Component::getBomRef, Function.identity()));
-
-        logger.info("Finding dependency entry for root component ...");
-
-        Dependency rootDependency = dependencyMap.get(id);
-
-        if (rootDependency == null) {
-            logger.error("No root dependency found in SBOM for id '{}'", id);
-            return List.of();
+            return new AppDependencyRead(List.of(), AppDependencyRead.ROUTE_NONE, reason, 0, 0);
         }
 
-        logger.info("Finding direct dependencies of root component ...");
+        List<Component> components = bom.getComponents() == null ? List.of() : bom.getComponents();
+        List<Dependency> graph = bom.getDependencies() == null ? List.of() : bom.getDependencies();
 
-        return  rootDependency.getDependencies()
-                .stream()
-                .map(dependency -> componentMap.get(dependency.getRef()))
-                .map(component -> new AppDependency(
-                        component.getBomRef(),
-                        concatinateGroupIdAndName(component.getGroup(),component.getName()),
-                        component.getVersion()))
-                .collect(Collectors.toList());
+        Map<String, Component> componentMap = components.stream()
+                .filter(component -> component.getBomRef() != null)
+                .collect(Collectors.toMap(Component::getBomRef, Function.identity(), (first, second) -> first));
+
+        Map<String, Dependency> dependencyMap = graph.stream()
+                .filter(dependency -> dependency.getRef() != null)
+                .collect(Collectors.toMap(Dependency::getRef, Function.identity(), (first, second) -> first));
+
+        String rootReference = rootReference();
+
+        logger.info("Root component has bom-ref '{}'", rootReference);
+
+        return readDependencies(components, graph, componentMap, dependencyMap, rootReference);
+    }
+
+    /**
+     * Resolves the root of the dependency graph through the routes a CycloneDX SBOM offers and reports the route it
+     * took. A tool that writes the root entry is read through that entry; a tool that writes one entry per project
+     * module of an aggregator build is read through those entries; and an SBOM whose graph resolves neither is read
+     * through its components, which the result states as not being a direct dependency list.
+     */
+    private AppDependencyRead readDependencies(List<Component> components,
+                                               List<Dependency> graph,
+                                               Map<String, Component> componentMap,
+                                               Map<String, Dependency> dependencyMap,
+                                               String rootReference) {
+        List<String> references;
+        String route;
+        String reason = "";
+
+        Dependency rootEntry = rootReference.isEmpty() ? null : dependencyMap.get(rootReference);
+
+        if (rootEntry != null) {
+            logger.info("Finding direct dependencies of root component ...");
+
+            route = AppDependencyRead.ROUTE_ROOT;
+            references = referencesOf(List.of(rootEntry));
+        } else {
+            List<Dependency> moduleEntries = graph.stream()
+                    .filter(entry -> isProjectReference(entry.getRef()))
+                    .toList();
+
+            if (!moduleEntries.isEmpty()) {
+                logger.info("The graph holds no entry for '{}', reading the {} project module entries instead",
+                        rootReference, moduleEntries.size());
+
+                route = AppDependencyRead.ROUTE_PROJECT_MODULES;
+                references = referencesOf(moduleEntries);
+                reason = "The dependency graph of the SBOM holds no entry for the reference of the root component '"
+                        + rootReference + "', so the dependencies were read from the entries of the "
+                        + moduleEntries.size() + " project modules of the aggregator build instead.";
+            } else {
+                logger.info("The graph of the SBOM holds no usable entry for '{}', reading its components",
+                        rootReference);
+
+                route = AppDependencyRead.ROUTE_COMPONENTS;
+                references = components.stream()
+                        .map(Component::getBomRef)
+                        .filter(reference -> reference != null)
+                        .toList();
+                reason = "The dependency graph of the SBOM holds no entry for the reference of the root component '"
+                        + rootReference + "' and no entry of a project module, so the read rests on the components"
+                        + " of the SBOM. That is not a direct dependency list: it does not tell a direct dependency"
+                        + " from a transitive one.";
+            }
+        }
+
+        Map<String, AppDependency> dependencies = new LinkedHashMap<>();
+        int projectComponentsLeftOut = 0;
+
+        for (String reference : references) {
+            Component component = componentMap.get(reference);
+
+            if (component == null) {
+                continue;
+            }
+
+            if (isProjectReference(component.getBomRef())) {
+                projectComponentsLeftOut++;
+                continue;
+            }
+
+            dependencies.putIfAbsent(component.getBomRef(), new AppDependency(
+                    component.getBomRef(),
+                    concatinateGroupIdAndName(component.getGroup(), component.getName()),
+                    component.getVersion()));
+        }
+
+        List<AppDependency> result = new ArrayList<>(dependencies.values());
+
+        if (result.isEmpty() && reason.isEmpty()) {
+            // No dependency and no fallback: the read is empty and has to say why, because the reason is what the
+            // consumers of the read answer with.
+            reason = "The dependency graph of the SBOM holds an entry for the reference of the root component '"
+                    + rootReference + "', but that entry names no component of the SBOM, so the read found no"
+                    + " dependency.";
+        }
+
+        if (result.isEmpty() && !reason.isEmpty()) {
+            reason = reason + " No dependency of the application was found this way.";
+        }
+
+        if (projectComponentsLeftOut > 0) {
+            logger.info("Left out {} component(s) that are modules of the project", projectComponentsLeftOut);
+        }
+
+        logger.info("## SBOMApplicationDependencies() => route '{}', {} dependency(ies)", route, result.size());
+
+        return new AppDependencyRead(result, route, reason, components.size(), projectComponentsLeftOut);
+    }
+
+    /**
+     * @return the reference of the root component as the metadata of the SBOM states it, empty when the SBOM holds
+     *         no metadata, no component or no reference
+     */
+    private String rootReference() {
+        Metadata metadata = bom.getMetadata();
+
+        if (metadata == null || metadata.getComponent() == null || metadata.getComponent().getBomRef() == null) {
+            return "";
+        }
+
+        return metadata.getComponent().getBomRef();
+    }
+
+    private static List<String> referencesOf(List<Dependency> entries) {
+        List<String> references = new ArrayList<>();
+
+        for (Dependency entry : entries) {
+            if (entry.getDependencies() == null) {
+                continue;
+            }
+
+            for (Dependency dependency : entry.getDependencies()) {
+                if (dependency.getRef() != null) {
+                    references.add(dependency.getRef());
+                }
+            }
+        }
+
+        return references;
+    }
+
+    /**
+     * @return true when the reference belongs to a project module of an aggregator build rather than to a library
+     */
+    private static boolean isProjectReference(String reference) {
+        return reference != null && reference.contains(AppDependencyRead.PROJECT_PATH_QUALIFIER);
     }
 
     @Tool(name="sbom_write_license_reports",

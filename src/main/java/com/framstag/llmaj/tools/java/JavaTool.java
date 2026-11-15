@@ -11,6 +11,7 @@ import com.framstag.llmaj.config.Config;
 import com.framstag.llmaj.file.FileHelper;
 import com.framstag.llmaj.json.ObjectMapperFactory;
 import com.framstag.llmaj.tools.common.Distribution;
+import com.framstag.llmaj.tools.common.DistributionEntry;
 import com.framstag.llmaj.tools.java.graph.DependencyDiagrams;
 import com.framstag.llmaj.tools.java.graph.GraphEdge;
 import com.framstag.llmaj.tools.java.graph.IntraModuleGraph;
@@ -63,6 +64,31 @@ public class JavaTool {
     private final Map<String, Module> moduleMapCache = new HashMap<>();
 
     private static final String JAVA_REPORT_SUBDIRECTORY = "Java";
+
+    /** Number of root groups a workspace is seeded with for the consolidated external namespace evidence. */
+    public static final int DEFAULT_TECHNOLOGY_EVIDENCE_GROUPS = 40;
+
+    /** Number of namespace prefixes a workspace is seeded with for one root group. */
+    public static final int DEFAULT_TECHNOLOGY_EVIDENCE_PREFIXES_PER_GROUP = 10;
+
+    /** The distribution of the import report that counts the imports of the production code. */
+    private static final String PRODUCTION_IMPORT_DISTRIBUTION = "Import distribution production code";
+
+    /** The suffix the import distribution appends to a prefix it counted as external to the module. */
+    private static final String EXTERNAL_PREFIX_MARKER = " (external)";
+
+    /** The suffix the import distribution appends to a prefix it counted as internal to the module. */
+    private static final String INTERNAL_PREFIX_MARKER = " (internal)";
+
+    /**
+     * The root segments of the namespaces of the Java platform itself. Their imports say nothing about the
+     * technology of a project, because every Java project uses them. The {@code javax} and {@code jakarta}
+     * namespaces are deliberately absent: the marker facts key a legacy dependency by them.
+     */
+    private static final Set<String> PLATFORM_NAMESPACE_ROOTS = Set.of("java", "jdk", "sun");
+
+    /** The one platform namespace whose root segment is shared with ordinary namespaces. */
+    private static final String COM_SUN_NAMESPACE = "com.sun";
 
     public JavaTool(AnalysisContext context) {
         this.context = context;
@@ -2200,6 +2226,261 @@ return List.of(pd, td, gd);
                     """)
     public Map<String, Object> getAllImportDiversityReports() throws IOException {
         return getAllModuleMetricReports("Import diversity", this::getImportDiversityReport);
+    }
+
+    /**
+     * Consolidates the import distribution of the whole project into the external namespace prefixes its production
+     * code imports, grouped by the first segment of the prefix.
+     *
+     * <p>The fold is the input of the classification of the technology of a project that holds no dependency data.
+     * It carries namespaces and counts and nothing else: an import distribution holds no artifact, no version and no
+     * license, so none of them can be derived from it.
+     *
+     * <p>An entry whose second segment names a type rather than a package contributes to the group of its first
+     * segment and is not reported as a prefix, because the two segment fold of the import distribution cannot tell
+     * {@code package.subpackage} from {@code package.Type}.
+     */
+    @Tool(name = "java_get_import_technology_evidence",
+            value = """
+                    Returns the external namespace prefixes the project imports, consolidated over all of its modules
+                    and grouped by the first segment of the prefix.
+
+                    The evidence is the imports of production code. The namespaces of the Java platform itself and
+                    the namespaces of the project are removed, because neither tells the technology of the project
+                    apart from any other Java project.
+
+                    An entry holds a namespace prefix and the number of imports that use it. It holds no artifact,
+                    no version and no license, and none of them can be derived from it.
+
+                    Every list is bounded by the workspace properties "technologyEvidence.groups" and
+                    "technologyEvidence.prefixesPerGroup", and beside each bounded list the result states how many
+                    groups or prefixes the project holds, so that a bounded list can be told apart from a complete
+                    one.
+
+                    When no external namespace was counted at all, the result is empty and states the reason.
+                    """)
+    public Map<String, Object> getImportTechnologyEvidence() throws IOException {
+        int groupsBudget = Config.getBudget(context.getProperties(),
+                Config.TECHNOLOGY_EVIDENCE_GROUPS_PROPERTY, DEFAULT_TECHNOLOGY_EVIDENCE_GROUPS);
+        int prefixesBudget = Config.getBudget(context.getProperties(),
+                Config.TECHNOLOGY_EVIDENCE_PREFIXES_PER_GROUP_PROPERTY,
+                DEFAULT_TECHNOLOGY_EVIDENCE_PREFIXES_PER_GROUP);
+
+        logger.info("## GetImportTechnologyEvidence({} group(s), {} prefix(es) per group)",
+                groupsBudget, prefixesBudget);
+
+        List<String> moduleNames = getJavaModuleNames(context.getAnalysisState());
+
+        Map<String, Integer> externalPrefixes = new TreeMap<>();
+        Set<String> projectNamespaces = new TreeSet<>();
+        List<Map<String, Object>> skipped = new ArrayList<>();
+
+        for (String moduleName : moduleNames) {
+            List<Distribution> distributions;
+
+            try {
+                // The namespace of the module itself is the project namespace, whether or not another module
+                // imports it. A module nobody imports would otherwise contribute no namespace to the set, and its
+                // packages would be counted as external evidence.
+                String projectNamespace = determineProjectNamespace(getModuleReport(moduleName));
+
+                if (projectNamespace != null && !projectNamespace.isBlank()) {
+                    projectNamespaces.add(projectNamespace);
+                }
+
+                distributions = getImportDiversityReport(moduleName);
+            } catch (IOException e) {
+                skipped.add(moduleReportDescriptor(moduleName, "ERROR", moduleNameToReportName(moduleName),
+                        "Could not load or compute the import distribution: " + e.getMessage()));
+                continue;
+            }
+
+            for (Distribution distribution : distributions) {
+                if (!PRODUCTION_IMPORT_DISTRIBUTION.equals(distribution.getName())) {
+                    continue;
+                }
+
+                for (DistributionEntry entry : distribution.getEntries()) {
+                    String label = entry.getValue();
+                    int count = entry.getCount() == null ? 0 : entry.getCount();
+
+                    if (label.endsWith(INTERNAL_PREFIX_MARKER)) {
+                        projectNamespaces.add(
+                                label.substring(0, label.length() - INTERNAL_PREFIX_MARKER.length()));
+                    } else if (label.endsWith(EXTERNAL_PREFIX_MARKER)) {
+                        externalPrefixes.merge(
+                                label.substring(0, label.length() - EXTERNAL_PREFIX_MARKER.length()),
+                                count, Integer::sum);
+                    }
+                }
+            }
+        }
+
+        Map<String, Integer> groupCounts = new TreeMap<>();
+        Map<String, Map<String, Integer>> groupPrefixes = new TreeMap<>();
+
+        for (Map.Entry<String, Integer> entry : externalPrefixes.entrySet()) {
+            String prefix = entry.getKey();
+
+            if (isArrayDescriptor(prefix) || isPlatformNamespace(prefix)
+                    || isProjectNamespace(prefix, projectNamespaces)) {
+                continue;
+            }
+
+            String root = rootOf(prefix);
+
+            if (root.isEmpty()) {
+                continue;
+            }
+
+            groupCounts.merge(root, entry.getValue(), Integer::sum);
+
+            if (!isTypeShaped(prefix)) {
+                groupPrefixes.computeIfAbsent(root, key -> new TreeMap<>()).merge(prefix, entry.getValue(),
+                        Integer::sum);
+            }
+        }
+
+        List<Map<String, Object>> groups = groupCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed()
+                        .thenComparing(Map.Entry.comparingByKey()))
+                .limit(groupsBudget)
+                .map(entry -> technologyEvidenceGroup(entry.getKey(), entry.getValue(),
+                        groupPrefixes.getOrDefault(entry.getKey(), Map.of()), prefixesBudget))
+                .toList();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("groups", groups);
+        result.put("returnedGroups", groups.size());
+        result.put("totalGroups", groupCounts.size());
+        result.put("groupsLimit", groupsBudget);
+        result.put("prefixesPerGroupLimit", prefixesBudget);
+        result.put("reason", technologyEvidenceReason(moduleNames, groupCounts));
+        result.put("skipped", skipped);
+
+        logger.info("## GetImportTechnologyEvidence() => {} of {} group(s)", groups.size(), groupCounts.size());
+
+        return result;
+    }
+
+    private Map<String, Object> technologyEvidenceGroup(String root,
+                                                        int importCount,
+                                                        Map<String, Integer> prefixes,
+                                                        int prefixesBudget) {
+        List<Map<String, Object>> boundedPrefixes = prefixes.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed()
+                        .thenComparing(Map.Entry.comparingByKey()))
+                .limit(prefixesBudget)
+                .map(entry -> {
+                    Map<String, Object> prefix = new LinkedHashMap<>();
+                    prefix.put("prefix", entry.getKey());
+                    prefix.put("importCount", entry.getValue());
+                    return prefix;
+                })
+                .toList();
+
+        Map<String, Object> group = new LinkedHashMap<>();
+        group.put("root", root);
+        group.put("importCount", importCount);
+        group.put("prefixes", boundedPrefixes);
+        group.put("returnedPrefixes", boundedPrefixes.size());
+        group.put("totalPrefixes", prefixes.size());
+
+        return group;
+    }
+
+    /**
+     * @return the reason the evidence is empty, as a statement about the input and not about the project
+     */
+    private String technologyEvidenceReason(List<String> moduleNames, Map<String, Integer> groupCounts) {
+        if (!groupCounts.isEmpty()) {
+            return "";
+        }
+
+        if (moduleNames.isEmpty()) {
+            return "No module of the project holds a parsed Java report, so no import was counted and no external"
+                    + " namespace is known.";
+        }
+
+        return "The production code of the " + moduleNames.size() + " module(s) of the project imports no namespace"
+                + " outside the Java platform and outside the project itself, so no external namespace is known.";
+    }
+
+    private static String rootOf(String prefix) {
+        int separator = prefix.indexOf('.');
+
+        return separator < 0 ? prefix : prefix.substring(0, separator);
+    }
+
+    /**
+     * @return true when the entry is a type descriptor that reached the import distribution as a prefix, which
+     *         carries no namespace of its own. An array descriptor of the Java platform arrives as {@code .byte[]}
+     *         and one of a reference type as {@code [Lorg.example.Foo}; both are type descriptors and not packages.
+     */
+    private static boolean isArrayDescriptor(String prefix) {
+        return prefix.startsWith("[") || prefix.startsWith(".") || prefix.contains("[");
+    }
+
+    /**
+     * @return true when the prefix belongs to the Java platform itself, which every Java project uses and which
+     *         therefore tells nothing about the technology of this project
+     */
+    private static boolean isPlatformNamespace(String prefix) {
+        String root = rootOf(prefix);
+
+        if (PLATFORM_NAMESPACE_ROOTS.contains(root)) {
+            return true;
+        }
+
+        // com.sun is the one platform namespace whose root segment is shared with ordinary namespaces.
+        return prefix.equals(COM_SUN_NAMESPACE) || prefix.startsWith(COM_SUN_NAMESPACE + ".");
+    }
+
+    /**
+     * @return true when the second segment of the prefix names a type rather than a package, which the two segment
+     *         fold of the import distribution cannot tell apart
+     */
+    private static boolean isTypeShaped(String prefix) {
+        int firstDot = prefix.indexOf('.');
+
+        if (firstDot < 0 || firstDot + 1 >= prefix.length()) {
+            return false;
+        }
+
+        int secondDot = prefix.indexOf('.', firstDot + 1);
+        String secondSegment = secondDot < 0
+                ? prefix.substring(firstDot + 1)
+                : prefix.substring(firstDot + 1, secondDot);
+
+        if (secondSegment.isEmpty()) {
+            return false;
+        }
+
+        return Character.isUpperCase(secondSegment.charAt(0)) || secondSegment.contains("$");
+    }
+
+    /**
+     * @return true when the prefix names the project itself. Every namespace of the project counts, because a
+     *         multi module project imports the packages of its own modules as if they were external.
+     *
+     *         <p>A bare root segment is only compared by equality, because a project namespace of
+     *         {@code org.example} would otherwise remove the whole {@code org} group together with every library
+     *         the project uses from it.
+     */
+    private static boolean isProjectNamespace(String prefix, Set<String> projectNamespaces) {
+        boolean isRootSegment = prefix.indexOf('.') < 0;
+
+        for (String namespace : projectNamespaces) {
+            if (namespace.equals(prefix) || prefix.startsWith(namespace + ".")) {
+                return true;
+            }
+
+            if (!isRootSegment && namespace.startsWith(prefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @Tool(name = "java_get_inter_module_dependency_report",

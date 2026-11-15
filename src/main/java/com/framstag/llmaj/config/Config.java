@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.framstag.llmaj.tools.java.AnchorCandidateTool;
 import com.framstag.llmaj.tools.java.GodClassRanking;
+import com.framstag.llmaj.tools.java.JavaTool;
 import com.framstag.llmaj.tools.java.graph.DependencyDiagrams;
 import com.framstag.llmaj.tools.java.graph.MinimumCut;
 import com.framstag.llmaj.tools.java.language.DomainLanguageSettings;
@@ -69,6 +70,13 @@ public class Config {
 
     /** Number of anchor candidates the modernisation anchor analysis reads per anchor type. */
     public static final String ANCHOR_CANDIDATES_PER_TYPE_PROPERTY = "anchor.candidatesPerType";
+
+    /** Number of root groups the consolidated external namespace evidence carries. */
+    public static final String TECHNOLOGY_EVIDENCE_GROUPS_PROPERTY = "technologyEvidence.groups";
+
+    /** Number of namespace prefixes the consolidated external namespace evidence carries per root group. */
+    public static final String TECHNOLOGY_EVIDENCE_PREFIXES_PER_GROUP_PROPERTY =
+            "technologyEvidence.prefixesPerGroup";
 
     private Path projectDirectory;
     private Path analysisDirectory;
@@ -146,6 +154,10 @@ public class Config {
                 Double.toString(ContextMapSettings.DEFAULT_UBIQUITOUS_MODULE_SHARE));
         properties.put(ANCHOR_CANDIDATES_PER_TYPE_PROPERTY,
                 Integer.toString(AnchorCandidateTool.DEFAULT_CANDIDATES_PER_TYPE));
+        properties.put(TECHNOLOGY_EVIDENCE_GROUPS_PROPERTY,
+                Integer.toString(JavaTool.DEFAULT_TECHNOLOGY_EVIDENCE_GROUPS));
+        properties.put(TECHNOLOGY_EVIDENCE_PREFIXES_PER_GROUP_PROPERTY,
+                Integer.toString(JavaTool.DEFAULT_TECHNOLOGY_EVIDENCE_PREFIXES_PER_GROUP));
     }
 
     @JsonIgnore

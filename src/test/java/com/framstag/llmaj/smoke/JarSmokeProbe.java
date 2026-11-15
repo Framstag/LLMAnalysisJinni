@@ -134,7 +134,7 @@ public final class JarSmokeProbe {
                 return;
             }
 
-            int dependencyCount = sbomTool.getApplicationDependencies().size();
+            int dependencyCount = sbomTool.getApplicationDependencies().dependencies().size();
 
             System.out.println(SBOM_DEPENDENCIES_KEY + dependencyCount);
 

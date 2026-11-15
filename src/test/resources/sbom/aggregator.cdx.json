@@ -1,0 +1,69 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "type": "application",
+      "bom-ref": "pkg:maven/org.example/demo@1.0.0?project_path=%3A",
+      "group": "org.example",
+      "name": "demo",
+      "version": "1.0.0",
+      "purl": "pkg:maven/org.example/demo@1.0.0?project_path=%3A"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/com.example/app-core@1.0.0?project_path=%3Aapp-core",
+      "group": "com.example",
+      "name": "app-core",
+      "version": "1.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/com.example/app-web@1.0.0?project_path=%3Aapp-web",
+      "group": "com.example",
+      "name": "app-web",
+      "version": "1.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.slf4j/slf4j-api@2.0.16?type=jar",
+      "group": "org.slf4j",
+      "name": "slf4j-api",
+      "version": "2.0.16"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.17.2?type=jar",
+      "group": "com.fasterxml.jackson.core",
+      "name": "jackson-databind",
+      "version": "2.17.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.junit.jupiter/junit-jupiter@5.10.2?type=jar",
+      "group": "org.junit.jupiter",
+      "name": "junit-jupiter",
+      "version": "5.10.2"
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "pkg:maven/com.example/app-core@1.0.0?project_path=%3Aapp-core",
+      "dependsOn": [
+        "pkg:maven/org.slf4j/slf4j-api@2.0.16?type=jar",
+        "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.17.2?type=jar",
+        "pkg:maven/com.example/app-web@1.0.0?project_path=%3Aapp-web"
+      ]
+    },
+    {
+      "ref": "pkg:maven/com.example/app-web@1.0.0?project_path=%3Aapp-web",
+      "dependsOn": [
+        "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.17.2?type=jar",
+        "pkg:maven/org.junit.jupiter/junit-jupiter@5.10.2?type=jar"
+      ]
+    }
+  ]
+}

@@ -649,3 +649,17 @@ tags:
   - modernisation_strategy_evaluation
 toolWhitelist:
   - java_get_anchor_candidates
+---
+id: TechnologyEvidence
+name: Classify the technologies the project uses
+prompt: prompts/technology_evidence.md
+systemPrompt: prompts/systemprompt.md
+responseFormat: results/TechnologyEvidence.json
+responseProperty: technologyEvidence
+active: true
+dependsOn:
+  - module_analysis_reports_all
+tags:
+  - technology_evidence
+toolWhitelist:
+  - java_get_import_technology_evidence

@@ -1,0 +1,37 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "type": "application",
+      "bom-ref": "pkg:maven/org.example/demo@1.0.0",
+      "group": "org.example",
+      "name": "demo",
+      "version": "1.0.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/com.example/app-core@1.0.0?project_path=%3Aapp-core",
+      "group": "com.example",
+      "name": "app-core",
+      "version": "1.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.slf4j/slf4j-api@2.0.16?type=jar",
+      "group": "org.slf4j",
+      "name": "slf4j-api",
+      "version": "2.0.16"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.apache.commons/commons-lang3@3.14.0?type=jar",
+      "group": "org.apache.commons",
+      "name": "commons-lang3",
+      "version": "3.14.0"
+    }
+  ]
+}
