@@ -171,6 +171,19 @@ The output format can be changed with the `--document-postfix` option:
 document --document-postfix .md workspaces/spring-petclinic
 ```
 
+The template that is rendered is chosen with the `--template` option (`-t`). The value is the template name
+without the `.hbs` suffix, looked up in the `documentation/` directory of the analysis directory that
+`config.json` names:
+
+```
+document --template Documentation_German.adoc workspaces/spring-petclinic
+```
+
+Without the option the command renders `Documentation.adoc`, the template it always rendered. The template name
+does not change the name of the output file: the document is still written to `Documentation<postfix>`, so a run
+with an alternate template overwrites the document of the default template in the same workspace. A name that
+matches no template fails before anything is written.
+
 #### Previewing the generated documentation
 
 The document contains the dependency diagrams as diagram source: a `[plantuml]` listing block holding a `@startuml` ... `@enduml` script. The engine emits that source and never a picture, and it writes no image file, so the block is drawn by whatever preview toolchain you read the document with. A preview that shows the script as text is therefore expected behaviour, not a defect of the document.

@@ -134,7 +134,8 @@ Outputs:
 mvn exec:java -Dexec.mainClass="com.framstag.llmaj.Main" -- document <workspace-dir>
 ```
 
-Outputs `Documentation.md`.
+Outputs `Documentation.adoc`. The rendered template is chosen with `-t`/`--template`, the template name under the
+analysis directory's `documentation/` directory without the `.hbs` suffix; it defaults to `Documentation.adoc`.
 
 ### State helpers
 
