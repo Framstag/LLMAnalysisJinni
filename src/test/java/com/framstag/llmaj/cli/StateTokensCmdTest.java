@@ -105,7 +105,7 @@ public class StateTokensCmdTest {
               "state" : "SUCCESSFUL",
               "tokenUsage" : { "inputTokens" : 21001, "outputTokens" : 20883, "totalTokens" : 41884 }
             }, {
-              "taskId" : "ModulePurpose",
+              "taskId" : "DroppedModuleTask",
               "lastExecution" : "2026-10-20T10:02:52.891+0000",
               "state" : "SUCCESSFUL",
               "tokenUsage" : { "inputTokens" : 900000, "outputTokens" : 400000, "totalTokens" : 1300000 },
@@ -132,7 +132,7 @@ public class StateTokensCmdTest {
 
         assertTrue(report.contains("BuildSystems"), "the report must name the task, got:\n" + report);
         assertTrue(report.contains("21,001"), "the usage of the task, got:\n" + report);
-        assertTrue(report.contains("ModulePurpose"), "the report must name the task, got:\n" + report);
+        assertTrue(report.contains("DroppedModuleTask"), "the report must name the task, got:\n" + report);
     }
 
     @Test
@@ -226,7 +226,7 @@ public class StateTokensCmdTest {
 
         StateDropCmd dropCmd = new StateDropCmd();
         dropCmd.workingDirectory = workspace;
-        dropCmd.taskNames = List.of("ModulePurpose");
+        dropCmd.taskNames = List.of("DroppedModuleTask");
 
         PrintStream originalOut = System.out;
         System.setOut(new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8));
@@ -239,7 +239,7 @@ public class StateTokensCmdTest {
 
         String report = run(STATE_WITH_USAGES, workspace);
 
-        assertFalse(report.contains("ModulePurpose"),
+        assertFalse(report.contains("DroppedModuleTask"),
                 "the usage of a dropped task is no longer reported, got:\n" + report);
         assertTrue(report.contains("BuildSystems"),
                 "the usage of the other tasks is untouched, got:\n" + report);
